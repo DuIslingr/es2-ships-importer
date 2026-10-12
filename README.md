@@ -143,3 +143,8 @@ writes the mod to `es2_ships` next to this script (about 20 seconds). Options:
   weapon models) has to match, and both versions share it. Each game shows the ships with its own models, so a phone player
   sees the lighter ones. Phone and PC need a game version with this check (the same version on every device, as always in
   multiplayer).
+
+## License
+
+The importer's scripts are under the MIT license (LICENSE). It covers this code only: the mod it builds holds the
+game's own models, textures and data, which stay their owners' and are for your own use.
