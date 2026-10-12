@@ -1,0 +1,7 @@
+# What the importer builds (EVERSPACE 2's models and textures: never commit or share them)
+es2_ships/
+es2_ships_phone/
+*.zip
+.preview_renders/
+.icon_renders/
+__pycache__/
