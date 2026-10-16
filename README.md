@@ -39,10 +39,11 @@ The importer runs on **Windows, macOS and Linux**.
    **PNG**.
 2. Load EVERSPACE 2's game folder in FModel. Two things FModel needs that this importer doesn't provide:
    - **The AES key.** EVERSPACE 2's archives (`.pak` / `.utoc`) are encrypted, and FModel only opens them with the game's
-     AES decryption key, which you'll have to obtain on your own.
-   - **A mappings file (`.usmap`).** FModel needs the game's type mappings to read its packages. Dumper-7, injected into the
-     running game, generates one; add it in FModel's settings (Local Mapping File). Injecting a DLL into the game is at
-     your own risk.
+     AES decryption key. [This tool on Nexus Mods](https://www.nexusmods.com/motortownbehindthewheel/mods/131?tab=files&file_id=593)
+     can find it; enter it in FModel's AES settings.
+   - **A mappings file (`.usmap`).** FModel needs the game's type mappings to read its packages.
+     [Dumper-7](https://github.com/Encryqed/Dumper-7), injected into the running game, generates one; add it in FModel's
+     settings (Local Mapping File). Injecting a DLL into the game is at your own risk.
 3. In the archive tree, right-click each folder below and run the export actions listed (FModel's wording varies a little
    between versions: the "Save Folder's Packages ..." entries):
 
