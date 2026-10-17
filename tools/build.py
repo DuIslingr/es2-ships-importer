@@ -1001,8 +1001,11 @@ def exhaust_styles(palettes):
         if not r: continue
         mat = flame()
         if 'flameNoise' not in mat and os.path.exists(os.path.join(MOD, 'maps', 'flame_noise.png')): mat['flameNoise'] = 'maps/flame_noise.png'
+        # One choice in the remake's Customize screen ("group"): each nozzle wears the thruster made for the nearest nozzle
+        # size (the three are round ES2 nozzles of 0.38, 0.42 and 0.61 m, x SCALE as the ES2 ships show them: "scale").
         out.append({'id': sid, 'name': name, 'model': f'exhausts/{sid}.glb', 'nozzle': round(r, 4), 'materials': [mat],
-                    'palette': palettes.get('exhaust', []), 'mainName': 'Main thrusters', 'secondName': 'Booster'})
+                    'palette': palettes.get('exhaust', []), 'mainName': 'Main thrusters', 'secondName': 'Booster',
+                    'group': 'thruster', 'groupName': 'EVERSPACE 2 thruster', 'scale': SCALE})
         print(f'  exhaust style {name}: nozzle radius {r:.2f} m')
     return out
 
