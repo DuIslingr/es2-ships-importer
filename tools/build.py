@@ -518,10 +518,10 @@ SHIMMER_INTENSITY = 1.3
 
 def flame():
     # ES2's engine flames: each rear / wing part's M_Vehicle_EngineExhaust section is a short stub behind its nozzles (UV u
-    # from the nozzle to the tip) that the material stretches backward with the thrust. The remake's GoF2/ModEngineFlame
-    # rebuilds it from the material's parameters: Length 500 cm, EngineColor, the exhaust colours (TE_Default) and the
-    # boost colour (TB_Default) of DT_ShipColors, linear.
-    f = {'material': 'EngineExhaust', 'flame': True, 'flameLength': 4.0, 'flameIdle': 0.15,
+    # from the nozzle to the tip) that the material stretches backward by u x its Length, 500 cm (research/engine_exhaust.md:
+    # its shaders decompiled; the thrust shows only in the opacity). The remake's GoF2/ModEngineFlame draws it with that
+    # formula; the colours: the exhaust colours (TE_Default) and the boost colour (TB_Default) of DT_ShipColors, linear.
+    f = {'material': 'EngineExhaust', 'flame': True, 'flameLength': 5.0, 'flameIdle': 0.15,
          'emissionColor': [1.0, 0.2875, 0.05], 'boostColor': [0.05, 0.525, 1.0], 'emissionIntensity': FLAME_INTENSITY}
     if FLAME_NOISE: f['flameNoise'] = 'maps/flame_noise.png'
     return f
