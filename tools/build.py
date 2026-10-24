@@ -1023,7 +1023,7 @@ def exhaust_styles(palettes):
 
 # (audio/: the sounds are encoded by whatever this computer has, ffmpeg's version or none, so the files differ between
 # players' builds; the names ships.json gives them don't.)
-MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/']
+MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/']
 
 def main(version):
     os.makedirs(os.path.join(MOD, 'parts'), exist_ok=True)
@@ -1105,13 +1105,37 @@ def main(version):
         print('  sounds: ' + audio.build(ships, HARDPOINTS))
     else:
         print('  no sounds: ' + audio.unavailable_reason())
+    # EVERSPACE 2's weapons (items.json), warships and freighters (ships.json: "traffic": { "capital" }, their subsystems), the
+    # Dreadnought and its encounter at Herjaza (events/).
+    import weapons, warships, encounter
+    items = []
+    if os.path.isdir(os.path.join(SRC, 'Blueprints/Equipment/Weapons')):
+        print('Adding the weapons ...')
+        weapons.configure(SRC, MOD)
+        items, rules = weapons.build()
+        # (every kit shares the rules; the hull's own weapon rules stay behind them)
+        seen = set()
+        for k in kits:
+            hp = k.get('hardpoints')
+            if hp and id(hp) not in seen:
+                seen.add(id(hp)); hp['weapons'] = rules + hp['weapons']
+    if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')):
+        print('Adding the warships and freighters ...')
+        warships.configure(SRC, MOD)
+        ships += warships.build()
+        print('  encounter: ' + encounter.build(MOD))
+    else:
+        print('  no warships in the export (Assets/Vehicles/Warships): no capital ships, no Dreadnought')
+    if items: json.dump(items, open(os.path.join(MOD, 'items.json'), 'w', encoding='utf-8'), indent=1)
     json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)
     json.dump(exhaust_styles(palettes), open(os.path.join(MOD, 'exhausts.json'), 'w', encoding='utf-8'), indent=1)
     json.dump(ships, open(os.path.join(MOD, 'ships.json'), 'w', encoding='utf-8'), indent=1)
     json.dump({'id': 'es2_ships', 'name': 'EVERSPACE 2 ships', 'version': version, 'author': 'built by es2_ships_importer',
                'description': 'Nine customizable EVERSPACE 2 ships (Light / Medium / Heavy) with their parts, colour schemes, weapons '
                               'and turret' + (', and the Okkar Wraith' if has_okkar() else '') +
-                              ', built on this device from your own EVERSPACE 2 files. Customize them in the hangar.',
+                              ('; EVERSPACE 2\'s weapons in the shops; its warships and freighters in the orbits\' traffic; the Outlaw '
+                               'Dreadnought at Herjaza once the Valkyrie is gone' if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')) else '') +
+                              '. Built on this device from your own EVERSPACE 2 files. Customize the ships in the hangar.',
                'credits': 'Models, textures and colours: EVERSPACE 2 (c) ROCKFISH Games, from the player\'s own copy of the game. '
                           'For personal use: don\'t share the built mod.',
                'preview': 'preview.png',

@@ -54,6 +54,10 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Assets/Equipment/Weapons` | Properties (.json), Models, Textures (optional: the weapon models) |
    | `ES2/Content/Assets/Turrets/Meshes` | Models (optional: only `SK_Turret_PlayerShip_001` is used, the player turret) |
    | `ES2/Content/Assets/Shared/Textures/Effects` | Textures (optional: only `T_Noise_018_M` is used, the engine flames' noise) |
+   | `ES2/Content/Blueprints/Pawns`, `ES2/Content/Blueprints/Equipment`, `ES2/Content/Blueprints/Missions` | Properties (.json) (optional: the warships' layouts, the weapons' stats and fire sounds, the Dreadnought) |
+   | `ES2/Content/Assets/Vehicles/Warships`, `ES2/Content/Assets/Vehicles/Transporters` | Properties (.json), Models (optional: the warships, freighters and the Dreadnought) |
+   | `ES2/Content/Assets/Turrets/Meshes` | Models (all of them: the warships' turrets) |
+   | `ES2/Content/Assets/Vehicles/Shared`, `ES2/Content/Assets/Environment/Structures`, `ES2/Content/Assets/Effects/Materials`, `ES2/Content/Assets/Blockouts/Materials` | Properties (.json), Textures (the warships' materials) |
    | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
    | `ES2/Content/Assets/Vehicles/Shared/Textures` | Textures (optional: `T_Vehicles_Floaters_Emissive_M`, the glow pattern of the engine nozzles, `T_ShipModules_FX_001_M_A`, the pattern of the wings' hologram discs, the damage maps and `T_Vehicles_Okkar_Techdetail_001_*`, the Wraith's plating) |
 
@@ -67,6 +71,12 @@ The importer runs on **Windows, macOS and Linux**.
 Without `Audio` the ships play the game's own engine, boost and weapon sounds. Exported without the conversion (`.binka`
 files) the importer decodes them with vgmstream (see "What you need") or, without it, says so and builds the mod without
 sounds; export `Audio` again with the setting on.
+
+With the warship folders the mod also brings EVERSPACE 2's warships and freighters into the game's traffic (Colonial,
+Okkar, G&B, Outlaw, cultist and swarmer capital ships with turrets you can shoot off them, launch decks of ES2 fighters, the
+Okkar frigate's weak spots; pirate and Void warships hostile), EVERSPACE 2's weapons in the shops (every primary and
+secondary, the Okkar and legendary variants, with their own colours, sounds and models), and the Outlaw Dreadnought at
+Herjaza once the Valkyrie add-on's story is over. Without them the mod is just the ships.
 
 Without the weapons and the turret the ships still work: the guns fire from the ships' own weapon sockets, just without
 weapon models on them. Without the noise texture the engine flames are smooth instead of streaked, and without the nozzle
