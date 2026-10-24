@@ -45,8 +45,6 @@ WARSHIPS = [
      1, 'battleship', 'BP_Okkar_Frigate', ['Warships/Meshes/SM_Warship_008'], T('turret_okkar_heavy'), T('turret_okkar_missile'), 'okkar'),
     ('es2_colonial_cruiser', 'Colonial Cruiser', 'The Colonial Fleet\'s heavy cruiser, three heavy pulse laser turrets on its spine and keel.',
      0, 'battleship', 'BP_Colonial_Cruiser_Infected', ['Warships/Meshes/SM_Warship_009'], T('turret_colonial_heavy'), None, None),
-    ('es2_homebase', 'Mobile Homebase', 'A mobile homebase like the one EVERSPACE 2\'s pilots fly from: a carrier with a casino, a hangar and four flak turrets.',
-     2, 'battleship', 'BP_Ship_Mobile_Homebase', ['Warships/Meshes/SM_Warship_010'], T('turret_homebase'), None, None),
     ('es2_swarmer_capital', 'Ancient Swarmer', 'A capital ship of the Ancients\' swarmers: a living hull that spits out swarmer drones.',
      9, 'battleship', 'BP_AncientSwarmer_Capital', ['Warships/Meshes/SK_Warship_011'], T('turret_swarmer'), None, 'swarmer'),
     ('es2_drone_carrier', 'Outlaw Drone Carrier', 'An Outlaw transporter turned drone carrier.',
@@ -472,6 +470,38 @@ def build(log=print):
         if r: ships.append(r[0])
     ships += build_dreadnought()
     return ships + props
+
+
+# ---- the Mobile Homebase: a station that roams the galaxy (Modding.MobileStations), like the GoF3 Ships mod's Manticore ---
+
+HOMEBASE_SYSTEM = 2            # its home (where its route starts; it roams every system)
+HOMEBASE_STAY = 30             # minutes in each orbit ...
+HOMEBASE_SYSTEM_MINUTES = 120  # ... and in each system
+
+
+def build_homebase():
+    """EVERSPACE 2's Mobile Homebase (SM_Warship_010, BP_Ship_Mobile_Homebase: the pilots' carrier with its hangar and casino)
+    as stations.json's mobile station: no planet, it cruises through every system (two hours in each, half an hour per orbit)
+    and is docked at wherever it is, into the game's Terran hangar and bar. Its model is centred on its bounds (as the remake
+    centres a station's), its engine points the hull's rear's (it has no engine sockets), glowing in its cyan."""
+    r = build_ship('es2_homebase', 'Mobile Homebase', '', 0, 'battleship', 'BP_Ship_Mobile_Homebase', ['Warships/Meshes/SM_Warship_010'], None, None, None)
+    if not r: return []
+    ship, f, prims, _ = r
+    mn, mx = bounds(prims)
+    centre = glb_to_game((mn + mx) / 2, f)
+    engines = []
+    for m in ship['mounts']:
+        if m['slotType'] != 3: continue
+        p = [round(m['position_engine'][i] - centre[i], 1) for i in range(3)]
+        rad = max(250, round(m.get('socketScale', 1.0) * 450))
+        engines.append({'position_engine': p, 'glowSize': [rad, rad, rad * 3]})
+    return [{
+        'id': 'es2_homebase', 'system': HOMEBASE_SYSTEM, 'name': 'Mobile Homebase', 'techLevel': 9, 'planet': 0, 'looksLike': 70,
+        'model': ship['model'], 'modelSize': round(float((mx - mn).max()) * f / 0.05), 'modelYaw': 90, 'materials': ship['materials'],
+        'interior': 'terran',
+        'mobile': {'route': 'any', 'stayMinutes': HOMEBASE_STAY, 'systemMinutes': HOMEBASE_SYSTEM_MINUTES, 'speed': 0.12,
+                   'race': 'terran', 'engines': engines, 'engineColor': [0.07, 0.89, 0.89]},
+    }]
 
 
 # ---- props: a subsystem's own model (a fixed object of the remake), as a ship that never flies -------------------------

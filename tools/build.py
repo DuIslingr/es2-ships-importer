@@ -1123,6 +1123,10 @@ def main(version):
         print('Adding the warships and freighters ...')
         warships.configure(SRC, MOD)
         ships += warships.build()
+        stations = warships.build_homebase()
+        if stations:
+            json.dump(stations, open(os.path.join(MOD, 'stations.json'), 'w', encoding='utf-8'), indent=1)
+            print('  the Mobile Homebase: a station roaming every system')
         print('  encounter: ' + encounter.build(MOD))
     else:
         print('  no warships in the export (Assets/Vehicles/Warships): no capital ships, no Dreadnought')

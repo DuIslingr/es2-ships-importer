@@ -74,7 +74,8 @@ sounds; export `Audio` again with the setting on.
 
 With the warship folders the mod also brings EVERSPACE 2's warships and freighters into the game's traffic (Colonial,
 Okkar, G&B, Outlaw, cultist and swarmer capital ships with turrets you can shoot off them, launch decks of ES2 fighters, the
-Okkar frigate's weak spots; pirate and Void warships hostile), EVERSPACE 2's weapons in the shops (every primary and
+Okkar frigate's weak spots; pirate and Void warships hostile; the Mobile Homebase a station that roams every system and
+that you can dock at), EVERSPACE 2's weapons in the shops (every primary and
 secondary, the Okkar and legendary variants, with their own colours, sounds and models), and the Outlaw Dreadnought at
 Herjaza once the Valkyrie add-on's story is over. Without them the mod is just the ships.
 
