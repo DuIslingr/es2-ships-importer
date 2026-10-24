@@ -16,6 +16,10 @@ import glbtool
 
 MAP = 'Maps/POIs/POI_HomebaseCarrier_001.json'
 SCALE = 2.8                   # ES2's 36 m pads hold its ~18 m fighters; x2.8 they take a GoF2 hull (~47 m) about as full
+BAR_SCALE = 7.5               # the casino as the bar: the game's visitor billboards are ~26 m tall and ~30 m wide (the
+                              # original bars' scale), a person in ES2 1.8 m; at the hangar's x2.8 they stuck through walls
+VISITOR_HALF_WIDTH = 2.0      # the billboard's half width and height, in the casino's own metres (x BAR_SCALE in the game)
+VISITOR_HEIGHT = 3.5
 SKIP = ('SM_Warship_010.', 'HLOD', 'SK_Homebase_Turret', 'SK_Turret_', 'SM_Warship_010_Caustics', 'SM_Sphere')
 PLAYER_PAD = (12444, 4)      # the pad BP_DockableStation_C_1 rides on (Unreal cm)
 
@@ -130,6 +134,82 @@ def _structure_colour(mod, rel, tint):
     return out
 
 
+def _visible_spots(prims, cam, target, floor, fov_deg, n=6, aspect=16 / 9):
+    """Where the bar's visitors stand (glTF metres): points of the lounge floor itself (no table or counter on them) in the
+    camera's view, 12-38 m from it and in front of the facade, whose feet and head the camera sees and whose billboard
+    (VISITOR_HALF_WIDTH either side, VISITOR_HEIGHT up) no wall or furniture cuts (rays against the casino's triangles),
+    spread across the screen. The guessed spots left some behind the facade's side panels."""
+    tri = []
+    for a, t, _ in prims:
+        P = a['POSITION'].astype(np.float64); T = t.reshape(-1, 3)
+        A, B, C = P[T[:, 0]], P[T[:, 1]], P[T[:, 2]]
+        c = (A + B + C) / 3
+        keep = (c[:, 0] > -5) & (c[:, 0] < 90) & (np.abs(c[:, 2]) < 80) & (c[:, 1] > floor - 5) & (c[:, 1] < floor + 45)
+        if keep.any(): tri.append((A[keep], B[keep], C[keep]))
+    A = np.concatenate([x[0] for x in tri]); B = np.concatenate([x[1] for x in tri]); C = np.concatenate([x[2] for x in tri])
+    E1, E2 = B - A, C - A
+    N = np.cross(E1, E2)
+
+    def blocked(o, p):
+        d = p - o; L = np.linalg.norm(d); d = d / L
+        h = np.cross(d, E2); det = np.einsum('ij,ij->i', E1, h)
+        ok = np.abs(det) > 1e-9
+        inv = np.where(ok, 1.0 / np.where(ok, det, 1), 0)
+        s = o - A
+        u = np.einsum('ij,ij->i', s, h) * inv
+        q = np.cross(s, E1)
+        v = (q @ d) * inv
+        tt = np.einsum('ij,ij->i', E2, q) * inv
+        return bool((ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (tt > 0.05) & (tt < L - 0.05)).any())
+
+    def floor_under(x, z):
+        # the highest upward surface under (x, z) below 3 m over the floor
+        d = np.array([0.0, -1.0, 0.0]); o = np.array([x, floor + 3.0, z])
+        h = np.cross(d, E2); det = np.einsum('ij,ij->i', E1, h)
+        ok = np.abs(det) > 1e-9
+        inv = np.where(ok, 1.0 / np.where(ok, det, 1), 0)
+        s = o - A
+        u = np.einsum('ij,ij->i', s, h) * inv
+        q = np.cross(s, E1)
+        v = (q @ d) * inv
+        tt = np.einsum('ij,ij->i', E2, q) * inv
+        hit = ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (tt > 0)
+        up = np.abs(N[:, 1]) > 0.7 * np.linalg.norm(N, axis=1)
+        hit &= up
+        return float(o[1] - tt[hit].min()) if hit.any() else None
+
+    cam = np.array(cam, np.float64); fwd = np.array(target, np.float64) - cam; fwd /= np.linalg.norm(fwd)
+    right = np.cross(fwd, [0.0, 1.0, 0.0]); right /= np.linalg.norm(right); up = np.cross(right, fwd)
+    tv = math.tan(math.radians(fov_deg / 2)) * 0.8; th = tv * aspect * 0.8
+    cands = []
+    for x in np.arange(20.0, 78.0, 2.0):
+        for z in np.arange(-50.0, 52.0, 2.0):
+            h = floor_under(x, z)
+            if h is None or abs(h - floor) > 0.4: continue
+            p = np.array([x, h, z]); d = p - cam; dist = float(np.linalg.norm(d))
+            if not 12.0 <= dist <= 38.0 or x < 40.0: continue   # (x < 40: behind the lounge, at the facade)
+            f = d @ fwd
+            if f <= 0 or abs(d @ right) / f > th or abs((p + [0, 1.1, 0] - cam) @ up) / f > tv: continue
+            if blocked(cam, p + [0, 0.15, 0]) or blocked(cam, p + [0, 2.0, 0]): continue
+            # the billboard faces the camera: nothing along its width at the figure's heights, nothing over its top
+            if any(blocked(p + [0, hh, 0], p + [0, hh, 0] + sg * VISITOR_HALF_WIDTH * right)
+                   for hh in (0.3, 1.0, 1.8, 2.8) for sg in (-1, 1)): continue
+            if blocked(p + [0, 0.3, 0], p + [0, VISITOR_HEIGHT, 0]): continue
+            cands.append((p, (d @ right) / f))
+    if not cands: return []
+    # Spread across the screen: the visitors' billboards are taller than a person here, so one standing in front of
+    # another along the camera's line hid it. Each pick is the spot farthest across the screen from those taken (and at
+    # least 6 m from them), the first the one nearest the view's centre.
+    picks = [min(cands, key=lambda c: abs(c[1]))]
+    while len(picks) < n:
+        rest = [c for c in cands if min(np.linalg.norm(c[0] - q[0]) for q in picks) >= 2.2 * VISITOR_HALF_WIDTH]
+        if not rest: break
+        best = max(rest, key=lambda c: (min(abs(c[1] - q[1]) for q in picks), np.linalg.norm(c[0] - cam)))
+        if min(abs(best[1] - q[1]) for q in picks) < 0.06: break
+        picks.append(best)
+    return [[round(float(c), 3) for c in p] for p, _ in picks]
+
+
 def build(src, mod, log=print):
     """Writes warships/homebase_room.glb; returns interiors.json's two rooms (the hangar, the casino as the bar)."""
     prims, pads = [], []
@@ -175,17 +255,14 @@ def build(src, mod, log=print):
     # renders of the room (es2_re/homebase/render_room.py, 'top' for the plan): the camera beside the tank, raised, looking
     # over the lounge at the facade; the visitors on the lounge floor (its height measured under each spot).
     floor = _floor_at(prims, 4300, -1000, below=-10.0, above=-30.0)   # (below the tables and the bar counter)
-    vis = []
+    vis, bar = [], None
     if floor is not None:
-        for (x, y) in [(4630, -700), (4860, 700), (5330, -1290), (4400, -1880), (5100, 1410), (4050, 240)]:
-            h = _floor_at(prims, x, y, below=floor + 1.0, above=floor - 1.0)
-            vis.append([x / 100.0, h if h is not None else floor, y / 100.0])
-    bar = None
-    if vis:
-        for k, v in enumerate(vis, 1): marks[f'visitor_{k}'] = v
         bar = {'bar_camera': [71.4, floor + 11.8, -21.4], 'bar_camera_target': [42.9, floor + 3.6, 3.6],
                'bar_camera_start': [73.2, floor + 15.4, 0.0], 'bar_camera_start_target': [45.0, floor + 1.8, 0.0],
                'bar_light': [46.0, floor + 16.0, 0.0]}
+        vis = _visible_spots(prims, bar['bar_camera'], bar['bar_camera_target'], floor, 60.0)
+        for k, v in enumerate(vis, 1): marks[f'visitor_{k}'] = v
+        if not vis: bar = None
 
     prims = [x for x in prims if 'Forcefield' not in x[2]]   # the openings' film: only washed the view of space out
 
@@ -218,15 +295,15 @@ def build(src, mod, log=print):
     log(f'  Homebase hangar: {len(prims)} meshes, {tris} triangles, {len(materials)} materials, {len(pads)} pads, '
         f'{len(vis)} casino spots, {os.path.getsize(p) // (1 << 20)} MB')
 
-    def scaled(v): return [round(-v[0] * SCALE, 2), round(v[1] * SCALE, 2), round(v[2] * SCALE, 2)]   # glTFast mirrors x
+    def scaled(v, k=SCALE): return [round(-v[0] * k, 2), round(v[1] * k, 2), round(v[2] * k, 2)]   # glTFast mirrors x
     hangar = {'id': 'homebase_hangar', 'type': 'hangar', 'model': rel, 'scale': SCALE, 'materials': materials,
               'markers': {k: scaled(v) for k, v in marks.items() if not k.startswith('visitor')},
               'fov': 50, 'far': 4000, 'ambient': [0.62, 0.64, 0.7], 'lightIntensity': 1.6,
               'cruise': round(40.0 * SCALE), 'gateSpan': [round(max(span[0], top0 + 5.0) * SCALE), round(span[1] * SCALE)]}
     rooms = [hangar]
     if bar:
-        markers = {k[4:]: scaled(v) for k, v in bar.items()}
-        markers.update({k: scaled(v) for k, v in marks.items() if k.startswith('visitor')})
-        rooms.append({'id': 'homebase_casino', 'type': 'bar', 'model': rel, 'scale': SCALE, 'materials': materials,
-                      'markers': markers, 'fov': 60, 'far': 4000, 'ambient': [0.55, 0.52, 0.58], 'lightIntensity': 1.3})
+        markers = {k[4:]: scaled(v, BAR_SCALE) for k, v in bar.items()}
+        markers.update({k: scaled(v, BAR_SCALE) for k, v in marks.items() if k.startswith('visitor')})
+        rooms.append({'id': 'homebase_casino', 'type': 'bar', 'model': rel, 'scale': BAR_SCALE, 'materials': materials,
+                      'markers': markers, 'fov': 60, 'far': 10000, 'ambient': [0.26, 0.23, 0.3], 'lightIntensity': 0.7})
     return rooms
