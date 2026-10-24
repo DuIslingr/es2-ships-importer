@@ -229,7 +229,7 @@ def material_entries(prefix, mats_used):
     return out
 
 
-def split_prims(prefix, prims, mats_used):
+def split_prims(prefix, prims, mats_used, layered=False):
     """Renames every primitive's material "<prefix><n>|" (a vertex-colour-masked one into a material per tint) and returns
     the Writer's primitives."""
     names = {}
@@ -241,9 +241,16 @@ def split_prims(prefix, prims, mats_used):
         if vt and 'COLOR_0' in attrs:
             col = attrs['COLOR_0'][:, :3]
             c = (col[tri[:, 0]] + col[tri[:, 1]] + col[tri[:, 2]]) / 3
-            which = c.argmax(axis=1)
-            which[c.max(axis=1) < 0.25] = 0
-            groups = [(k, tri[which == k]) for k in range(3)]
+            if layered:
+                # ES2's structures lerp BaseColor -> VtxR -> VtxG -> VtxB by the channels in turn: the last channel set wins
+                # (white is VtxB), none set is BaseColor
+                which = np.full(len(c), -1)
+                for k in range(3): which[c[:, k] >= 0.5] = k
+                groups = [(None, tri[which == -1])] + [(k, tri[which == k]) for k in range(3)]
+            else:
+                which = c.argmax(axis=1)
+                which[c.max(axis=1) < 0.25] = 0
+                groups = [(k, tri[which == k]) for k in range(3)]
         else:
             groups = [(None, tri)]
         for ti, sel in groups:
@@ -498,7 +505,7 @@ def build_homebase():
     return [{
         'id': 'es2_homebase', 'system': HOMEBASE_SYSTEM, 'name': 'Mobile Homebase', 'techLevel': 9, 'planet': 0, 'looksLike': 70,
         'model': ship['model'], 'modelSize': round(float((mx - mn).max()) * f / 0.05), 'modelYaw': 90, 'materials': ship['materials'],
-        'interior': 'terran',
+        'interior': 'terran', 'hangar': 'es2_ships:homebase_hangar', 'bar': 'es2_ships:homebase_casino',
         'mobile': {'route': 'any', 'stayMinutes': HOMEBASE_STAY, 'systemMinutes': HOMEBASE_SYSTEM_MINUTES, 'speed': 0.12,
                    'race': 'terran', 'engines': engines, 'engineColor': [0.07, 0.89, 0.89]},
     }]

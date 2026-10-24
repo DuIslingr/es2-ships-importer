@@ -1107,7 +1107,7 @@ def main(version):
         print('  no sounds: ' + audio.unavailable_reason())
     # EVERSPACE 2's weapons (items.json), warships and freighters (ships.json: "traffic": { "capital" }, their subsystems), the
     # Dreadnought and its encounter at Herjaza (events/).
-    import weapons, warships, encounter
+    import weapons, warships, encounter, homebase_hangar
     items = []
     if os.path.isdir(os.path.join(SRC, 'Blueprints/Equipment/Weapons')):
         print('Adding the weapons ...')
@@ -1127,6 +1127,10 @@ def main(version):
         if stations:
             json.dump(stations, open(os.path.join(MOD, 'stations.json'), 'w', encoding='utf-8'), indent=1)
             print('  the Mobile Homebase: a station roaming every system')
+            rooms = homebase_hangar.build(SRC, MOD)
+            if rooms:
+                json.dump(rooms, open(os.path.join(MOD, 'interiors.json'), 'w', encoding='utf-8'), indent=1)
+                print('  its own hangar and casino (interiors.json)')
         print('  encounter: ' + encounter.build(MOD))
     else:
         print('  no warships in the export (Assets/Vehicles/Warships): no capital ships, no Dreadnought')

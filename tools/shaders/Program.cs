@@ -24,13 +24,55 @@ OodleHelper.Initialize(Path.Combine(AppContext.BaseDirectory, OodleHelper.OodleF
 var provider = new DefaultFileProvider(game, SearchOption.AllDirectories, new VersionContainer(EGame.GAME_UE5_6), StringComparer.OrdinalIgnoreCase);
 provider.MappingsContainer = new FileUsmapTypeMappingsProvider(Environment.GetEnvironmentVariable("ES2_USMAP") ?? throw new Exception("set ES2_USMAP to the game's .usmap"));
 provider.ReadShaderMaps = true;
+provider.ReadScriptData = true;
 provider.Initialize();
 provider.SubmitKey(new FGuid(), new FAesKey(Environment.GetEnvironmentVariable("ES2_AES_KEY") ?? throw new Exception("set ES2_AES_KEY to the game's AES key (0x...)")));
 provider.PostMount();
 if (args[0] == "list")
 {
     Console.WriteLine($"files {provider.Files.Count} vfs {provider.MountedVfs.Count}/{provider.UnloadedVfs.Count}");
-    foreach (var f in provider.Files.Keys) if (f.Contains("shader", StringComparison.OrdinalIgnoreCase) && !f.Contains("/Content/Assets/")) Console.WriteLine(f);
+    string filter = args.Length > 1 ? args[1] : null;
+    foreach (var f in provider.Files.Keys)
+        if (filter != null ? System.Text.RegularExpressions.Regex.IsMatch(f, filter, System.Text.RegularExpressions.RegexOptions.IgnoreCase) : f.Contains("shader", StringComparison.OrdinalIgnoreCase) && !f.Contains("/Content/Assets/")) Console.WriteLine(f);
+    return;
+}
+if (args[0] == "export")
+{
+    // export <list file> <out dir> [all]: each line an object path (/Game/... or ES2/Content/..., with or without ".Name"):
+    // static and skeletal meshes as .glb with their materials (FModel's resolved .json form) and textures (.png), textures
+    // and material instances on their own; laid out like FModel's export (<out>/ES2/Content/...). 'all': a material's
+    // parameters through its whole parent chain (the default stops at the instance's own).
+    CUE4Parse_Conversion.Textures.TextureDecoder.UseAssetRipperTextureDecoder = true;
+    var session = new CUE4Parse_Conversion.ExportSession { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2) };
+    int queued = 0, missing = 0;
+    foreach (var raw in File.ReadAllLines(args[1]))
+    {
+        var line = raw.Trim();
+        if (line.Length == 0 || line.StartsWith("#")) continue;
+        if (line.StartsWith("/Game/")) line = "ES2/Content/" + line.Substring(6);
+        if (!line.Contains('.')) line = line + "." + line.Split('/').Last();
+        try { session.Add(provider.LoadPackageObject(line)); queued++; }
+        catch (Exception e) { missing++; Console.WriteLine($"MISSING {line}: {e.Message}"); }
+    }
+    Console.WriteLine($"queued {queued}, missing {missing}");
+    var options = new CUE4Parse_Conversion.Options.ExportOptions(meshFormat: CUE4Parse_Conversion.Options.EMeshFormat.Gltf2,
+        meshQuality: CUE4Parse_Conversion.Options.EMeshQuality.Highest, textureFormat: CUE4Parse_Conversion.Options.ETextureFormat.Png,
+        materialDepth: args.Length > 3 && args[3] == "all" ? EMaterialDepth.AllLayers : EMaterialDepth.TopLayerOnly);
+    var results = session.RunAsync(args[2], options).GetAwaiter().GetResult();
+    int ok = 0;
+    foreach (var r in results)
+        if (r.Success) ok++;
+        else Console.WriteLine($"FAILED {r.ObjectPath}: {r.Error?.Message}");
+    Console.WriteLine($"exported {ok} of {results.Count}");
+    return;
+}
+if (args[0] == "blueprint")
+{
+    // a blueprint's exports with their Kismet bytecode, as JSON (args: package path without extension, out file)
+    var pkg = provider.LoadPackage(args[1] + ".uasset");
+    var all = pkg.GetExports().ToList();
+    File.WriteAllText(args[2], Newtonsoft.Json.JsonConvert.SerializeObject(all, Newtonsoft.Json.Formatting.Indented));
+    Console.WriteLine($"{all.Count} exports -> {args[2]}");
     return;
 }
 if (args[0] == "material")

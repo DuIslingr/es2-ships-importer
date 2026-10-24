@@ -119,7 +119,7 @@ def classify(m):
     if 'forcefield' in names or 'energyabsorbing' in names or 'energyshield' in names or 'stasisbubble' in names: return 'field'
     if 'engineexhaust' in names: return 'flame'
     if 'interioroccl' in names: return 'dark'
-    if 'glass' in names and not m['tex']: return 'glass'
+    if 'glass' in names and not _tex(m, COLOUR + MASKS): return 'glass'   # (a full parent chain brings noise / grunge maps)
     if ('emissive' in names or 'window' in names or 'glow' in names or 'neon' in names or 'blockout' in names
             or 'transparent' in names) and not _tex(m, COLOUR + MASKS):
         return 'glow'
@@ -173,6 +173,9 @@ def plan(m):
     if masks:
         ch = channels(masks)
         def at(code, vec):
+            # the texture's own channel letters first: a selector inherited from a parent can name another texture's
+            # layout (Plating_002's EmissiveChannel picked the metal of its C_R_MT)
+            if len(ch) > 1 and ch[0] != 'RGB': return ch.index(code) if code in ch else None
             v = _channel_vec(m, vec)
             if v is not None: return v
             return ch.index(code) if code in ch else None

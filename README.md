@@ -58,6 +58,7 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Assets/Vehicles/Warships`, `ES2/Content/Assets/Vehicles/Transporters` | Properties (.json), Models (optional: the warships, freighters and the Dreadnought) |
    | `ES2/Content/Assets/Turrets/Meshes` | Models (all of them: the warships' turrets) |
    | `ES2/Content/Assets/Vehicles/Shared`, `ES2/Content/Assets/Environment/Structures`, `ES2/Content/Assets/Effects/Materials`, `ES2/Content/Assets/Blockouts/Materials` | Properties (.json), Textures (the warships' materials) |
+   | `ES2/Content/Maps/POIs/POI_HomebaseCarrier_001` | Properties (.json) (optional: the Mobile Homebase's own hangar and casino; then also run `tools/shaders`' `export` on `tools/homebase_assets.txt` with `all`, for the props and the hall's materials FModel's export lacks) |
    | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
    | `ES2/Content/Assets/Vehicles/Shared/Textures` | Textures (optional: `T_Vehicles_Floaters_Emissive_M`, the glow pattern of the engine nozzles, `T_ShipModules_FX_001_M_A`, the pattern of the wings' hologram discs, the damage maps and `T_Vehicles_Okkar_Techdetail_001_*`, the Wraith's plating) |
 
@@ -75,7 +76,7 @@ sounds; export `Audio` again with the setting on.
 With the warship folders the mod also brings EVERSPACE 2's warships and freighters into the game's traffic (Colonial,
 Okkar, G&B, Outlaw, cultist and swarmer capital ships with turrets you can shoot off them, launch decks of ES2 fighters, the
 Okkar frigate's weak spots; pirate and Void warships hostile; the Mobile Homebase a station that roams every system and
-that you can dock at), EVERSPACE 2's weapons in the shops (every primary and
+that you can dock at, into its own hangar with its six landing pads and its casino as the Space Lounge), EVERSPACE 2's weapons in the shops (every primary and
 secondary, the Okkar and legendary variants, with their own colours, sounds and models), and the Outlaw Dreadnought at
 Herjaza once the Valkyrie add-on's story is over. Without them the mod is just the ships.
 
