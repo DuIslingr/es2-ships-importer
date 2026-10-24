@@ -234,14 +234,16 @@ def flame_across(g, binary, p):
 bounds = {}   # out file -> (min, max) in ES2 metres, glTF axes (+X nose, +Y up, Z side)
 
 # ES2's mesh sockets (the meshes' property JSON): SKT_PWSlot primary weapons, SKT_SWSlot secondaries, SKT_Turret turrets,
-# SKT_Engine exhausts. Unreal centimetres, X forward, Y side, Z up -> the export's glTF metres (X, Z, Y).
-SOCKETS = [(re.compile(r'^SKT_PWSlot'), 0), (re.compile(r'^SKT_SWSlot'), 1), (re.compile(r'^SKT_Turret'), 2), (re.compile(r'^SKT_Engine'), 3)]
+# SKT_Engine exhausts, SKT_Booster booster points (the remake's slotType 5: where EVERSPACE 2 puts a booster's engine trail and
+# light, Modding.Es2EngineVfx). Unreal centimetres, X forward, Y side, Z up -> the export's glTF metres (X, Z, Y).
+SOCKETS = [(re.compile(r'^SKT_PWSlot'), 0), (re.compile(r'^SKT_SWSlot'), 1), (re.compile(r'^SKT_Turret'), 2), (re.compile(r'^SKT_Engine'), 3),
+           (re.compile(r'^SKT_Booster'), 5)]
 MAX_EXHAUSTS = 4   # per part: some rears have a dozen nozzles, and each exhaust is a particle system (phones)
 
 def socket_counts(glb_path):
     """How many sockets of each mount type a part's mesh has (before the exhaust cap)."""
     jpath = glb_path[:-4] + '.json'
-    c = {0: 0, 1: 0, 2: 0, 3: 0}
+    c = {0: 0, 1: 0, 2: 0, 3: 0, 5: 0}
     if not os.path.exists(jpath): return c
     for o in json.load(open(jpath, encoding='utf-8-sig')):
         if o.get('Type') == 'StaticMeshSocket':
@@ -286,9 +288,12 @@ def part_mounts(glb_path):
         l = pr.get('RelativeLocation') or {}
         num = int(re.sub(r'\D', '', name) or 0)
         roll = abs((pr.get('RelativeRotation') or {}).get('Roll', 0.0))
-        found.append((slot, num, l.get('X', 0) / 100, l.get('Z', 0) / 100, l.get('Y', 0) / 100, roll))
+        # the socket's scale (its largest axis): EVERSPACE 2 sizes the engine lights, trails and glow there by it
+        sc = pr.get('RelativeScale') or {}
+        scale = max(abs(sc.get('X', 1.0)), abs(sc.get('Y', 1.0)), abs(sc.get('Z', 1.0))) if sc else 1.0
+        found.append((slot, num, l.get('X', 0) / 100, l.get('Z', 0) / 100, l.get('Y', 0) / 100, roll, scale))
     out = []
-    for slot in (0, 1, 2, 3):
+    for slot in (0, 1, 2, 3, 5):
         group = sorted((f for f in found if f[0] == slot), key=lambda f: f[1])
         if slot == 3 and len(group) > MAX_EXHAUSTS:   # keep an even spread across the side
             group = sorted(group, key=lambda f: f[4])
@@ -301,6 +306,8 @@ def part_mounts(glb_path):
             if slot == 3:
                 size = 40 if len(group) <= 2 else 28
                 extra = {'turretAngles': [0.6, 0.6, 0.6], 'glowSize': [size, size, size * 2.2]}
+            if slot in (3, 5) and abs(f[6] - 1.0) > 1e-3:
+                extra = dict(extra or {}, socketScale=round(f[6], 3))
             out.append(mount(f[2], f[3], f[4], slot, extra))
     return out + thruster_mounts(glb_path)
 
@@ -906,7 +913,8 @@ def convert_rigid(src, out):
     return out
 
 def okkar_mounts(src):
-    # The hull's sockets: SKT_PWSlot_left / right the guns, SKT_SWSlot_center the launcher, SKT_Engine_001 the exhaust,
+    # The hull's sockets: SKT_PWSlot_left / right the guns, SKT_SWSlot_center the launcher, SKT_Engine_001 the exhaust, any
+    # SKT_Booster the booster points,
     # SKT_LateralThruster_* the manoeuvring jets, each blowing along its socket's local +X (top ones up, front ones forward).
     g, _ = glbtool.load(src)
     world = skeleton_world(g)
@@ -915,9 +923,13 @@ def okkar_mounts(src):
         name = n.get('name', '')
         if not name.startswith('SOCKET_SKT_'): continue
         W = world(i); x, y, z = W[:3, 3]
+        # (the socket's own scale: EVERSPACE 2 sizes the engine lights and trails by it)
+        sc = max(abs(v) for v in n.get('scale', [1.0, 1.0, 1.0]))
+        scale = {'socketScale': round(sc, 3)} if abs(sc - 1.0) > 1e-3 else {}
         if 'PWSlot' in name: out.append(mount(x, y, z, 0))
         elif 'SWSlot' in name: out.append(mount(x, y, z, 1))
-        elif 'Engine' in name: out.append(mount(x, y, z, 3, {'turretAngles': [0.7, 0.7, 0.7], 'glowSize': [40, 40, 90]}))
+        elif 'Engine' in name: out.append(mount(x, y, z, 3, dict({'turretAngles': [0.7, 0.7, 0.7], 'glowSize': [40, 40, 90]}, **scale)))
+        elif 'Booster' in name: out.append(mount(x, y, z, 5, scale or None))
         elif 'LateralThruster' in name:
             f = W[:3, 0] / (np.linalg.norm(W[:3, 0]) or 1)
             m = mount(x, y, z, 4); m['direction'] = [round(float(-f[2]), 3), round(float(f[1]), 3), round(float(f[0]), 3)]

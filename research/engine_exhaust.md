@@ -61,9 +61,75 @@ stays above the exposure (a short white-hot core ringed in the engine colour, as
 is constant along the flame and changes across it and in time (flickering streaks). (MPC = the material parameter
 collection F08692C5-4C9E1C96-FE7313BB-586C2CEA, game-wide.)
 
-## Not yet reproduced
+## What drives it (the blueprints and the exe)
 
-The engines' other parts, in `P_Vehicle_EngineGlow` (Cascade): a GPU heat haze (`M_Particle_Haze_001`), a lens-flare streak
-(`M_LensFlare_Streak`, 150 x 2, rectangle aligned), a point light (brightness 30), a ribbon trail (`M_ShipTrail_001`, rate
-by its "Trail" parameter up to 30); `P_Vehicle_LateralThruster` (the manoeuvring jets); `P_Vehicle_EngineTrail`; the
-customization's exhaust particles (`DT_ShipExhaustParticles`). The steering bend (SteeringOffset is set by game code).
+`BP_ShipBase` (its Kismet bytecode, read with ShaderDump's `blueprint` mode) and `AESPawn::UpdatePrimativeDataParamsNative`
+(the shipping exe, decompiled with Ghidra by the symbols of the shipped `ES2-Win64-Shipping.pdb`):
+
+- `EngineVFX_Update`, per tick, by `EngineOpacityControlledBy`: 1 (normal control) LinearThrustTarget = the movement input
+  (`ShipMovement.GetLastInputVector`, ship frame, X forward), BoostTarget = `bIsBoosting || JumpDrive.IsInCruiseMode`,
+  AngularThrustTarget = the pending input rotator (roll, pitch, yaw); 0 (following a spline) LinearThrustTarget =
+  ClampVectorSize(velocity in the ship's frame / GetMaxForwardSpeedWithoutBoost, 0, 1), BoostTarget = speed > that speed;
+  2 nothing.
+- `EaseEngineVFX(current, target, 16, 8)` (angular: 8, 8): VInterpTo(current, target, dt, |target| > |current| ? 16 : 8)
+  with dt = `EngineVFXUpdateRate` when above 0 (the player's ship 0.05, `BP_ShipBase` 0.3), else the frame time;
+  `EngineVFXEasing` false = the target at once. With 0.3 the alpha is 1: other ships jump to the target.
+- `UpdatePrimativeDataParamsNative` per mesh: custom primitive data 10 = LinearThrustCurrent (zero when the VFX are off),
+  16 = BoostCurrent, 21 = TravelMode (1 / 0), 13 = AngularThrustCurrent (with AngularThrustEffects); with
+  `EngineVFXApplySteeringOffset` (the player's ship) the material parameter `SteeringOffset` = the pawn's velocity rotated
+  into the ship's frame (the quaternion conjugate of the root's rotation; the vertex shader adds it in world space).
+- The Niagara engine systems get `ThrustAmount` = max(LinearThrustCurrent.X, 0), `BoostAmount`, `LengthFactor`.
+
+## Its engine particles
+
+`InitializeEngineVFX` spawns `EngineTrailSystem` at every `SKT_Engine` socket and `BoostTrailSystem` at every `SKT_Booster`
+socket (attached, then turned to the ship's rotation), with `Scale` = the socket's largest scale axis, `Color` =
+EngineColor / BoosterColor, `Booster`, `Trail` = SpawnEngineTrails, `Glow` = SpawnEngineGlow, `MirrorScale` = the sign of the
+socket's Y. `BP_ShipBase`: `NS_Vehicle_EngineTrail`, glow and trail on; `BP_Ship_Player`: `NS_Vehicle_EngineTrail_Player_Default`
+(the customization's engine trail), glow off. Their VM scripts (UE 5.6's legacy VectorVM bytecode; `tools/shaders/niagara.py`
+disassembles them: constants are the script's parameters after 640 bytes of engine globals, then its literals; 1280 + 2 x
+the parameter size for an interpolated spawn script, 32 for a system script):
+
+- **Player trail** (one ribbon emitter in the system's local space, `M_Vehicle_EngineTrail_Player_Veil`): 50 particles a
+  second while the opacity (`Booster ? BoostAmount x ThrustAmount : ThrustAmount`) is above 0; born at `SpawnPositionOffset`
+  (100, 0, 0) cm, velocity `BaseVelocity` -2500 cm/s on X, eased each frame toward -(the owner's velocity, local, clamped to
+  `InheritVelocityLimit` 20000) by 1 - 0.5^(dt x 0.4) (`NPC_EngineTrails_Player`: smoothing 0.5, falloff time 0.4); lifetime
+  `BaseLifetime` 0.4 x 1.1; width 50 cm x the owner's scale; colour `Color` x 5, alpha 0.05 x a 1 -> 0 cosine curve over its
+  life x the opacity now; dynamic material parameters (0.8, 2, 0.05, 1.2). The material (no texture; alpha blended):
+  across a = max(1 - |2v - 1|, 0), a / (1 + (1/0.8 - 2)(1 - a)), squared; along b = 1 - u, b / (1 + 18 (1 - b)) ^ 1.2 x
+  min(20 u, 1)^2; x the particle alpha; x sat((depth - 24 cm) x 0.002).
+- **NPC glow** (`NE_Glow`, `M_Vehicle_EngineTrail_Glow`): one camera-facing sprite, 10000 cm x the socket scale, colour
+  `Color` x 3 (x 0.5 unless a booster), alpha 0.5 x (`Booster ? BoostAmount : ThrustAmount`) x a LOD distance fade; the
+  material r = max(1 - 2 |uv - 0.5|, 0), (r / (1 + 98 (1 - r)))^2 (Bias 0.01, Power 2).
+- **NPC trail** (`Trail_0`, `M_ShipTrail_001`, UV tiled every 5000 cm from the start): points spawned per unit distance
+  (`SpawnPerUnit` 1000 cm x lerp(1, 5, the LOD fraction)), lifetime 2 x `LengthFactor` x the socket scale, width 500 x
+  `Scale`, colour `Color` x (1, or 0.5 unless a booster), alpha (`Booster ? Boost : Thrust`) x pow(sat(velocity^ . the
+  owner's forward), 32) at birth; the material: across a, opacity (a^4 + sqrt(max((a - 0.9) x 10, 0))) x 0.5 x alpha, colour
+  x 0.5 (BaseIntensity) x (1 + 19 h^3), h = max((sat(1 - u) - 0.9) x 10, 0) (SourceIntensity 20).
+
+## The player's engine lights
+
+`BP_Ship_Player.CreateEngineLight`: a point light per `SKT_Engine` socket (EngineColor) and per `SKT_Booster` socket
+(BoosterColor), attenuation radius 300 cm x the socket scale, soft source radius 100 cm x it; per tick intensity
+`EngineVFXLightIntensity` (20) x LinearThrustCurrent.X (boosters: x BoostCurrent).
+
+## The manoeuvring jets
+
+`BP_Ship_Player` spawns `P_Vehicle_LateralThruster` (Cascade) at every `SKT_LateralThruster` socket with `Color` =
+LateralThrusterColor; per tick, f the emitter's forward:
+
+    Opacity = sat(f . -input_world + sat(f . v^) x (Deceleration > 0) x (|input| = 0) + sat(f . -Z) x (gravity <> 0))
+    Boost   = max(f . -input_world x bIsBoosting, sat(f . -Z) x (gravity <> 0))
+
+(v^ = the velocity's direction; -v^ while following a spline), or `LateralThrustersOpacityOverride` when above 0; hidden
+in the first-person camera. The system: a `PSA_Rectangle` sprite locked to rotate about X, 300 x 80 cm, and a "Front" sprite
+locked to face X, 100 x 100 cm, 10 cm toward the camera, both colour `Color` x 20 and alpha `Opacity` x (1 + 3 `Boost`); a
+lights-only emitter (radius 200 cm, exponent 16, brightness 1..5, 10 cm out). `M_Vehicle_LateralThruster`: d = 2 |uv - 0.5|,
+s = sat(max(1 - d, 0) x 1.05), s / (1 + 18 (1 - s)), ^ (2 + sqrt(noise(time x 100))), x sat((u - 0.5) x 10) (the half
+beyond the socket), x the particle alpha; additive.
+
+## Not used
+
+`P_Vehicle_EngineGlow` (Cascade): its Haze, Trail and Debug emitters are disabled and no blueprint above spawns it; its
+lens-flare streak (`M_LensFlare_Streak`) and light were an older engine glow. The other engine trails of the customization
+(`NS_Vehicle_EngineTrail_Player_*`: Veils, Sparks, FireTrail, ...) are not decoded yet.
