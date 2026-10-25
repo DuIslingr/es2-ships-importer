@@ -125,7 +125,7 @@ def dockables():
         _dockables = []
         p = os.path.join(SRC, 'DataFiles', 'dockables.CSV')
         if os.path.exists(p):
-            for line in open(p, encoding='utf-8-sig', errors='replace'):
+            for line in open(p, encoding='cp1252', errors='replace'):   # (Windows-1252, like locations.CSV)
                 c = line.rstrip('\r\n').split('|~')
                 if len(c) < 13 or not c[0]: continue
                 _dockables.append({'id': c[0], 'name': c[1], 'faction': c[2], 'system': c[3], 'location': c[4],
@@ -313,6 +313,27 @@ def _attr(o, key):
     return None
 
 
+_planet_types = None
+def planet_types():
+    """DT_PlanetData: {EPlanetTypes value: {'material', 'atmosphere', 'surface'}} (a travel map's planet that names only its
+    Type takes its material and colours from here)."""
+    global _planet_types
+    if _planet_types is None:
+        _planet_types = {}
+        p = os.path.join(SRC, 'Blueprints/Environment/Planets/DT_PlanetData.json')
+        if os.path.exists(p):
+            for r in json.load(open(p, encoding='utf-8-sig'))[0].get('Rows', {}).values():
+                g = lambda pre: next((v for k, v in r.items() if k.startswith(pre)), None)
+                ty, mat, atm, sur = g('Type'), g('Material'), g('AtmosphereColor'), g('SurfaceAverageColor')
+                if not ty: continue
+                _planet_types[ty] = {
+                    'material': mat.get('ObjectName', "''").split("'")[1] if isinstance(mat, dict) else '',
+                    'atmosphere': [atm['R'], atm['G'], atm['B']] if atm else None,
+                    # (white = "its texture's own colours", which the colouring code doesn't want as a tint)
+                    'surface': [sur['R'], sur['G'], sur['B']] if sur and min(sur['R'], sur['G'], sur['B']) < 0.99 else None}
+    return _planet_types
+
+
 def read(sector):
     """The sector's system, sun, planets, nebulas and locations from its travel map."""
     d = json.load(open(os.path.join(SRC, f'Maps/TravelMode/Map_TravelMode_{sector}.json'), encoding='utf-8-sig'))
@@ -342,6 +363,11 @@ def read(sector):
             atm = next((v for k, v in pd.items() if k.startswith('AtmosphereColor')), None)
             sur = next((v for k, v in pd.items() if k.startswith('SurfaceAverageColor')), None)
             key = p.get('ID') or e['Name']
+            # a planet naming only its Type takes the type's material and colours (DT_PlanetData)
+            ty = planet_types().get(next((v for k, v in pd.items() if k.startswith('Type')), None)) or {}
+            if not mat and ty.get('material'): mat = {'ObjectName': f"MaterialInstanceConstant'{ty['material']}'"}
+            if not atm and ty.get('atmosphere'): atm = dict(zip('RGB', ty['atmosphere']))
+            if not sur and ty.get('surface'): sur = dict(zip('RGB', ty['surface']))
             out['planets'][key] = {
                 'id': key, 'name': _text(p.get('Name')) or 'Moon',
                 'material': (mat or {}).get('ObjectName', "''").split("'")[1] if mat else '',
@@ -620,6 +646,11 @@ def build_sector(key):
         # (GoF2 calls a station "<name> Station" itself: "Okrot Trading Station" would read "... Station Station")
         name = L['name'][:-8] if L['name'].endswith(' Station') else L['name']
         st = {'id': gid, 'system': f'es2_ships:{sid}', 'name': name, 'techLevel': tech, 'planet': 6, 'interior': interior}
+        # its lore (locations.CSV): what it is under its name on the star map, the description on the map and the ticker
+        lore = location_lore().get(es2_id)
+        sub = (lore[1] if lore and lore[1] else L.get('subtitle')) or ''
+        if sub: st['subtitle'] = sub
+        if lore and lore[2]: st['description'] = lore[2]
         orbit = {}
         if look is None:
             orbit['station'] = False
@@ -656,16 +687,53 @@ def build_sector(key):
     return system, stations, sec
 
 
+def mining_times():
+    """ES2's DT_Mining_Yield as items.json "miningTime" (percent of the game's layer time) per resource key: its Duration
+    against Iron's (5 s; the crystals 10 s). Its MaxYield (8) and Difficulty (0.5) are the same for every row, so they
+    change nothing between ores. A resource the table lacks takes its kind's (Mallemite and Phazium the crystals')."""
+    p = os.path.join(SRC, 'Blueprints/Environment/Resources/DT_Mining_Yield.json')
+    if not os.path.exists(p): return {}
+    rows = json.load(open(p, encoding='utf-8-sig'))[0].get('Rows', {})
+    dur = {k: next((v for kk, v in r.items() if kk.startswith('Duration')), None) for k, r in rows.items()}
+    base = dur.get('ore_iron') or 5.0
+    by_kind = {}
+    for k, d in dur.items():
+        if d: by_kind.setdefault(k.split('_')[0], d)
+    out = {}
+    for key, _, kind, _, _ in RESOURCES:
+        d = next((v for k, v in dur.items() if k.endswith('_' + key) and v), None) or by_kind.get(kind)
+        if d and round(d / base * 100) != 100: out[key] = int(round(d / base * 100))
+    return out
+
+
+_lore = None
+def location_lore():
+    """DataFiles/locations.CSV: {location id: (name, subtitle, description)} (Windows-1252; its fields "|~"-separated: id, name, subtitle,
+    description, ..., the unlock flag, the build)."""
+    global _lore
+    if _lore is None:
+        _lore = {}
+        p = os.path.join(SRC, 'DataFiles', 'locations.CSV')
+        if os.path.exists(p):
+            for line in open(p, encoding='cp1252', errors='replace'):   # (Windows-1252: its ellipses are 0x85)
+                f = [x.strip() for x in line.rstrip('\r\n').split('|~')]
+                if len(f) >= 4 and f[0]: _lore[f[0]] = (f[1], f[2], '' if f[3] == '-' else f[3])
+    return _lore
+
+
 def resource_items(mod):
-    """items.json entries of ES2's resources (their icons on the commodity plate, icons.py)."""
+    """items.json entries of ES2's resources (their icons on the commodity plate, icons.py; their mining time from
+    DT_Mining_Yield)."""
     import icons
     out = []
+    times = mining_times()
     for key, name, kind, rarity, icon in RESOURCES:
         p = RARITY_PRICE[rarity]
         out.append({'id': f'es2_{key}', 'base': CRYSTAL_BASE if kind == 'crystal' else ORE_BASE, 'name': name,
                     'description': f'An EVERSPACE 2 {kind} ({rarity}), mined from the asteroids where it occurs.',
                     'techLevel': 1, 'occurrence': RARITY_OCCURRENCE[rarity], 'price': [p, int(round(p * 1.1))],
                     '_icon': icon + '_86x86_2x', '_frame': 'commodity'})
+        if key in times: out[-1]['stats'] = {'miningTime': times[key]}
     icons.apply(out, mod)
     for it in out:
         for k in [k for k in it if k.startswith('_')]: del it[k]
