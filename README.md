@@ -67,6 +67,7 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
    | `ES2/Content/Assets/Vehicles/Shared/Textures` | Textures (optional: `T_Vehicles_Floaters_Emissive_M`, the glow pattern of the engine nozzles, `T_ShipModules_FX_001_M_A`, the pattern of the wings' hologram discs, the damage maps and `T_Vehicles_Okkar_Techdetail_001_*`, the Wraith's plating) |
    | `ES2/Content/UI/Images/Items` | Textures (optional: EVERSPACE 2's item icons, from which the weapons', devices' and consumables' shop icons are made in Galaxy on Fire 2's style) |
+   | `ES2/Content/DataFiles` | ES2's tables, which FModel doesn't export (optional: `factions.csv` and `faction_relations.csv`, who fights whom). Extract them with `tools/shaders`' `pak` mode: `... dotnet run -c Release -- pak pakchunk0-Windows.pak "DataFiles/.*\.csv" <FModel's Output/Exports folder>`. Without them the factions are made without ES2's relations |
 
    The **Wraith** (the Okkar ship of the Wrath of the Ancients DLC) comes along when `ShipModules/Okkar` was exported with
    the rest (its hull `SK_ShipOkkar_C_001` and cockpit) and its plating textures above: one hull of its own (kit "okkar"),
@@ -125,6 +126,13 @@ compositions, not copies). Its music is the sector's own. EVERSPACE 2's resource
 Glacit, Coruscate, Aetheum, Culver, Mallemite, Phazium) are new commodities, mined from Ceto's asteroids and traded like
 ores; Iron and Titanium are the game's own. ES2's stations are levels of many pieces: for now the stations look like Galaxy
 on Fire 2's of their faction.
+
+ES2's ships fly for **ES2's own factions** (`tools/factions.py`), not Galaxy on Fire 2's races: Grady & Brunt, the
+Freelancers, the Coalition, the Okkar, Mr. Kato's Cartel, and the always-hostile Okkar Prime, Outlaws, Redeemers and
+Ancients, each with ES2's relations to the others (from `DataFiles/faction_relations.csv`) and the player's starting
+standing, an emblem from ES2's decal logos, and a reputation bar on the Status window (not the hostile ones). Ceto belongs
+to Grady & Brunt and flies ES2's ships only: G&B and Freelancer patrols, Outlaw raiders, ES2's freighters. Its lounges hold
+diplomats who make peace with a faction you are at war with.
 
 Without the weapons and the turret the ships still work: the guns fire from the ships' own weapon sockets, just without
 weapon models on them. Without the noise texture the engine flames are smooth instead of streaked, and without the nozzle

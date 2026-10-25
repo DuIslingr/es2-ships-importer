@@ -46,10 +46,10 @@ def build(mod):
             {'type': 'waituntil', 'condition': 'inorbit({st}) > 0'},
             {'type': 'wait', 'seconds': 3},
             # the convoy holds 4-5 km short of the Dreadnought, out of its turrets' reach (its fighters harry them)
-            {'type': 'spawn', 'ship': CONVOY[0], 'count': 1, 'race': 'terran', 'behaviour': 'friendly', 'name': 'Convoy', 'at': '9000 20000 80000'},
-            {'type': 'spawn', 'ship': CONVOY[1], 'count': 1, 'race': 'terran', 'behaviour': 'friendly', 'name': 'Convoy', 'at': '-9000 24000 75000'},
+            {'type': 'spawn', 'ship': CONVOY[0], 'count': 1, 'race': 'es2_ships:gb', 'behaviour': 'friendly', 'name': 'Convoy', 'at': '9000 20000 80000'},
+            {'type': 'spawn', 'ship': CONVOY[1], 'count': 1, 'race': 'es2_ships:gb', 'behaviour': 'friendly', 'name': 'Convoy', 'at': '-9000 24000 75000'},
             {'type': 'shipaction', 'ship': 'Convoy', 'action': 'hold'},
-            {'type': 'spawn', 'ship': 'es2_ships:es2_dreadnought', 'count': 1, 'race': 'pirate', 'behaviour': 'enemy',
+            {'type': 'spawn', 'ship': 'es2_ships:es2_dreadnought', 'count': 1, 'race': 'es2_ships:outlaw', 'behaviour': 'enemy',
              'name': 'Dreadnought', 'at': '0 25000 165000'},
             # (a Dreadnought that didn't come: nothing to fight, so nothing won; the raid comes again later)
             {'type': 'waituntil', 'condition': 'alive("Dreadnought") > 0', 'timeout': 30},

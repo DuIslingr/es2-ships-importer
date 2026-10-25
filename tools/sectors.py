@@ -1,7 +1,7 @@
 """EVERSPACE 2's sectors as Galaxy on Fire 2 systems (the remake's mod systems and stations: Modding/README.md "systems.json
 and stations.json"). ES2's galaxy is a galaxy of its own: its sectors lie in a cluster past the edge of GoF2's star map, in
 ES2's own layout (GALAXY), linked to each other only by ES2's own jumpgates and to GoF2's systems by none, so a Khador Drive
-is the way there.
+is the way there. They belong to ES2's factions (factions.py) and only ES2's ships fly there.
 
 A sector comes from its travel-mode map (Maps/TravelMode/Map_TravelMode_SNN): BP_TravelMode_System (its name and colour),
 BP_TravelMode_Sun at the origin (its colour), BP_TravelMode_Planet (each planet's material, atmosphere and surface colours,
@@ -63,7 +63,10 @@ SECTORS = {
     'S01': {
         # 'gates': the ES2 sectors its jumpgate reaches (their GoF2 ids; none yet: Ceto is the only one so far), from
         # 'gateStation' (Union Bridge, ES2's "Jump Gate & Trading Station")
-        'id': 'es2_ceto', 'race': 2, 'security': 2, 'gates': [], 'gateStation': 'es2_union_bridge',
+        # 'race': the faction that owns it (factions.py), 'locals' its local fighters' factions, 'raiders' who raids it; only
+        # ES2's ships fly there (systems.json "traffic": "mod"): ES2's galaxy has none of GoF2's races
+        'id': 'es2_ceto', 'race': 'gb', 'locals': ['gb', 'freelancer'], 'raiders': ['outlaw'], 'security': 2, 'gates': [],
+        'gateStation': 'es2_union_bridge',
         'spaceMusic': 'LayeredSong_003_1Calm', 'stationMusic': 'LayeredSong_004_1Calm',
         'locations': [
             ('S01L04', 'es2_union_bridge', 0, 2, 4, 'S01P02', {'count': 40, 'ores': [{'item': ORE_IRON, 'chance': 2}, R('copper', 3)]}),
@@ -374,7 +377,9 @@ def build_sector(key):
     sky_panorama(sec, centre, os.path.join(MOD, sky_rel))
     sun_rel = _write_png(f'sectors/{sid}/sun.png', sun_image(sec['sun']))[len(MOD) + 1:]
     sc = np.array(sec['sun'], np.float32); sc = sc / max(sc.max(), 1e-6)
-    system = {'id': sid, 'name': sec['name'], 'race': spec['race'], 'security': spec['security'], 'visible': True,
+    system = {'id': sid, 'name': sec['name'], 'race': f'es2_ships:{spec["race"]}', 'traffic': 'mod',
+              'locals': [f'es2_ships:{f}' for f in spec['locals']], 'raiders': [f'es2_ships:{f}' for f in spec['raiders']],
+              'security': spec['security'], 'visible': True,
               # 'sky': the game's sky whose sun sprite the star map shows (its own sun, sky and light replace the rest):
               # Nesla's (8), blue-white like ES2's Ceto sun
               'position': galaxy_position(sec.get('galaxy', np.zeros(3))), 'sky': 8,

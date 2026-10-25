@@ -15,7 +15,7 @@ the Ancients' swarmers the Void 9, Grady & Brunt Midorian 3, the Coalition Terra
 Scale: EVERSPACE 2's metres x 3.6 like the kit fighters (build.SCALE); ModTraffic takes hulls up to 150 m."""
 import json, os, re
 import numpy as np
-import warships, es2mat, jobs
+import warships, es2mat, jobs, factions
 
 SRC = MOD = None
 SCALE = 3.6
@@ -203,14 +203,15 @@ def build_one(sid, bp, race, weight, desc):
     if not any(m['slotType'] == 0 for m in mounts):   # a gun on the nose
         mounts.append({'slotType': 0, 'position_engine': warships.ue_to_game([float(mx[0]) * 100, 0, 0], f)})
     drone = 'Drone' in bp or 'Turret' in bp
+    fac = factions.for_ship(sid, bp, race)   # its ES2 faction (factions.py), never a GoF2 race
     length = float(size[0]) * f / 0.05
     ship = {'id': sid, 'name': name, 'description': desc + ' An EVERSPACE 2 ' + ('drone' if drone else 'fighter') + ', flown only by the NPCs.',
-            'race': race, 'armor': 120 if drone else 300, 'cargo': 0, 'handling': 120, 'price': 0,
+            'race': fac, 'armor': 120 if drone else 300, 'cargo': 0, 'handling': 120, 'price': 0,
             'slots': {'primary': 1, 'secondary': 0, 'turret': 0, 'equipment': 0},
             'model': rel_out, 'modelLength': round(length), 'modelYaw': 90, 'engineStyle': 'es2',
             'hangarHeight': round(max(0.0, -float(mn[1])) * f / 0.05 + 20),
             'mounts': mounts, 'materials': warships.material_entries(sid, mats_used),
-            'traffic': {'races': [race], 'weight': weight, **({'boss': True} if boss else {})},
+            'traffic': {'races': [fac], 'weight': weight, **({'boss': True} if boss else {})},
             'explosionScale': round(min(3.0, max(0.6, float(size.max()) * f / 50.0)), 2)}
     effects = warships.engine_effects(bp)
     if effects: ship['es2Engine'] = effects

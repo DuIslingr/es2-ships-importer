@@ -667,7 +667,11 @@ def build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar,
                 n_turret += 1
     if extra_parts: subs += extra_parts
     materials = material_entries(sid, mats_used)
-    ship = {'id': sid, 'name': name, 'description': desc, 'race': race,
+    import factions
+    fac = factions.for_ship(sid, bp or ENGINE_BP.get(sid), race)   # its ES2 faction, never a GoF2 race (factions.py)
+    if traffic_extra and traffic_extra.get('races'):
+        traffic_extra = {**traffic_extra, 'races': factions.races(traffic_extra['races'])}
+    ship = {'id': sid, 'name': name, 'description': desc, 'race': fac if fac else race,
             'armor': 20000 if kind == 'battleship' else 4000, 'cargo': 0, 'handling': 10, 'price': 0,
             'slots': {'primary': 0, 'secondary': 0, 'turret': 0, 'equipment': 0},
             'model': rel, 'modelLength': round(length), 'modelYaw': 90, 'engineStyle': 'es2',
@@ -861,7 +865,7 @@ def build_dreadnought():
         if 'Thruster_HeatVolume' in cname and loc:
             mounts.append({'slotType': 3, 'position_engine': ue_to_game([loc[0] + 2000, loc[1], loc[2]], f), 'socketScale': round(28 * f / SCALE, 3)})
     materials = material_entries('es2_dreadnought', mats_used)
-    ship = {'id': 'es2_dreadnought', 'name': 'Dreadnought', 'race': 8,
+    ship = {'id': 'es2_dreadnought', 'name': 'Dreadnought', 'race': 'es2_ships:outlaw',
             'description': 'The Outlaws\' Dreadnought: a flying fortress of EVERSPACE 2, its hull shielded by energy absorbing fields, '
                            'armed with torpedo launchers, sniper and lightning turrets, flak and missile batteries, and five hangars of fighters.',
             'armor': 60000, 'cargo': 0, 'handling': 5, 'price': 0, 'slots': {'primary': 0, 'secondary': 0, 'turret': 0, 'equipment': 0},

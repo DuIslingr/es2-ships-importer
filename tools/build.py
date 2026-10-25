@@ -1086,7 +1086,10 @@ def main(version):
         print('  no sounds: ' + audio.unavailable_reason())
     # EVERSPACE 2's weapons (items.json), warships and freighters (ships.json: "traffic": { "capital" }, their subsystems), the
     # Dreadnought and its raids (events/).
-    import weapons, warships, encounter, homebase_hangar, devices, fighters, sectors
+    import weapons, warships, encounter, homebase_hangar, devices, fighters, sectors, factions
+    # EVERSPACE 2's factions (factions.py): its ships fly for them and its sectors belong to them, never GoF2's races
+    print('Adding the factions ...')
+    json.dump(factions.build(SRC, MOD), open(os.path.join(MOD, 'factions.json'), 'w', encoding='utf-8'), indent=1)
     items, world_stations = [], []
     if os.path.isdir(os.path.join(SRC, 'Blueprints/Equipment/Weapons')):
         print('Adding the weapons ...')
