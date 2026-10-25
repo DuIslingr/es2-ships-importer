@@ -148,9 +148,34 @@ def find_blender(given, required=True):
     fail('--mobile needs Blender (4.2 or newer): install it from blender.org, or give its path with --blender')
 
 
-def make_preview(mod, blender):
-    """The mod's preview.png (640 x 360, the Mods screen's card): with Blender each ship's default build rendered in its
-    colours (tools/preview_blender.py), laid out in three rows with its name; without it a plain card with the names."""
+def make_preview(mod, blender, remake=None):
+    """The mod's preview.png (the Mods screen's card). With Blender: the Dreadnought in front of the remake's red nebula (its
+    sky with --remake), warships, freighters and the Mobile Homebase behind it, four player ships in front and a strip of item
+    icons (tools/preview_card.py; the kit ships rendered by tools/preview_blender.py, the rest by
+    tools/preview_model_blender.py). Without Blender, or when the renders fail, a plain 640 x 360 card with the names."""
+    if blender:
+        renders = os.path.join(mod, '.preview_renders')
+        shutil.rmtree(renders, ignore_errors=True); os.makedirs(renders)
+        subprocess.run([blender, '-b', '--factory-startup', '-P', os.path.join(HERE, 'tools', 'preview_blender.py'), '--', mod, renders],
+                       capture_output=True, text=True)
+        import preview_card
+        known = {e['id'] for f in ('ships.json', 'stations.json') if os.path.exists(os.path.join(mod, f))
+                 for e in json.load(open(os.path.join(mod, f), encoding='utf-8-sig'))}
+        shots = [f'{i}:{d}:{n}' for i, d, n in preview_card.MODEL_SHOTS if i in known]
+        if shots:
+            subprocess.run([blender, '-b', '--factory-startup', '-P', os.path.join(HERE, 'tools', 'preview_model_blender.py'), '--', mod, renders]
+                           + shots, capture_output=True, text=True)
+        sky = os.path.join(os.path.expanduser(remake), 'Assets', 'Resources', 'GoF2Sky') if remake else None
+        drawn, items = preview_card.compose(mod, renders, sky, os.path.join(mod, 'preview.png'))
+        shutil.rmtree(renders, ignore_errors=True)
+        if 'es2_dreadnought' in drawn:
+            return f'rendered: {len(drawn)} models, {items} item icons' + ('' if sky and os.path.isdir(sky) else ' (no --remake: a plain sky)')
+        print('  (the preview renders failed: a plain card instead)')
+    return plain_preview(mod)
+
+
+def plain_preview(mod):
+    """The plain card: the ships' names in three rows."""
     from PIL import Image, ImageDraw, ImageFont
     ships = json.load(open(os.path.join(mod, 'ships.json'), encoding='utf-8-sig'))
     card = Image.new('RGB', (640, 360), (14, 18, 28))
@@ -162,33 +187,15 @@ def make_preview(mod, blender):
         return ImageFont.load_default()
     title, small = font(24), font(13)
     d.text((18, 12), f'EVERSPACE 2 ships  \u00b7  {len(ships)}', fill=(235, 240, 250), font=title)
-    renders = None
-    if blender:
-        renders = os.path.join(mod, '.preview_renders')
-        shutil.rmtree(renders, ignore_errors=True); os.makedirs(renders)
-        r = subprocess.run([blender, '-b', '--factory-startup', '-P', os.path.join(HERE, 'tools', 'preview_blender.py'), '--', mod, renders],
-                           capture_output=True, text=True)
-        if r.returncode != 0: print('  (the preview renders failed: a plain card instead)'); renders = None
     cols = 3 if len(ships) <= 9 else 4 if len(ships) <= 12 else 5   # (three rows: nine ships three by three, more narrower)
     cw = 640 // cols
     for i, s in enumerate(ships[:cols * 3]):
         cx, cy = cw // 2 + (i % cols) * cw, 80 + (i // cols) * 98
-        png = os.path.join(renders, s['id'] + '.png') if renders else None
-        if png and os.path.exists(png):
-            im = Image.open(png).convert('RGBA'); box = im.getbbox()
-            if box:
-                im = im.crop(box); k = min((cw - 23) / im.width, 74 / im.height)
-                im = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
-                card.paste(im, (cx - im.width // 2, cy - im.height // 2), im)
-        else:
-            d.rounded_rectangle((cx - 90, cy - 30, cx + 90, cy + 30), 8, outline=(70, 110, 150), width=2)
+        d.rounded_rectangle((cx - 90, cy - 30, cx + 90, cy + 30), 8, outline=(70, 110, 150), width=2)
         name = s.get('name', s['id'])
         d.text((cx - d.textlength(name, font=small) / 2, cy + 38), name, fill=(200, 215, 230), font=small)
-    if renders: shutil.rmtree(renders, ignore_errors=True)
     card.save(os.path.join(mod, 'preview.png'))
-    return 'rendered' if renders else 'a plain card (Blender not found)'
-
-
+    return 'a plain card (Blender not found)'
 
 
 def make_icons(mod, blender):
@@ -311,7 +318,7 @@ def main():
         print('Making the ships\' shop icons ...')
         print(f'  icons: {make_icons(out, find_blender(a.blender, required=False))}')
     print('Making the preview image ...')
-    print(f'  preview.png: {make_preview(out, None if a.no_preview else find_blender(a.blender, required=False))}')
+    print(f'  preview.png: {make_preview(out, None if a.no_preview else find_blender(a.blender, required=False), a.remake)}')
 
     done = [f'  the mod:           {out}']
     if a.zip: done.append(f'  the mod as a zip:  {zip_folder(out, out + ".zip")}')

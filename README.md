@@ -109,9 +109,11 @@ the terminal window types its path):
 It checks the export first and lists anything missing, then
 writes the mod to `es2_ships` next to this script (about 20 seconds). Options:
 
-- `--no-preview`: skip rendering the mod's preview image (the Mods screen's card). By default, when Blender is found, the
-  ships are rendered in their default builds and colours for it (`tools/preview_blender.py`, about a minute);
-  without Blender the card shows their names only.
+- `--no-preview`: skip rendering the mod's preview image (the Mods screen's card, 1280 x 720). By default, when Blender
+  is found, it shows the Dreadnought with warships, freighters and the Mobile Homebase behind it, four player ships in
+  front and a strip of item icons, over the remake's red nebula when `--remake` is given (`tools/preview_card.py`; the
+  ships rendered by `tools/preview_blender.py` and `tools/preview_model_blender.py`, a few minutes); without Blender the
+  card shows the ships' names only.
 - `--no-icons`: skip the ships' shop icons. By default, when Blender is found, each ship's default build is rendered like
   the game's own ship icons (from its left, above and a little ahead, the nose dipping to the bottom left) and put on a
   ship frame (`icons/<ship>.png`, 180 x 88).
