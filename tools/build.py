@@ -61,6 +61,7 @@ def hull_split(g, binary, p):
     if 'Floaters_Emissive' in name: return glow_split(g, binary, p)
     if 'TechDetails' in name: return tech_split(g, binary, p, name)
     if 'ShipModules_Floaters' in name and 'Floaters_002' not in name: return floater_split(g, binary, p, name)
+    if 'Decals' in name and 'COLOR_0' in p['attributes'] and 'indices' in p: return decal_split(g, binary, p)
     if 'Hull' not in name or 'COLOR_0' not in p['attributes'] or 'indices' not in p: return None
     col, _ = glbtool.read(g, binary, p['attributes']['COLOR_0'])
     idx, _ = glbtool.read(g, binary, p['indices'])
@@ -68,6 +69,17 @@ def hull_split(g, binary, p):
     rgb = col[:, :3].astype(np.float32)
     k = (rgb[tri[:, 0]] + rgb[tri[:, 1]] + rgb[tri[:, 2]]).argmax(axis=1)
     return [(f'Paint{c + 1}', tri[k == c].reshape(-1)) for c in range(3)]
+
+def decal_split(g, binary, p):
+    # The decal faces (M_ShipModules_Decals_Parent): their vertex colour picks the texture, red the insignia, green the type
+    # (lettering), blue the warning labels (its compiled pixel shader: the three samples x COLOR_0's r, g, b). Each triangle
+    # by its vertices' majority, to DecalInsignia / DecalType / DecalLabels.
+    col, _ = glbtool.read(g, binary, p['attributes']['COLOR_0'])
+    idx, _ = glbtool.read(g, binary, p['indices'])
+    tri = idx.reshape(-1, 3).astype(np.int64)
+    rgb = col[:, :3].astype(np.float32)
+    k = (rgb[tri[:, 0]] + rgb[tri[:, 1]] + rgb[tri[:, 2]]).argmax(axis=1)
+    return [(n, tri[k == c].reshape(-1)) for c, n in enumerate(('DecalInsignia', 'DecalType', 'DecalLabels'))]
 
 # The TechDetails lights: T_ShipModules_TechDetails_00N_E paints each light in its sector's ID colour (its legend: ID04
 # cyan, ID05 yellow, ID06 orange, ID07 red-orange); ES2 lights each sector in one of the ship's colours. The triangles
@@ -539,13 +551,14 @@ def materials():
                       'emission': f'maps/{t}_e.png', 'emissionColor': [1, 1, 1], 'emissionIntensity': 2}
     embers = {'damageEmission': 'maps/embers_e.png', 'damageDetail': 'maps/char_c.png',
               **({'damageNormal': 'maps/char_n.png'} if jobs.exists(os.path.join(MOD, 'maps', 'char_n.png')) else {})} if EMBERS else {}
-    paint = lambda n: {'material': f'Paint{n}', 'diffuse': 'maps/hull_c.png', 'normal': 'maps/hull_n.png', 'metallic': 0.1, 'smoothness': 0.5, **embers}
+    # (the hull's paints and the tech details take the liveries, as ES2's M_ShipModules_Hull_Parent / TechDetails_Parent do)
+    paint = lambda n: {'material': f'Paint{n}', 'diffuse': 'maps/hull_c.png', 'normal': 'maps/hull_n.png', 'metallic': 0.1, 'smoothness': 0.5, 'livery': True, **embers}
     return [
         *nozzles(),
         paint(1), paint(2), paint(3),
         *[{'material': f'Lamp{n}_S{k}', **tech(f'tech{n}')} for n in (2, 1) for k in (4, 5, 6, 7)],
-        {'material': 'TechDetails_002', **unlit('tech2')},
-        {'material': 'TechDetails', **unlit('tech1')},
+        {'material': 'TechDetails_002', **unlit('tech2'), 'livery': True},
+        {'material': 'TechDetails', **unlit('tech1'), 'livery': True},
         # (the floaters: alpha-cut detail cards with a few always-glowing vents; their strips, CyberStrip, glow in the
         # cybernetic glow's colour)
         {'material': 'ShipModules_Floaters', **unlit('floaters1'), 'diffuse': 'maps/floaters1_ca.png', 'alphaClip': 0.5,
@@ -555,6 +568,11 @@ def materials():
         {'material': 'Glass_Lines', 'color': [0.1, 0.2, 0.25], 'emissionColor': [0.4, 0.85, 1.0], 'emissionIntensity': 1.5},
         {'material': 'Glass_Interior', 'color': [0.03, 0.04, 0.06]},
         {'material': 'Glass', 'color': [0.08, 0.12, 0.16], 'smoothness': 0.95, 'metallic': 0.3, 'opacity': 0.6},
+        # the decals (decal_split): the labels as they are; the insignia and type take a kit decal's masks (GoF2/Hull's decal
+        # mode: the decal colours), empty without one
+        {'material': 'DecalLabels', 'diffuse': 'maps/decal_labels.png' if DECAL_LABELS else 'maps/clear.png', 'alphaClip': 0.5, 'smoothness': 0.4, 'metallic': 0.0},
+        {'material': 'DecalInsignia', 'diffuse': 'maps/clear.png', 'alphaClip': 0.5, 'smoothness': 0.4, 'metallic': 0.0, 'decal': 'insignia'},
+        {'material': 'DecalType', 'diffuse': 'maps/clear.png', 'alphaClip': 0.5, 'smoothness': 0.4, 'metallic': 0.0, 'decal': 'type'},
         {'material': 'Decals', 'diffuse': 'maps/clear.png', 'alphaClip': 0.5},
         flame(),
         {'material': 'Headlight', 'color': [0.9, 0.9, 0.9], 'emissionColor': [1, 1, 1], 'emissionIntensity': 5},
@@ -600,6 +618,14 @@ def colors():
                      {'material': 'BoostVent', 'property': 'emission', 'intensity': FLAME_INTENSITY}]},
         {'id': 'lateral', 'name': 'Side thrusters', 'palette': 'exhaust', 'default': 'TB_Default',
          'targets': [{'material': 'lateral thruster', 'property': 'boost', 'intensity': 8}]},
+        # ES2's livery colour (the player's ProjectionDecal.Color, BP_Ship_Player's UpdateProjectionDecal), from the main colours
+        {'id': 'livery', 'name': 'Livery colour', 'palette': 'main', 'default': 'DefaultWhite',
+         'targets': [{'material': 'Paint', 'property': 'livery'}, {'material': 'TechDetails', 'property': 'livery'}]},
+        # ES2's decal colours (DecalColorInsignia1 / 2 / Border, DecalColorType1 / 2 / Border: every scheme and skin sets them)
+        *[{'id': f'{kind}{n}', 'name': f'{label} {title}', 'palette': 'main', 'default': default,
+           'targets': [{'material': 'Decal' + kind.title(), 'property': f'decal{i + 1}'}]}
+          for kind, label in (('insignia', 'Insignia'), ('type', 'Lettering'))
+          for i, (n, title, default) in enumerate((('1', 'colour', 'DefaultWhite'), ('2', 'second colour', 'Grey2'), ('border', 'border', 'Grey1')))],
     ]
     def hull(c, n):
         return '#%s/%d/%.2f' % (c[f'HullColor{n}']['Hex'][:6], 1 if c[f'bHullColor{n}Metal'] else 0, 1.0 - c[f'HullColor{n}Roughness'])
@@ -612,8 +638,96 @@ def colors():
                                    'lights': '#' + c['EmissiveColor1']['Hex'][:6], 'accents': '#' + c['EmissiveColor2']['Hex'][:6],
                                    'cyber': '#' + c['EmissiveColor3']['Hex'][:6], 'cyber_strength': '%g' % round(c['EmissiveColor3Intensity'], 2),
                                    'windows': '#' + c['WindowColor']['Hex'][:6], 'engines': '#' + c['TrailColorEngine']['Hex'][:6],
-                                   'boost': '#' + c['TrailColorBoost']['Hex'][:6], 'lateral': '#' + c['TrailColorLateral']['Hex'][:6]}})
+                                   'boost': '#' + c['TrailColorBoost']['Hex'][:6], 'lateral': '#' + c['TrailColorLateral']['Hex'][:6],
+                                   **decal_colors(c)}})
     return pal, slots, presets
+
+def decal_colors(c):
+    """A colour scheme's or skin's decal colours, as the kits' colour slots."""
+    out = {}
+    for kind, es2 in (('insignia', 'Insignia'), ('type', 'Type')):
+        for n, key in (('1', '1'), ('2', '2'), ('border', 'Border')):
+            v = c.get(f'DecalColor{es2}{key}')
+            if v: out[f'{kind}{n}'] = '#' + v['Hex'][:6]
+    return out
+
+def liveries_and_skins(presets):
+    """EVERSPACE 2's liveries (DT_ShipProjectionDecals: masks projected onto the hull from above, the remake's kit "liveries")
+    and its skins (DT_ShipSkins: the Supporter Pack's / promotions' Kickstarter and Alienware, a colour scheme and a livery or a
+    decal), for the kits' "liveries" and "skins". The masks as greyscale PNGs, 1024 px."""
+    liveries, skins = [], []
+    try: decals = table('DT_ShipProjectionDecals.json')
+    except FileNotFoundError: decals = {}
+    try: skin_rows = table('DT_ShipSkins.json')
+    except FileNotFoundError: skin_rows = {}
+    os.makedirs(os.path.join(MOD, 'liveries'), exist_ok=True)
+    def livery(tex_path, lid, name):
+        n = tex_path.rsplit('/', 1)[-1].split('.')[0]
+        src = os.path.join(TEX, n + '.png')
+        if not os.path.exists(src): return None
+        im = Image.open(src).convert('L')
+        if im.size[0] > 1024: im = im.resize((1024, 1024), Image.LANCZOS)
+        im.save(os.path.join(MOD, 'liveries', lid + '.png'), optimize=True)
+        e = {'id': lid, 'name': name, 'texture': f'liveries/{lid}.png'}
+        liveries.append(e)
+        return e
+    for rid, r in decals.items():
+        tex = (r.get('ProjectionTexture') or {}).get('AssetPathName')
+        if tex: livery(tex, rid.lower(), r['Name']['SourceString'])
+    def hull(c, n):
+        return '#%s/%d/%.2f' % (c[f'HullColor{n}']['Hex'][:6], 1 if c[f'bHullColor{n}Metal'] else 0, 1.0 - c[f'HullColor{n}Roughness'])
+    for rid, r in skin_rows.items():
+        c = r['Colors']
+        colors = {'hull1': hull(c, 1), 'hull2': hull(c, 2), 'hull3': hull(c, 3),
+                  'lights': '#' + c['EmissiveColor1']['Hex'][:6], 'accents': '#' + c['EmissiveColor2']['Hex'][:6],
+                  'cyber': '#' + c['EmissiveColor3']['Hex'][:6], 'cyber_strength': '%g' % round(c['EmissiveColor3Intensity'], 2),
+                  'windows': '#' + c['WindowColor']['Hex'][:6], 'engines': '#' + c['TrailColorEngine']['Hex'][:6],
+                  'boost': '#' + c['TrailColorBoost']['Hex'][:6], 'lateral': '#' + c['TrailColorLateral']['Hex'][:6],
+                  **decal_colors(c)}
+        sk = {'id': rid.lower(), 'name': r['Name']['SourceString'], 'colors': colors}
+        tex = (r.get('ProjectionTexture') or {}).get('AssetPathName')
+        if tex:
+            lv = livery(tex, rid.lower(), r['Name']['SourceString'])
+            if lv: sk['livery'] = lv['id']
+        if r.get('decal') and r['decal'] != 'NoDecal': sk['decal'] = r['decal'].lower()
+        skins.append(sk)
+    print(f'  {len(liveries)} liveries, {len(skins)} skins (' + ', '.join(s['name'] for s in skins) + ')')
+    return liveries, skins
+
+DECAL_LABELS = False   # decals(): the warning labels' texture found
+
+def decals():
+    """EVERSPACE 2's ship decals (DT_ShipDecals: an insignia and a type mask each; the Supporter Pack's (bSupporterDLC) and the
+    promotional ones included) for the kits' "decals", and the labels texture of the decal faces' blue part. Masks as RGBA
+    PNGs: R colour 1, G colour 2, B border, A coverage."""
+    global DECAL_LABELS
+    out = []
+    try: rows = table('DT_ShipDecals.json')
+    except FileNotFoundError: return out
+    os.makedirs(os.path.join(MOD, 'decals'), exist_ok=True)
+    def mask(path, dst):
+        n = (path or '').rsplit('/', 1)[-1].split('.')[0]
+        f = os.path.join(TEX, n + '.png')
+        if not n or 'empty' in n or not os.path.exists(f): return None
+        Image.open(f).convert('RGBA').save(os.path.join(MOD, 'decals', dst), optimize=True)
+        return f'decals/{dst}'
+    for rid, r in rows.items():
+        if rid == 'NoDecal': continue
+        did = rid.lower()
+        ins = mask((r.get('InsigniaTexture') or {}).get('AssetPathName'), f'{did}_insignia.png')
+        typ = mask((r.get('TypeTexture') or {}).get('AssetPathName'), f'{did}_type.png')
+        if not ins and not typ: continue
+        e = {'id': did, 'name': r['DecalName']['SourceString']}
+        if ins: e['insignia'] = ins
+        if typ: e['type'] = typ
+        out.append(e)
+    lab = os.path.join(TEX, 'T_ShipModules_Decal_Signs_001_M_A.png')
+    if os.path.exists(lab):
+        im = Image.open(lab).convert('RGBA')
+        im.resize((1024, 1024), Image.LANCZOS).save(os.path.join(MOD, 'maps', 'decal_labels.png'), optimize=True)
+        DECAL_LABELS = True
+    print(f'  {len(out)} decals ({sum(1 for r in rows.values() if r.get("bSupporterDLC"))} of them the Supporter Pack\'s)')
+    return out
 
 def clampr(v, lo, hi): return int(max(lo, min(hi, round(v))))
 
@@ -929,7 +1043,7 @@ def build_okkar(palettes, slots, presets, hardpoints):
     cockpit = convert(os.path.join(okkar_dir(), 'SM_ShipOkkar_C_Cockpit_Interior_001.glb'), 'parts/sm_shipokkar_c_cockpit_interior_001.glb')
     if cockpit:
         parts.append({'id': 'wraith_cockpit', 'slot': 'interior', 'name': 'Okkar cockpit', 'model': cockpit, 'types': ['wraith'], 'anchor': 'cockpit'})
-    kslots = json.loads(json.dumps(slots))
+    kslots = [x for x in json.loads(json.dumps(slots)) if x['id'] != 'livery']   # (its plating takes no liveries)
     kit = {'id': 'okkar', 'name': 'EVERSPACE 2 Okkar hull', 'slots': ['body', 'interior'], 'scale': SCALE, 'yaw': 90,
            'materials': okkar_materials() + weapon_materials() + materials(), 'palettes': palettes, 'colorSlots': kslots,
            'presets': presets, 'parts': parts}
@@ -1002,7 +1116,7 @@ def exhaust_styles(palettes):
 
 # (audio/: the sounds are encoded by whatever this computer has, ffmpeg's version or none, so the files differ between
 # players' builds; the names ships.json gives them don't.)
-MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/']
+MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'liveries/', 'decals/', 'trails/']
 
 def main(version):
     os.makedirs(os.path.join(MOD, 'parts'), exist_ok=True)
@@ -1021,6 +1135,10 @@ def main(version):
     else:
         print('  no weapons in the export (Assets/Equipment/Weapons): the ships come without weapon and turret models')
     palettes, slots, presets = colors()
+    liveries, skins = liveries_and_skins(presets)
+    kit_decals = decals()
+    import trails
+    kit_trails = trails.build(SRC, MOD, table)
     debug = table('DT_DebugShipsKS.json')
     kits, ships = [], []
     for cls in CLASSES:
@@ -1030,7 +1148,7 @@ def main(version):
         kid = cls.lower()
         kits.append({'id': kid, 'name': f'EVERSPACE 2 {cls} hulls', 'slots': ['base', 'body', 'rear', 'cockpit', 'interior', 'wings'],
                      'scale': SCALE, 'yaw': 90, 'materials': weapon_materials() + materials(), 'palettes': palettes, 'colorSlots': slots, 'presets': presets,
-                     'hardpoints': HARDPOINTS,
+                     'hardpoints': HARDPOINTS, 'liveries': liveries, 'decals': kit_decals, 'skins': skins, 'trails': kit_trails,
                      'parts': [{k: v for k, v in p.items() if not k.startswith('_') and k != 'table'} for p in parts]})
         by_table = {p['table']: p for p in parts}
         for eship, (tid, tname) in TYPES.items():
@@ -1072,6 +1190,7 @@ def main(version):
             print(f"  {tname}: {build.get('wings')} / {build.get('body')} / tier {build['tier']}, hangar height {ships[-1]['hangarHeight']}")
     if has_okkar():
         kit, ship = build_okkar(palettes, slots, presets, HARDPOINTS)
+        kit['trails'] = kit_trails
         kits.append(kit); ships.append(ship)
     else:
         print('  no Okkar hull in the export (Assets/Vehicles/ShipModules/Okkar): no Wraith')

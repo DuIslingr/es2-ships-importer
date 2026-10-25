@@ -87,9 +87,12 @@ that you can dock at, into its own hangar with its six landing pads and its casi
 secondary, the Okkar and legendary variants, with their own colours, sounds and models), and the Outlaw
 Dreadnought raiding convoys now and then (Options > Gameplay "Dreadnought raids"). Without them the mod is just the ships.
 
-With `Fighters` and `Drones` it also brings 42 of EVERSPACE 2's enemy fighters and drones (`tools/fighters.py`, from their
+With `Fighters` and `Drones` it also brings 77 of EVERSPACE 2's enemy fighters and drones (`tools/fighters.py`, from their
 blueprints: the Outlaws' raiders, scouts, bombers and drones as pirates, the Okkar as Vossk, the Okkar Prime, the Redeemers
-and the Ancients' swarmers as the Void, Grady & Brunt as Midorians, the Coalition as Terrans, the Freelancers as Nivelians),
+and the Ancients' swarmers as the Void, Grady & Brunt as Midorians, the Coalition as Terrans, the Freelancers as Nivelians;
+and the DLCs' and later updates': Zurilia's and the Retaliators' fighters, the Colonial clone hunters, the rogue AI drones,
+the Okkar Prime splitters and skirmishers, the Outlaw and Okkar utility drones and their bosses; with the warships the
+Zurilia destroyer, the Retaliators' drone carrier and the Okkar Prime and clerical corvettes),
 each with its own name on the lock plate, ES2's exhaust flames and engine trails. They fly as their race's traffic (Options
 > Gameplay "Mod ships in traffic"), the warships' hangars launch them, and the Okkar Prime Claw is a pirate boss's hull. They
 are never sold.
@@ -133,6 +136,18 @@ Ancients, each with ES2's relations to the others (from `DataFiles/faction_relat
 standing, an emblem from ES2's decal logos, and a reputation bar on the Status window (not the hostile ones). Ceto belongs
 to Grady & Brunt and flies ES2's ships only: G&B and Freelancer patrols, Outlaw raiders, ES2's freighters. Its lounges hold
 diplomats who make peace with a faction you are at war with.
+
+**Everything the Supporter Pack adds** to the customization (and EVERSPACE 2's other skins): the **Kickstarter** and
+**Alienware** skins (each a colour scheme and a livery), EVERSPACE 2's 35 **liveries** (`DT_ShipProjectionDecals`, patterns
+projected onto the hull, with their own colour row), its 35 **decals** (`DT_ShipDecals`, the Supporter Pack's 13 among them:
+insignia and lettering on each part's decal faces, with their colour rows), and the 13 **engine trails** (`tools/trails.py`,
+`DT_ShipExhaustParticles`: Default, Stardust, Rings of Nerea, Ion Veils, Delta Surge, Tetragons, Thermal Blaze, Firestarter,
+Voltaic Tendrils, Residuum, Raw Combustion, Coolant Leak, Void Reverb; the game rebuilds EVERSPACE 2's particle systems and
+materials, research/engine_trails.md; these need `Assets/Vehicles/Effects/Particles` (Properties), `Assets/Shared/Textures/Effects`
+(Textures: `T_Pattern_Barcode_001`, `T_Noise_012_M`, `T_Noise_020_M`, `T_SmokePuff_002_M`, `T_SmokeSeamless_001_H`,
+`T_Sphere_001_N`) and `Assets/Shared/Meshes` (Models: `SM_CrossShape_Circle`, `_Square`, `_Triangle`) exported). The
+Supporter Pack's colour for the Cybernetic glow (Emissive 3) and its intensity were already there. EVERSPACE 2 only shows
+these to Supporter Pack owners; the mod shows them to everyone who built it from their own copy.
 
 Without the weapons and the turret the ships still work: the guns fire from the ships' own weapon sockets, just without
 weapon models on them. Without the noise texture the engine flames are smooth instead of streaked, and without the nozzle
@@ -201,6 +216,9 @@ writes the mod to `es2_ships` next to this script (about 20 seconds). Options:
   glow (Emissive 3, with its intensity row) lights the thin strips along the panels.
 - Each body carries its canopy and cockpit at its own socket, as in EVERSPACE 2, the wings' hologram projectors turn, the nozzle glow shimmers, and a damaged hull chars and then glows with embers.
 - The small manoeuvring jets fire when you strafe, rise, sink or reverse, from each part's own thruster sockets.
+- The Customize screen's Livery, Decal, Engine trail and Booster trail rows pick EVERSPACE 2's liveries, decals and trails
+  (the trails run on the turntable while the engines run there, the booster trail while its row is selected); only your own
+  ship shows its trails, as in EVERSPACE 2.
 - Every other ship can burn EVERSPACE 2 thrusters too: the mod brings three exhaust styles (`exhausts.json`), the flames of
   three one-nozzle rear parts cut out on their own (`exhausts/`: EVERSPACE 2 thruster, heavy thruster and ring thruster).
   In the hangar's **Customize ship**, any ship (the game's own as well) gets an Exhaust row and its Main thrusters and

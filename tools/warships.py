@@ -49,6 +49,14 @@ WARSHIPS = [
      9, 'battleship', 'BP_AncientSwarmer_Capital', ['Warships/Meshes/SK_Warship_011'], T('turret_swarmer'), None, 'swarmer'),
     ('es2_drone_carrier', 'Outlaw Drone Carrier', 'An Outlaw transporter turned drone carrier.',
      8, 'battleship', 'BP_Outlaw_DroneCarrier', ['Transporters/Meshes/SM_Transporter_004'], T('turret_outlaw'), None, 'outlaw'),
+    ('es2_okkarprime_corvette', 'Okkar Prime Corvette', 'A corvette of the Okkar Prime, the radical Okkar, with its drone bays and pulse laser turrets.',
+     9, 'battleship', 'BP_OkkarPrime_Corvette', ['Warships/Meshes/SM_Warship_004_prime'], T('turret_okkar'), T('turret_okkar_missile'), 'okkarprime'),
+    ('es2_okkar_clerical_corvette', 'Okkar Clerical Corvette', 'An Okkar corvette of the clergy, its hull hung with ceremonial plating.',
+     1, 'battleship', 'BP_Okkar_ClericalCorvette', ['Warships/Meshes/SM_Warship_004_cleric', 'Warships/Meshes/SM_Warship_004_Addon_001'], T('turret_okkar'), T('turret_okkar_missile'), 'okkar'),
+    ('es2_zurilia_destroyer', 'Zurilia Destroyer', 'The Zurilia clan\'s destroyer, an Outlaw warship rebuilt with the clan\'s armour.',
+     8, 'battleship', 'BP_Outlaw_Destroyer_Zurilia', ['Warships/Meshes/SK_Warship_001_Zurilia'], T('turret_outlaw'), T('turret_outlaw_missile'), 'zurilia'),
+    ('es2_retaliator_drone_carrier', 'Retaliator Drone Carrier', 'The Retaliators\' drone carrier, a transporter full of drone bays.',
+     8, 'battleship', 'BP_Outlaw_DroneCarrier_Retaliators', ['Transporters/Meshes/SM_Transporter_004_B'], T('turret_outlaw'), None, 'retaliators'),
 ]
 FREIGHTERS = [
     ('es2_gb_freighter', 'G&B Freighter', 'A Grady & Brunt freighter with its retractable turrets.', 3, 'BP_Freighter_Base', ['Transporters/Meshes/SK_Transporter_002'], T('turret_freighter')),
@@ -97,6 +105,9 @@ HANGAR_SHIPS = {'outlaw': ['es2_ships:striker', 'es2_ships:stinger', 'es2_ships:
                 'gb': ['es2_ships:interceptor', 'es2_ships:vanguard', 'es2_ships:sentinel'],
                 'okkar': ['es2_ships:wraith', 'es2_ships:interceptor'],
                 'swarmer': ['es2_ships:scout', 'es2_ships:stinger'],
+                'zurilia': ['es2_ships:striker', 'es2_ships:stinger', 'es2_ships:scout'],
+                'retaliators': ['es2_ships:striker', 'es2_ships:stinger', 'es2_ships:scout'],
+                'okkarprime': ['es2_ships:wraith', 'es2_ships:interceptor'],
                 'dreadnought': ['es2_ships:striker', 'es2_ships:gunship', 'es2_ships:bomber', 'es2_ships:stinger']}
 
 
@@ -507,16 +518,60 @@ def components(name):
             cname = e.get('Name', '').replace('_GEN_VARIABLE', '')
             t = e.get('Type')
             if t not in ('ChildActorComponent', 'SceneComponent', 'ArrowComponent', 'StaticMeshComponent', 'SkeletalMeshComponent'): continue
-            if any(c[0] == cname for c in out): continue
             cls = (pr.get('ChildActorClass') or {}).get('ObjectName')
             cls = cls.split("'")[1][:-2] if cls and "'" in cls else None
             mesh = (pr.get('StaticMesh') or pr.get('SkeletalMesh') or pr.get('SkinnedAsset') or {}).get('ObjectName')
             mesh = mesh.split("'")[1] if mesh and "'" in mesh else None
             loc = pr.get('RelativeLocation'); rot = pr.get('RelativeRotation'); sc = pr.get('RelativeScale3D')
-            out.append((cname, cls, mesh, [loc.get(k, 0) for k in 'XYZ'] if loc else None,
-                        [rot.get(k, 0) for k in ('Pitch', 'Yaw', 'Roll')] if rot else None, (sc or {}).get('X', 1.0)))
+            rec = (cname, cls, mesh, [loc.get(k, 0) for k in 'XYZ'] if loc else None,
+                   [rot.get(k, 0) for k in ('Pitch', 'Yaw', 'Roll')] if rot else None, (sc or {}).get('X') if sc else None)
+            have = next((i for i, c in enumerate(out) if c[0] == cname), None)
+            if have is None: out.append(rec); continue
+            # the child's record wins field by field; what it leaves out (a material-only override keeps its parent's
+            # mesh, as the DLC's Okkar Prime ships do) comes from the parent
+            out[have] = tuple(c if c is not None else r for c, r in zip(out[have], rec))
+        n = _super(n)
+    return [c[:5] + (c[5] if c[5] is not None else 1.0,) for c in out]
+
+
+def material_overrides(name):
+    """The blueprint's (and its parents') OverrideMaterials per mesh component: {component: [material name or None per
+    slot]}, the child's slots winning (the DLC's Okkar Prime ships are Okkar meshes in MI_Vehicles_Okkar_Prime_001)."""
+    out, n, seen = {}, name, set()
+    while n and n not in seen:
+        seen.add(n)
+        d = _bp(n)
+        if not d: break
+        for e in d:
+            if e.get('Type') not in ('StaticMeshComponent', 'SkeletalMeshComponent'): continue
+            ov = (e.get('Properties') or {}).get('OverrideMaterials')
+            if not ov: continue
+            cname = e.get('Name', '').replace('_GEN_VARIABLE', '')
+            mine = out.setdefault(cname, [])
+            for i, m in enumerate(ov):
+                nm = (m or {}).get('ObjectName')
+                nm = nm.split("'")[1] if nm and "'" in nm else None
+                while len(mine) <= i: mine.append(None)
+                if mine[i] is None: mine[i] = nm
         n = _super(n)
     return out
+
+
+def mesh_slots(rel):
+    """A mesh's material slots in order (its StaticMaterials / SkeletalMaterials), as material names."""
+    p = os.path.join(SRC, 'Assets/Vehicles', rel + '.json')
+    if not os.path.exists(p): return []
+    for e in json.load(open(p, encoding='utf-8-sig')):
+        pr = e.get('Properties') or {}
+        for k in ('StaticMaterials', 'SkeletalMaterials', 'Materials'):
+            if k in pr:
+                out = []
+                for m in pr[k]:
+                    mi = (m or {}).get('MaterialInterface') or m or {}
+                    nm = mi.get('ObjectName') if isinstance(mi, dict) else None
+                    out.append(nm.split("'")[1] if nm and "'" in nm else nm)
+                return out
+    return []
 
 
 def engine_effects(bp):

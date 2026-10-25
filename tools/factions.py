@@ -25,6 +25,10 @@ FACTIONS = {
     'Outlaw': ('outlaw', 'Outlaws', 'pirates', True, 'outlaw', (1.0, 0.32, 0.25)),
     'Cultist': ('cultist', 'Redeemers', 'void', True, None, (0.7, 0.25, 0.85)),
     'Ancient': ('ancient', 'Ancients', 'void', True, None, (0.55, 1.0, 0.85)),
+    'Zurilia': ('zurilia', 'Zurilia', 'pirates', True, 'zurilia', (1.0, 0.55, 0.15)),
+    'Retaliators': ('retaliators', 'Retaliators', 'pirates', True, 'retaliators', (0.9, 0.2, 0.35)),
+    'CloneHunter': ('clonehunter', 'Colonial Clone Hunters', 'terran', False, 'colonial', (0.75, 0.8, 0.9)),
+    'RogueAI': ('rogueai', 'Rogue AI', 'void', True, None, (0.3, 1.0, 0.4)),
 }
 # ES2's relation words -> factions.json's; the player's row -> the starting standing
 RELATION = {'Friend': 'friend', 'Neutral': 'neutral', 'Enemy': 'enemy'}
@@ -78,7 +82,8 @@ def build(src, mod, log=print):
     out = []
     for es2, (fid, name, look, hostile, logo, colour) in FACTIONS.items():
         e = {'id': fid, 'name': name, 'look': look, 'color': [round(c, 3) for c in colour]}
-        if hostile: e['hostile'] = True
+        # always the player's enemy where ES2's table says so (its other relations stay as ES2 has them)
+        if hostile or (rel and rel.get(es2, {}).get('Player') == 'Enemy'): e['hostile'] = True
         if rel and es2 in rel:
             e['standing'] = PLAYER_START.get(rel[es2].get('Player', 'Neutral'), 0)
             r = {FACTIONS[o][0]: RELATION[v] for o, v in rel[es2].items() if o in FACTIONS and o != es2 and v in RELATION}
@@ -95,7 +100,8 @@ def build(src, mod, log=print):
 # The mod's old GoF2 races (before the factions) -> the faction that now flies them, for ships without a blueprint faction.
 RACE_FACTION = {0: 'Coalition', 1: 'Okkar', 2: 'Freelancer', 3: 'GradyAndBrunt', 8: 'Outlaw', 9: 'Ancient'}
 # A ship id's prefix -> its faction, where a blueprint names none of FACTIONS (ES2's own pawns sometimes name PlayerFriend).
-PREFIX_FACTION = [('es2_kato', 'KatoCartel'), ('es2_okkarprime', 'OkkarRadical'), ('es2_redeemer', 'Cultist'), ('es2_cultist', 'Cultist'),
+PREFIX_FACTION = [('es2_zurilia', 'Zurilia'), ('es2_retaliator', 'Retaliators'), ('es2_clonehunter', 'CloneHunter'),
+                  ('es2_rogueai', 'RogueAI'), ('es2_bloodstar', 'Outlaw'), ('es2_kato', 'KatoCartel'), ('es2_okkarprime', 'OkkarRadical'), ('es2_redeemer', 'Cultist'), ('es2_cultist', 'Cultist'),
                   ('es2_swarmer', 'Ancient'), ('es2_outlaw', 'Outlaw'), ('es2_okkar', 'Okkar'), ('es2_gb', 'GradyAndBrunt'),
                   ('es2_coalition', 'Coalition'), ('es2_colonial', 'Coalition'), ('es2_freelancer', 'Freelancer')]
 

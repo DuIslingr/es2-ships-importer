@@ -61,6 +61,43 @@ FIGHTERS = [
     ('es2_redeemer_poacher', 'BP_Cultist_Poacher', 9, 0.5, 'A Redeemer Poacher.'),
     ('es2_redeemer_drone', 'BP_Cultist_Drone', 9, 0.3, 'A Redeemer drone.'),
     ('es2_swarmer_fighter', 'BP_AncientSwarmer_Fighter', 9, 0.5, 'A swarmer of the Ancients.'),
+    # From the expansions and the late game (Titans, Wrath of the Ancients): the Okkar Prime's other ships, the Outlaw clans
+    # Zurilia and Retaliators, the Colonial clone hunters, the rogue AI's infected drones, the Bloodstar and Outlaw bosses
+    ('es2_okkarprime_split_fighter', 'BP_OkkarPrime_SplitFighter', 9, 0.6, 'The Okkar Prime Split Fighter, which splits into two wings in a fight.'),
+    ('es2_okkarprime_skirmisher', 'BP_OkkarPrime_Swarm_Fighter', 9, 0.6, 'A small, very fast Okkar Prime skirmisher.'),
+    ('es2_okkarprime_plasma_drone', 'BP_OkkarPrime_Energy_Drone', 9, 0.3, 'An Okkar Prime plasma drone.'),
+    ('es2_okkarprime_sentry_drone', 'BP_OkkarPrime_Flying_Turret', 9, 0.3, 'An Okkar Prime flying sentry turret.'),
+    ('es2_okkarprime_shield_drone', 'BP_OkkarPrime_ShieldChargeDrone', 9, 0.3, 'An Okkar Prime drone that recharges its wing\'s shields.'),
+    ('es2_okkarprime_support_drone', 'BP_OkkarPrime_SupportDrone', 9, 0.3, 'An Okkar Prime support drone.'),
+    ('es2_zurilia_scout', 'BP_Outlaw_Scout_Zurilia', 8, 1.0, 'A scout of the Zurilia, an Outlaw clan.'),
+    ('es2_zurilia_bomber', 'BP_Outlaw_Bomber_Zurilia', 8, 0.7, 'A heavily shielded Zurilia bomber.'),
+    ('es2_zurilia_drone', 'BP_Outlaw_Drone_Zurilia', 8, 0.5, 'A Zurilia combat drone.'),
+    ('es2_zurilia_bomb_drone', 'BP_BombCarrierDrone', 8, 0.3, 'A Zurilia drone carrying a bomb.'),
+    ('es2_retaliator_scout', 'BP_Outlaw_Scout_Retaliators', 8, 1.0, 'A scout of the Retaliators, an Outlaw clan.'),
+    ('es2_retaliator_bomber', 'BP_Outlaw_Bomber_Retaliators', 8, 0.7, 'A heavily shielded Retaliator bomber.'),
+    ('es2_retaliator_drone', 'BP_Outlaw_Drone_Retaliators', 8, 0.5, 'A Retaliator combat drone.'),
+    ('es2_retaliator_detonator_drone', 'BP_Outlaw_DetonatorDrone_Retaliators', 8, 0.3, 'A Retaliator drone packed with explosives.'),
+    ('es2_retaliator_link_drone', 'BP_Outlaw_LinkDrone_Armor_Retaliators', 8, 0.3, 'A Retaliator drone that links its wing\'s armour.'),
+    ('es2_retaliator_frostshield_drone', 'BP_Retaliators_FrostShieldDrone', 8, 0.3, 'A Retaliator drone with a frost shield.'),
+    ('es2_retaliator_defusal_drone', 'BP_BombScanDrone', 8, 0.2, 'A Retaliator defusal drone.'),
+    ('es2_clonehunter_webber', 'BP_Colonial_WebberDrone', 0, 0.4, 'A webber drone of the Colonial clone hunters.'),
+    ('es2_rogueai_beacon_drone', 'BP_Outlaw_ArmorDrone_Infected', 9, 0.4, 'A drone taken over by the rogue AI.'),
+    ('es2_rogueai_antimissile_drone', 'BP_Outlaw_AntiMissileDrone_Infected', 9, 0.3, 'An anti-missile drone taken over by the rogue AI.'),
+    ('es2_outlaw_armor_drone', 'BP_Outlaw_ArmorDrone', 8, 0.3, 'An Outlaw drone that shores up its wing\'s armour.'),
+    ('es2_outlaw_antimissile_drone', 'BP_Outlaw_AntiMissileDrone', 8, 0.3, 'An Outlaw anti-missile drone.'),
+    ('es2_outlaw_link_drone', 'BP_Outlaw_LinkDrone_Armor', 8, 0.3, 'An Outlaw link drone.'),
+    ('es2_outlaw_suppressor_drone', 'BP_Outlaw_JumpSuppressorDrone', 8, 0.2, 'An Outlaw drone that suppresses jump drives.'),
+    ('es2_outlaw_teleport_drone', 'BP_Outlaw_Teleport_Drone', 8, 0.2, 'An Outlaw drone that teleports its wing.'),
+    ('es2_okkar_scramble_drone', 'BP_Okkar_ScrambleDrone', 1, 0.3, 'An Okkar scramble drone.'),
+    ('es2_okkar_suppressor_drone', 'BP_Okkar_JumpSuppressorDrone', 1, 0.2, 'An Okkar jump suppressor drone.'),
+    ('es2_redeemer_poacher_drone', 'BP_Cultist_Poacher_Drone', 9, 0.3, 'A Redeemer Poacher\'s drone.'),
+    ('es2_swarmer_drone', 'BP_AncientSwarmer_Drone', 9, 0.4, 'A small drone of the Ancients\' swarmers.'),
+    ('es2_swarmer_medium', 'BP_AncientSwarmer_Medium_Drones', 9, 0.4, 'A swarmer of the Ancients carrying drones.'),
+    ('es2_outlaw_proto_scout', 'BP_Outlaw_Scout_Shielded', 8, 0.3, 'An Outlaw proto scout with an experimental shield.'),
+    ('es2_bloodstar_overseer', 'BP_Outlaw_Ravager_Bloodstar', 8, 0.3, 'The Bloodstar Overseer, an Outlaw boss in an armoured Ravager.'),
+    ('es2_bloodstar_chief', 'BP_Outlaw_Bomber_OutlawChief', 8, 0.3, 'The Bloodstar Chief\'s bomber.'),
+    ('es2_outlaw_leader', 'BP_Outlaw_Ravager_Boss', 8, 0.3, 'An Outlaw leader\'s Ravager.'),
+    ('es2_outlaw_trapper', 'BP_Outlaw_Zero_Boss', 8, 0.3, 'The Trapper, an Outlaw boss.'),
     # Grady & Brunt
     ('es2_gb_fighter', 'BP_GB_Fighter', 3, 1.0, 'A Grady & Brunt fighter with its dorsal turret.'),
     ('es2_gb_light_fighter', 'BP_GB_LightFighter', 3, 0.8, 'A Grady & Brunt light fighter.'),
@@ -76,15 +113,19 @@ FIGHTERS = [
 HANGARS = {'outlaw': ['es2_outlaw_drone', 'es2_outlaw_missile_drone', 'es2_outlaw_raider', 'es2_outlaw_madcap'],
            'gb': ['es2_gb_fighter', 'es2_gb_light_fighter', 'es2_gb_squad_fighter'],
            'okkar': ['es2_okkar_fighter', 'es2_okkar_interceptor', 'es2_okkar_drone'],
-           'swarmer': ['es2_swarmer_fighter'],
+           'swarmer': ['es2_swarmer_fighter', 'es2_swarmer_drone', 'es2_swarmer_medium'],
+           'zurilia': ['es2_zurilia_drone', 'es2_zurilia_scout', 'es2_zurilia_bomber'],
+           'retaliators': ['es2_retaliator_drone', 'es2_retaliator_scout', 'es2_retaliator_bomber'],
+           'okkarprime': ['es2_okkarprime_fighter', 'es2_okkarprime_skirmisher', 'es2_okkarprime_drone'],
            'dreadnought': ['es2_outlaw_raider', 'es2_outlaw_ravager', 'es2_outlaw_bomber', 'es2_outlaw_tormentor', 'es2_outlaw_drone']}
 # Meshes a blueprint sets where components() doesn't read them (its parent's template records), by blueprint.
-MESHES = {'BP_Outlaw_Ravager': 'SK_Fighter_002_c', 'BP_Outlaw_WebberDrone': 'SM_Drone_004', 'BP_GB_AntiMissileDrone': 'SM_Drone_003'}
+MESHES = {'BP_Outlaw_Ravager': 'SK_Fighter_002_c', 'BP_Outlaw_Ravager_Bloodstar': 'SK_Fighter_002_b', 'BP_Outlaw_Ravager_Boss': 'SK_Fighter_002_c', 'BP_Outlaw_WebberDrone': 'SM_Drone_004', 'BP_GB_AntiMissileDrone': 'SM_Drone_003'}
 # Screen names two blueprints share: these get their own.
-NAMES = {'es2_outlaw_missile_drone': 'Outlaw Missile Drone', 'es2_coalition_guard': 'Coalition Guard',
+NAMES = {'es2_outlaw_missile_drone': 'Outlaw Missile Drone', 'es2_swarmer_medium': 'Swarmer Brood',
+         'es2_rogueai_antimissile_drone': 'Infected Anti-Missile Drone', 'es2_outlaw_antimissile_drone': 'Outlaw Anti-Missile Drone', 'es2_coalition_guard': 'Coalition Guard',
          'es2_freelancer_escort': 'Freelancer Escort'}
 # Too big for a fighter: a pirate / Void boss's hull (ModTraffic.PickBoss, up to 400 m) at its own size.
-BOSSES = {'es2_okkarprime_claw'}
+BOSSES = {'es2_okkarprime_claw', 'es2_bloodstar_overseer', 'es2_bloodstar_chief', 'es2_outlaw_leader', 'es2_outlaw_trapper'}
 MAX_FIGHTER = 110.0   # Unity metres: a fighter's longest side (ModTraffic takes hulls up to 150 m along the nose)
 SKIP_MESHES = ('SM_Hemisphere', 'SM_ShipModule_', 'SM_Sphere', 'EditorSphere')
 
@@ -113,15 +154,23 @@ def parts(bp):
     """The blueprint's meshes: [(Vehicles/... path, loc cm, rot, scale)] for the components that draw the ship."""
     if bp in MESHES:
         rel = mesh_index().get(MESHES[bp])
-        return [(rel, [0, 0, 0], None, 1.0)] if rel else []
+        return [(rel, [0, 0, 0], None, 1.0, {})] if rel else []
     out = []
+    ov = warships.material_overrides(bp)
     for cname, cls, mesh, loc, rot, sc in warships.components(bp):
         if not mesh or any(s in mesh for s in SKIP_MESHES): continue
         if 'JumpCharge' in cname or 'Cockpit' in cname: continue
         rel = mesh_index().get(mesh.split('/')[-1].split('.')[0])
         if not rel: continue
-        out.append((rel, loc or [0, 0, 0], rot, sc or 1.0))
+        out.append((rel, loc or [0, 0, 0], rot, sc or 1.0, renames(rel, ov.get(cname))))
     return out
+
+
+def renames(rel, slots):
+    """{the mesh's material: the blueprint's override} for a component's OverrideMaterials (by slot)."""
+    if not slots: return {}
+    names = warships.mesh_slots(rel)
+    return {names[i]: m for i, m in enumerate(slots) if m and i < len(names) and names[i]}
 
 
 _index = None
@@ -175,8 +224,9 @@ def build_one(sid, bp, race, weight, desc):
     if not ps: warships.say(f'  {bp}: no mesh found'); return None
     name = NAMES.get(sid) or screen_name(bp) or sid.replace('es2_', '').replace('_', ' ').title()
     prims, socks = [], []
-    for rel, loc, rot, sc in ps:
+    for rel, loc, rot, sc, ren in ps:
         pr = warships.read_prims(os.path.join(SRC, 'Assets/Vehicles', rel + '.glb'))
+        if ren: pr = [(a, i, ren.get(n, n)) for a, i, n in pr]
         for a, i, n in pr:
             if 'EngineExhaust' in n and 'TEXCOORD_0' in a: a['TEXCOORD_1'] = flame_uv1(a, i)
         prims += place(pr, loc, sc)
