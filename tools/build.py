@@ -386,9 +386,11 @@ def exhaust_points(src):
 def save(arr, name, size=None):
     jobs.write_image(os.path.join(MOD, 'maps', name), arr, size, square=True)   # (on a worker)
 
-def textures():
+def textures(kits=True):
+    """The maps: the ship kits' hull / tech / floater maps (kits), and always the effect maps the fighters and warships use
+    too (flame noise, nozzle and hologram masks, battle damage)."""
     def load(n): return np.array(Image.open(os.path.join(TEX, n)).convert('RGBA'))
-    for src, dst, size in [('T_ShipModules_Hull_001', 'hull', 1024), ('T_ShipModules_TechDetails_001', 'tech1', 2048),
+    for src, dst, size in [] if not kits else [('T_ShipModules_Hull_001', 'hull', 1024), ('T_ShipModules_TechDetails_001', 'tech1', 2048),
                            ('T_ShipModules_TechDetails_002', 'tech2', 2048), ('T_ShipModules_Floaters_001', 'floaters1', 1024)]:
         c = load(src + ('_C_A.png' if 'Floaters' in src else '_C_AO.png'))
         if 'Floaters' in src:
@@ -419,7 +421,7 @@ def textures():
         else:
             e = np.repeat(r[..., 2:3], 3, axis=2)
         save(e, dst + '_e.png', size)
-    save(np.zeros((4, 4, 4), np.uint8), 'clear.png')   # the decals, cut away (they need ES2's decal atlas and projections)
+    if kits: save(np.zeros((4, 4, 4), np.uint8), 'clear.png')   # the decals, cut away (they need ES2's decal atlas and projections)
     # The engine flames' noise (M_Vehicle_EngineExhaust's T_Noise_018_M, tiling grey noise; optional: flat flames without it).
     # The floater glow's mask (M_Vehicles_Floaters_Emissive's T_Vehicles_Floaters_Emissive_M; optional: the whole faces
     # glow without it).
@@ -1118,87 +1120,133 @@ def exhaust_styles(palettes):
 # players' builds; the names ships.json gives them don't.)
 MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'liveries/', 'decals/', 'trails/', 'stations/']
 
-def main(version):
-    os.makedirs(os.path.join(MOD, 'parts'), exist_ok=True)
+# What the mod can hold, built together ("all") or picked (import.py --parts / config.json "parts"). Each part names what
+# it needs: a part pulls those in by itself (warships launch the player ships and fighters from their hangars and carry
+# ES2's weapons as turrets; the sectors' traffic is ES2's fighters).
+PARTS = {
+    'ships':    ('the customizable player ships',
+                 'the nine ES2 hulls and the Okkar Wraith: parts, colours, liveries, decals, engine trails, weapon and turret models, exhaust styles'),
+    'weapons':  ('weapons', 'EVERSPACE 2\'s weapons as shop items'),
+    'devices':  ('devices and consumables', 'EVERSPACE 2\'s devices and consumables in the shops'),
+    'fighters': ('enemy fighters and drones', 'in the traffic of their factions'),
+    'warships': ('warships, freighters and the Dreadnought', 'capital ships in the orbits\' traffic, the Dreadnought raiding convoys now and then'),
+    'homebase': ('the Mobile Homebase', 'a station roaming the sectors (or every system without them), docked inside'),
+    'sectors':  ('the ten sectors', 'star systems past the edge of the star map: stations, their hangars, ES2\'s resources to mine'),
+    'sounds':   ('sounds', 'the ships\' engines, boosts and weapons (needs vgmstream or FModel\'s converted audio)'),
+}
+NEEDS = {'warships': ['ships', 'weapons', 'fighters'], 'sectors': ['fighters']}
+WITH = {'ships': ['sounds']}   # (comes along unless --no-sounds)
+ALIASES = {'all': list(PARTS), 'systems': ['sectors'], 'items': ['weapons', 'devices'], 'traffic': ['fighters', 'warships'],
+           'world': ['sectors', 'homebase']}
+
+
+def resolve_parts(spec):
+    """The parts to build from a list like 'ships,sectors' (or ['ships', 'sectors']): names and aliases, then what they need.
+    Returns (parts in PARTS' order, the ones pulled in as needed); raises ValueError on an unknown name."""
+    names = [n.strip().lower() for n in (spec.split(',') if isinstance(spec, str) else spec) if n.strip()]
+    want = set()
+    for n in names or ['all']:
+        if n in ALIASES: want.update(ALIASES[n])
+        elif n in PARTS: want.add(n)
+        else: raise ValueError(f'unknown part "{n}": choose from {", ".join(list(PARTS) + list(ALIASES))}')
+    asked, added = set(want), True
+    while added:
+        added = False
+        for p in list(want):
+            for q in NEEDS.get(p, []) + WITH.get(p, []):
+                if q not in want: want.add(q); added = True
+    return [p for p in PARTS if p in want], [p for p in PARTS if p in want - asked]
+
+
+def main(version, parts=None):
+    parts = set(parts or PARTS)
     os.makedirs(os.path.join(MOD, 'maps'), exist_ok=True)
-    textures()
-    # The weapons and the player turret are optional (an export without them: no weapon models, the turret sockets fire
-    # the turret items without a model).
-    hardpoints = None
-    if has_weapons():
-        weapon_textures()
-        weapon_models()
-        hardpoints = {'weapons': HARDPOINTS['weapons']}
-        if has_turret():
-            turret_model()
-            hardpoints['turret'] = HARDPOINTS['turret']
-    else:
-        print('  no weapons in the export (Assets/Equipment/Weapons): the ships come without weapon and turret models')
-    palettes, slots, presets = colors()
-    liveries, skins = liveries_and_skins(presets)
-    kit_decals = decals()
-    import trails
-    kit_trails = trails.build(SRC, MOD, table)
-    debug = table('DT_DebugShipsKS.json')
-    kits, ships = [], []
-    for cls in CLASSES:
-        parts, ex = build_kit(cls)
-        part_stats(parts)
-        print(f'{cls}: {len(parts)} parts')
-        kid = cls.lower()
-        kits.append({'id': kid, 'name': f'EVERSPACE 2 {cls} hulls', 'slots': ['base', 'body', 'rear', 'cockpit', 'interior', 'wings'],
-                     'scale': SCALE, 'yaw': 90, 'materials': weapon_materials() + materials(), 'palettes': palettes, 'colorSlots': slots, 'presets': presets,
-                     'hardpoints': HARDPOINTS, 'liveries': liveries, 'decals': kit_decals, 'skins': skins, 'trails': kit_trails,
-                     'parts': [{k: v for k, v in p.items() if not k.startswith('_') and k != 'table'} for p in parts]})
-        by_table = {p['table']: p for p in parts}
-        for eship, (tid, tname) in TYPES.items():
-            wings = [p for p in parts if p['slot'] == 'wings' and tid in p.get('types', [])]
-            if not wings: continue
-            row = next((r for k, r in debug.items() if k.lower().startswith(tname.lower() + '_')), None)
-            build = {'tier': 1}
-            if row and row.get('ShipClass') == f'EShipClass::{cls}':
-                for slot, key in (('body', 'BodyID'), ('rear', 'RearID'), ('cockpit', 'CockpitID'), ('interior', 'CockpitInteriorID'), ('wings', 'WingsID')):
-                    p = by_table.get(row.get(key))
-                    if p and (slot != 'wings' or tid in p.get('types', [])): build[slot] = p['id']
-                m = re.search(r'_Ext_T(\d)_', row.get('ExtensionID') or '')
-                if m: build['tier'] = int(m.group(1))
-                pr = next((x for x in presets if x['id'] == (row.get('ColorsID') or '').lower()), None)
-                if pr: build['colors'] = dict(pr['colors'])
-            build.setdefault('wings', wings[0]['id'])
-            # Mounts from the default build's size: guns at the nose's sides, the exhaust at the rears' average.
-            used = [p for p in parts if p['id'] in build.values() or (p['slot'] == 'body' and 'body' not in build)]
-            mn = np.min([bounds[p['model']][0] for p in used], axis=0); mx = np.max([bounds[p['model']][1] for p in used], axis=0)
-            body = next((p for p in parts if p['id'] == build.get('body')), next(p for p in parts if p['slot'] == 'body'))
-            bmn, bmx = bounds[body['model']]
-            gx, gy, gz = bmx[0] * 0.45, bmn[1] * 0.3, max(0.6, (mx[2] - mn[2]) * 0.08)
-            mounts = [mount(gx, gy, -gz, 0), mount(gx, gy, gz, 0), mount(gx * 0.9, gy * 1.6, -gz * 0.5, 0), mount(gx * 0.9, gy * 1.6, gz * 0.5, 0),
-                      mount(gx * 0.6, bmn[1] * 0.7, 0.0, 1), mount(gx * 0.5, bmn[1] * 0.7, -0.4, 1), mount(gx * 0.5, bmn[1] * 0.7, 0.4, 1),
-                      mount(gx * 0.4, bmn[1] * 0.7, 0.0, 1),
-                      mount(float(ex[0]), float(ex[1]), float(ex[2]), 3, {'turretAngles': [0.7, 0.7, 0.7], 'glowSize': [40, 40, 90]})]
-            h, armor, cargo, sl, price = STATS[tid]
-            # Turret slots: as many as the default build's parts have turret sockets; their first is also the ship's own turret
-            # mount, for a build whose parts have none.
-            turrets = [m for p in parts if p['id'] in build.values() for m in p.get('mounts', []) if m['slotType'] == 2]
-            if turrets:
-                mounts.append(dict(turrets[0]))   # the ship's own turret mount, for a build whose parts have none
-            ships.append({'id': tid, 'name': tname, 'description': DESC[tid] + ' Customize it in the hangar.', 'race': 0,
-                          'armor': armor, 'cargo': cargo, 'handling': h, 'price': price,
-                          'slots': {'primary': sl[0], 'secondary': sl[1], 'turret': sl[2], 'equipment': sl[3]},
-                          'kit': kid, 'kitType': tid, 'build': build, 'hangarHeight': int(round(-mn[1] * GAME + 20)),
-                          'engineGlowColor': [0.45, 0.8, 1.0], 'mounts': mounts, 'dealer': {'chance': 3, 'systemRace': -1, 'minTechLevel': 5},
-                          'traffic': dict(TRAFFIC)})
-            print(f"  {tname}: {build.get('wings')} / {build.get('body')} / tier {build['tier']}, hangar height {ships[-1]['hangarHeight']}")
-    if has_okkar():
-        kit, ship = build_okkar(palettes, slots, presets, HARDPOINTS)
-        kit['trails'] = kit_trails
-        kits.append(kit); ships.append(ship)
-    else:
-        print('  no Okkar hull in the export (Assets/Vehicles/ShipModules/Okkar): no Wraith')
+    ships_part = 'ships' in parts
+    if parts & {'ships', 'fighters', 'warships', 'homebase'}:
+        textures(kits=ships_part)
+    kits, ships, palettes = [], [], None
+    if ships_part:
+        os.makedirs(os.path.join(MOD, 'parts'), exist_ok=True)
+        # The weapons and the player turret are optional (an export without them: no weapon models, the turret sockets fire
+        # the turret items without a model).
+        hardpoints = None
+        if has_weapons():
+            weapon_textures()
+            weapon_models()
+            hardpoints = {'weapons': HARDPOINTS['weapons']}
+            if has_turret():
+                turret_model()
+                hardpoints['turret'] = HARDPOINTS['turret']
+        else:
+            print('  no weapons in the export (Assets/Equipment/Weapons): the ships come without weapon and turret models')
+        palettes, slots, presets = colors()
+        liveries, skins = liveries_and_skins(presets)
+        kit_decals = decals()
+        import trails
+        kit_trails = trails.build(SRC, MOD, table)
+        debug = table('DT_DebugShipsKS.json')
+        for cls in CLASSES:
+            parts_, ex = build_kit(cls)
+            part_stats(parts_)
+            print(f'{cls}: {len(parts_)} parts')
+            kid = cls.lower()
+            kits.append({'id': kid, 'name': f'EVERSPACE 2 {cls} hulls', 'slots': ['base', 'body', 'rear', 'cockpit', 'interior', 'wings'],
+                         'scale': SCALE, 'yaw': 90, 'materials': weapon_materials() + materials(), 'palettes': palettes, 'colorSlots': slots, 'presets': presets,
+                         'hardpoints': HARDPOINTS, 'liveries': liveries, 'decals': kit_decals, 'skins': skins, 'trails': kit_trails,
+                         'parts': [{k: v for k, v in p.items() if not k.startswith('_') and k != 'table'} for p in parts_]})
+            by_table = {p['table']: p for p in parts_}
+            for eship, (tid, tname) in TYPES.items():
+                wings = [p for p in parts_ if p['slot'] == 'wings' and tid in p.get('types', [])]
+                if not wings: continue
+                row = next((r for k, r in debug.items() if k.lower().startswith(tname.lower() + '_')), None)
+                build = {'tier': 1}
+                if row and row.get('ShipClass') == f'EShipClass::{cls}':
+                    for slot, key in (('body', 'BodyID'), ('rear', 'RearID'), ('cockpit', 'CockpitID'), ('interior', 'CockpitInteriorID'), ('wings', 'WingsID')):
+                        p = by_table.get(row.get(key))
+                        if p and (slot != 'wings' or tid in p.get('types', [])): build[slot] = p['id']
+                    m = re.search(r'_Ext_T(\d)_', row.get('ExtensionID') or '')
+                    if m: build['tier'] = int(m.group(1))
+                    pr = next((x for x in presets if x['id'] == (row.get('ColorsID') or '').lower()), None)
+                    if pr: build['colors'] = dict(pr['colors'])
+                build.setdefault('wings', wings[0]['id'])
+                # Mounts from the default build's size: guns at the nose's sides, the exhaust at the rears' average.
+                used = [p for p in parts_ if p['id'] in build.values() or (p['slot'] == 'body' and 'body' not in build)]
+                mn = np.min([bounds[p['model']][0] for p in used], axis=0); mx = np.max([bounds[p['model']][1] for p in used], axis=0)
+                body = next((p for p in parts_ if p['id'] == build.get('body')), next(p for p in parts_ if p['slot'] == 'body'))
+                bmn, bmx = bounds[body['model']]
+                gx, gy, gz = bmx[0] * 0.45, bmn[1] * 0.3, max(0.6, (mx[2] - mn[2]) * 0.08)
+                mounts = [mount(gx, gy, -gz, 0), mount(gx, gy, gz, 0), mount(gx * 0.9, gy * 1.6, -gz * 0.5, 0), mount(gx * 0.9, gy * 1.6, gz * 0.5, 0),
+                          mount(gx * 0.6, bmn[1] * 0.7, 0.0, 1), mount(gx * 0.5, bmn[1] * 0.7, -0.4, 1), mount(gx * 0.5, bmn[1] * 0.7, 0.4, 1),
+                          mount(gx * 0.4, bmn[1] * 0.7, 0.0, 1),
+                          mount(float(ex[0]), float(ex[1]), float(ex[2]), 3, {'turretAngles': [0.7, 0.7, 0.7], 'glowSize': [40, 40, 90]})]
+                h, armor, cargo, sl, price = STATS[tid]
+                # Turret slots: as many as the default build's parts have turret sockets; their first is also the ship's own turret
+                # mount, for a build whose parts have none.
+                turrets = [m for p in parts_ if p['id'] in build.values() for m in p.get('mounts', []) if m['slotType'] == 2]
+                if turrets:
+                    mounts.append(dict(turrets[0]))   # the ship's own turret mount, for a build whose parts have none
+                ships.append({'id': tid, 'name': tname, 'description': DESC[tid] + ' Customize it in the hangar.', 'race': 0,
+                              'armor': armor, 'cargo': cargo, 'handling': h, 'price': price,
+                              'slots': {'primary': sl[0], 'secondary': sl[1], 'turret': sl[2], 'equipment': sl[3]},
+                              'kit': kid, 'kitType': tid, 'build': build, 'hangarHeight': int(round(-mn[1] * GAME + 20)),
+                              'engineGlowColor': [0.45, 0.8, 1.0], 'mounts': mounts, 'dealer': {'chance': 3, 'systemRace': -1, 'minTechLevel': 5},
+                              'traffic': dict(TRAFFIC)})
+                print(f"  {tname}: {build.get('wings')} / {build.get('body')} / tier {build['tier']}, hangar height {ships[-1]['hangarHeight']}")
+        if has_okkar():
+            kit, ship = build_okkar(palettes, slots, presets, HARDPOINTS)
+            kit['trails'] = kit_trails
+            kits.append(kit); ships.append(ship)
+        else:
+            print('  no Okkar hull in the export (Assets/Vehicles/ShipModules/Okkar): no Wraith')
     # The sounds (audio.py: EVERSPACE 2's engines, boosts and weapons, when the export has its Audio folder, converted by
     # FModel or decoded by vgmstream); into the ships' entries and the hardpoint rules every kit shares.
     import audio
     audio.configure(SRC, MOD)
-    if audio.available():
+    if 'sounds' not in parts:
+        pass
+    elif not ships_part:
+        print('  no sounds: they go on the player ships and their weapons (part "ships")')
+    elif audio.available():
         print('Adding the sounds ...')
         print('  sounds: ' + audio.build(ships, HARDPOINTS))
     else:
@@ -1207,51 +1255,71 @@ def main(version):
     # Dreadnought and its raids (events/).
     import weapons, warships, encounter, homebase_hangar, devices, fighters, sectors, factions
     # EVERSPACE 2's factions (factions.py): its ships fly for them and its sectors belong to them, never GoF2's races
-    print('Adding the factions ...')
-    json.dump(factions.build(SRC, MOD), open(os.path.join(MOD, 'factions.json'), 'w', encoding='utf-8'), indent=1)
-    items, world_stations = [], []
-    if os.path.isdir(os.path.join(SRC, 'Blueprints/Equipment/Weapons')):
+    if parts & {'fighters', 'warships', 'homebase', 'sectors'}:
+        print('Adding the factions ...')
+        json.dump(factions.build(SRC, MOD), open(os.path.join(MOD, 'factions.json'), 'w', encoding='utf-8'), indent=1)
+    items, world_stations, made = [], [], set()
+    if 'weapons' in parts and os.path.isdir(os.path.join(SRC, 'Blueprints/Equipment/Weapons')):
         print('Adding the weapons ...')
         weapons.configure(SRC, MOD)
         items, rules = weapons.build()
+        made.add('weapons')
         # (every kit shares the rules; the hull's own weapon rules stay behind them)
         seen = set()
         for k in kits:
             hp = k.get('hardpoints')
             if hp and id(hp) not in seen:
                 seen.add(id(hp)); hp['weapons'] = rules + hp['weapons']
-    if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Fighters')):
+    elif 'weapons' in parts:
+        print('  no weapons in the export (Blueprints/Equipment/Weapons): no weapon items')
+    if 'fighters' in parts and os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Fighters')):
         # (before the warships: their hangars launch these)
         print('Adding the enemy fighters and drones ...')
         fighters.configure(SRC, MOD)
         enemies = fighters.build()
         ships += enemies
+        made.add('fighters')
         print(f'  {len(enemies)} fighters and drones as traffic of their faction\'s race')
-    if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')):
-        print('Adding the warships and freighters ...')
+    elif 'fighters' in parts:
+        print('  no fighters in the export (Assets/Vehicles/Fighters)')
+    warships_there = os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships'))
+    if parts & {'warships', 'homebase'} and warships_there:
         warships.configure(SRC, MOD)
+        os.makedirs(os.path.join(MOD, 'warships', 'maps'), exist_ok=True)   # (the Homebase alone needs its clear map too)
+        Image.fromarray(np.zeros((4, 4, 4), np.uint8)).save(os.path.join(MOD, 'warships', 'maps', 'clear.png'))
+    if 'warships' in parts and warships_there:
+        print('Adding the warships and freighters ...')
         ships += warships.build()
+        made.add('warships')
+        print('  encounter: ' + encounter.build(MOD))
+    elif 'warships' in parts:
+        print('  no warships in the export (Assets/Vehicles/Warships): no capital ships, no Dreadnought')
+    if 'homebase' in parts and warships_there:
         # the Mobile Homebase: the carrier with its hall, its model in space and its hangar (docked EVERSPACE 2's way)
         room, model = homebase_hangar.build(SRC, MOD)
         stations = warships.build_homebase(model)
         if stations:
             world_stations += stations
-            print('  the Mobile Homebase: a station roaming the sectors')
+            made.add('homebase')
+            print('  the Mobile Homebase: a station roaming ' + ('the sectors' if 'sectors' in parts else 'every system'))
             if room:
                 json.dump([room], open(os.path.join(MOD, 'interiors.json'), 'w', encoding='utf-8'), indent=1)
                 print('  docked inside it, on its pad (interiors.json)')
-        print('  encounter: ' + encounter.build(MOD))
-    else:
-        print('  no warships in the export (Assets/Vehicles/Warships): no capital ships, no Dreadnought')
+    elif 'homebase' in parts:
+        print('  no Mobile Homebase: the warships (Assets/Vehicles/Warships) aren\'t in the export')
     # EVERSPACE 2's devices and consumables (devices.py: on the nearest GoF2 equipment / secondary).
-    print('Adding the devices and consumables ...')
-    items += devices.build(MOD)
+    if 'devices' in parts:
+        print('Adding the devices and consumables ...')
+        items += devices.build(MOD)
+        made.add('devices')
     # EVERSPACE 2's sectors as systems past the edge of the star map, and ES2's resources (sectors.py).
-    sectors.configure(SRC, MOD)
-    if sectors.available():
+    if 'sectors' in parts:
+        sectors.configure(SRC, MOD)
+    if 'sectors' in parts and sectors.available():
         print('Adding the EVERSPACE 2 sectors ...')
         systems, sector_stations, resources = sectors.build()
         world_stations += sector_stations; items += resources
+        made.add('sectors')
         # the Mobile Homebase roams ES2's own sectors only (stations.json "mobile" "systems"), home in the first
         for st in world_stations:
             if st.get('id') == 'es2_homebase' and systems:
@@ -1270,23 +1338,30 @@ def main(version):
         else:
             print('  the stations look like Galaxy on Fire 2\'s: their pieces aren\'t in the export (tools/station_assets.txt)')
         json.dump(systems, open(os.path.join(MOD, 'systems.json'), 'w', encoding='utf-8'), indent=1)
-    else:
+    elif 'sectors' in parts:
         print('  no sectors: the travel maps (Maps/TravelMode) or the sky and planet textures (tools/sector_assets.txt) are missing')
     if world_stations:
         json.dump(world_stations, open(os.path.join(MOD, 'stations.json'), 'w', encoding='utf-8'), indent=1)
     if items: json.dump(items, open(os.path.join(MOD, 'items.json'), 'w', encoding='utf-8'), indent=1)
-    json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)
-    json.dump(exhaust_styles(palettes), open(os.path.join(MOD, 'exhausts.json'), 'w', encoding='utf-8'), indent=1)
-    json.dump(ships, open(os.path.join(MOD, 'ships.json'), 'w', encoding='utf-8'), indent=1)
+    if kits:
+        json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)
+        json.dump(exhaust_styles(palettes), open(os.path.join(MOD, 'exhausts.json'), 'w', encoding='utf-8'), indent=1)
+        made.add('ships')
+    if ships: json.dump(ships, open(os.path.join(MOD, 'ships.json'), 'w', encoding='utf-8'), indent=1)
+    if 'sounds' in parts and ships_part and audio.available(): made.add('sounds')
     jobs.flush()   # every map written (the encodes queued on the workers)
-    json.dump({'id': 'es2_ships', 'name': 'EVERSPACE 2 ships', 'version': version, 'author': 'built by es2_ships_importer',
-               'description': 'Nine customizable EVERSPACE 2 ships (Light / Medium / Heavy) with their parts, colour schemes, weapons '
-                              'and turret' + (', and the Okkar Wraith' if has_okkar() else '') +
-                              '; EVERSPACE 2\'s devices and consumables in the shops' +
-                              ('; EVERSPACE 2\'s weapons in the shops; its warships and freighters in the orbits\' traffic; the Outlaw '
-                               'Dreadnought raiding convoys now and then' if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')) else '') +
-                              ('; EVERSPACE 2\'s ten sectors past the edge of the star map (a Khador Drive away, linked by their own jumpgates), with ES2\'s resources to mine' if sectors.available() else '') +
-                              '. Built on this device from your own EVERSPACE 2 files. Customize the ships in the hangar.',
+    what = []
+    if 'ships' in made: what.append('Nine customizable EVERSPACE 2 ships (Light / Medium / Heavy) with their parts, colour schemes, weapons and turret'
+                                    + (', and the Okkar Wraith' if has_okkar() else ''))
+    if 'weapons' in made: what.append('EVERSPACE 2\'s weapons in the shops')
+    if 'devices' in made: what.append('EVERSPACE 2\'s devices and consumables in the shops')
+    if 'fighters' in made: what.append('its fighters and drones in the traffic')
+    if 'warships' in made: what.append('its warships and freighters in the orbits\' traffic; the Outlaw Dreadnought raiding convoys now and then')
+    if 'homebase' in made: what.append('the Mobile Homebase, a station roaming the ' + ('sectors' if 'sectors' in made else 'galaxy'))
+    if 'sectors' in made: what.append('EVERSPACE 2\'s ten sectors past the edge of the star map (a Khador Drive away, linked by their own jumpgates), with ES2\'s resources to mine')
+    json.dump({'id': 'es2_ships', 'name': 'EVERSPACE 2' + (' ships' if 'ships' in made else ''), 'version': version, 'author': 'built by es2_ships_importer',
+               'description': '; '.join(what) + '. Built on this device from your own EVERSPACE 2 files.' +
+                              (' Customize the ships in the hangar.' if 'ships' in made else ''),
                'credits': 'Models, textures and colours: EVERSPACE 2 (c) ROCKFISH Games, from the player\'s own copy of the game. '
                           'For personal use: don\'t share the built mod.',
                'preview': 'preview.png',
@@ -1294,7 +1369,8 @@ def main(version):
                # made from them) differ from the PC version's, everything else is the same, so the two play together.
                'multiplayerIgnore': MULTIPLAYER_IGNORE},
               open(os.path.join(MOD, 'mod.json'), 'w', encoding='utf-8'), indent=1)
+    return [p for p in PARTS if p in made]
 
 if __name__ == '__main__':
     configure(sys.argv[1], sys.argv[2])
-    main(sys.argv[3] if len(sys.argv) > 3 else '1.0')
+    main(sys.argv[3] if len(sys.argv) > 3 else '1.0', resolve_parts(sys.argv[4])[0] if len(sys.argv) > 4 else None)

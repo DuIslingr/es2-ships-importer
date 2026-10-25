@@ -1,0 +1,16 @@
+{
+ "_comment": "Copy this file to config.json and change what you need. Every key is a command-line option without its dashes; the command line wins over this file. 'python3 import.py --list-parts' lists the parts.",
+ "export": "C:/Tools/FModel/Output/Exports",
+ "parts": ["all"],
+ "out": "es2_ships",
+ "zip": false,
+ "mobile": false,
+ "ratio": 0.25,
+ "no-sounds": false,
+ "no-icons": false,
+ "no-preview": false,
+ "remake": null,
+ "blender": null,
+ "vgmstream": null,
+ "jobs": null
+}

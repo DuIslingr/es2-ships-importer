@@ -5,3 +5,5 @@ es2_ships_phone/
 .preview_renders/
 .icon_renders/
 __pycache__/
+# Your own settings (paths on your computer)
+config.json

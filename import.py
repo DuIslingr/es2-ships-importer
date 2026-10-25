@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""EVERSPACE 2 ships for the Galaxy on Fire 2 Unity Remake: builds the es2_ships mod from your own FModel export of
-EVERSPACE 2. Nothing of EVERSPACE 2 comes with this importer; the mod it writes is for your own use (don't share it).
+"""EVERSPACE 2 for the Galaxy on Fire 2 Unity Remake: builds the es2_ships mod from your own FModel export of EVERSPACE 2.
+Nothing of EVERSPACE 2 comes with this importer; the mod it writes is for your own use (don't share it).
 
-    python3 import.py <FModel export folder> [--out FOLDER] [--mobile] [--ratio 0.25] [--blender PATH] [--zip]
-                      [--vgmstream PATH] [--no-sounds]          (on Windows: py import.py ...)
+    python3 import.py <FModel export folder> [--parts all | ships,sectors,...] [--out FOLDER] [--mobile] [--zip] ...
+    python3 import.py --list-parts                               (on Windows: py import.py ...)
 
 <FModel export folder>: FModel's Output/Exports folder, its ES2 folder or its ES2/Content folder (see README.md for what
-to export). --out: where the mod goes (default: es2_ships next to this script; the game's Mods folder works too).
---mobile: also a lighter version for phones (Blender decimates the models, the textures are halved), zipped for the
-game's Import mod button. --zip: also zip the desktop mod.
+to export). --parts: what the mod holds (default all; --list-parts lists them). --out: where the mod goes (default:
+es2_ships next to this script; the game's Mods folder works too). --mobile: also a lighter version for phones (Blender
+decimates the models, the textures are halved), zipped for the game's Import mod button. --zip: also zip the desktop mod.
+Every option can also be kept in config.json next to this script (config.example.json shows how); the command line wins.
 """
 import argparse, glob, importlib, json, os, platform, re, shutil, stat, subprocess, sys, time, zipfile
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tools'))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VERSION = '1.0'
@@ -28,6 +30,7 @@ REQUIRED = [
     ('Assets/Vehicles/ShipModules/Shared/Textures/T_ShipModules_TechDetails_001_N.png', 'the shared ship textures'),
 ]
 MESH_FOLDERS = ['Assets/Vehicles/ShipModules/Light/Meshes', 'Assets/Vehicles/ShipModules/Medium/Meshes', 'Assets/Vehicles/ShipModules/Heavy/Meshes']
+# (the part each optional file is for: its note only shows when that part is built)
 OPTIONAL = [
     ('Assets/Equipment/Weapons/Meshes/SM_PrimaryWeapon_005.glb', 'weapon models (Assets/Equipment/Weapons: models, JSON, PNG)'),
     ('Assets/Equipment/Weapons/Textures/T_Weapons_001_C_AO.png', 'weapon textures'),
@@ -59,9 +62,16 @@ def find_content(path):
     fail(f'no EVERSPACE 2 export found at {path}\n  Give FModel\'s Output/Exports folder, or the ES2/Content folder inside it.')
 
 
-def check_export(content):
-    missing = [(p, what) for p, what in REQUIRED if not os.path.exists(os.path.join(content, p))]
-    for folder in MESH_FOLDERS:
+OPTIONAL_PART = {'Audio/BP/DT_WeaponSounds.json': 'sounds'}   # (the rest are the player ships')
+
+
+def check_export(content, parts):
+    """What the export must have for 'parts' (the ship tables and modules only for the player ships); the optional files
+    of those parts it lacks are noted."""
+    missing = []
+    for p, what in REQUIRED if 'ships' in parts else []:
+        if not os.path.exists(os.path.join(content, p)): missing.append((p, what))
+    for folder in MESH_FOLDERS if 'ships' in parts else []:
         d = os.path.join(content, folder)
         glbs = glob.glob(os.path.join(d, 'SM_ShipModule_*.glb'))
         jsons = glob.glob(os.path.join(d, 'SM_ShipModule_*.json'))
@@ -71,6 +81,7 @@ def check_export(content):
         lines = '\n'.join(f'  - {p}   ({what})' for p, what in missing)
         fail(f'the export is missing:\n{lines}\nSee README.md, "Exporting from FModel".')
     for p, what in OPTIONAL:
+        if OPTIONAL_PART.get(p, 'ships') not in parts: continue
         if not os.path.exists(os.path.join(content, p)):
             print(f'  note: no {what} in the export: the mod is built without it')
 
@@ -177,7 +188,11 @@ def make_preview(mod, blender, remake=None):
 def plain_preview(mod):
     """The plain card: the ships' names in three rows."""
     from PIL import Image, ImageDraw, ImageFont
-    ships = json.load(open(os.path.join(mod, 'ships.json'), encoding='utf-8-sig'))
+    f = os.path.join(mod, 'ships.json')
+    ships = [s for s in json.load(open(f, encoding='utf-8-sig')) if s.get('kit')] if os.path.exists(f) else []
+    if not ships:   # (a mod without the player ships: its name and description)
+        info = json.load(open(os.path.join(mod, 'mod.json'), encoding='utf-8-sig'))
+        ships = [{'id': x.strip(), 'name': x.strip()[:28]} for x in info.get('description', '').split(';')[:9] if x.strip()]
     card = Image.new('RGB', (640, 360), (14, 18, 28))
     d = ImageDraw.Draw(card)
     def font(size):
@@ -186,7 +201,7 @@ def plain_preview(mod):
             except OSError: pass
         return ImageFont.load_default()
     title, small = font(24), font(13)
-    d.text((18, 12), f'EVERSPACE 2 ships  \u00b7  {len(ships)}', fill=(235, 240, 250), font=title)
+    d.text((18, 12), f'EVERSPACE 2  \u00b7  {len(ships)}', fill=(235, 240, 250), font=title)
     cols = 3 if len(ships) <= 9 else 4 if len(ships) <= 12 else 5   # (three rows: nine ships three by three, more narrower)
     cw = 640 // cols
     for i, s in enumerate(ships[:cols * 3]):
@@ -195,7 +210,7 @@ def plain_preview(mod):
         name = s.get('name', s['id'])
         d.text((cx - d.textlength(name, font=small) / 2, cy + 38), name, fill=(200, 215, 230), font=small)
     card.save(os.path.join(mod, 'preview.png'))
-    return 'a plain card (Blender not found)'
+    return 'a plain card'
 
 
 def make_icons(mod, blender):
@@ -251,10 +266,12 @@ def make_mobile(mod, out, ratio, blender):
     from PIL import Image
     if os.path.exists(out): remove_tree(out)
     os.makedirs(os.path.join(out, 'maps'))
-    for f in ('shipkits.json', 'ships.json', 'exhausts.json', 'preview.png'):
-        if os.path.exists(os.path.join(mod, f)): shutil.copy(os.path.join(mod, f), out)
-    for d in ('equipment', 'icons', 'exhausts', 'audio'):
-        if os.path.isdir(os.path.join(mod, d)): shutil.copytree(os.path.join(mod, d), os.path.join(out, d))
+    # everything but the ship parts and their maps (made lighter below) and mod.json as it is
+    for n in os.listdir(mod):
+        if n in ('maps', 'parts', 'mod.json') or n.startswith('.'): continue
+        src = os.path.join(mod, n)
+        if os.path.isdir(src): shutil.copytree(src, os.path.join(out, n))
+        else: shutil.copy(src, out)
     info = json.load(open(os.path.join(mod, 'mod.json'), encoding='utf-8-sig'))
     info['name'] += ' (phone)'
     json.dump(info, open(os.path.join(out, 'mod.json'), 'w', encoding='utf-8'), indent=1)
@@ -264,6 +281,7 @@ def make_mobile(mod, out, ratio, blender):
         im = Image.open(os.path.join(mod, 'maps', f))
         if im.size[0] > 8: im = im.resize((max(4, im.size[0] // 2), max(4, im.size[1] // 2)), Image.LANCZOS)
         im.save(os.path.join(out, 'maps', f), optimize=True)
+    if not os.path.isdir(os.path.join(mod, 'parts')): return out   # (no player ships: nothing to decimate)
     print(f'  decimating the parts in Blender (to {ratio:.0%} of their triangles; this takes a few minutes)...')
     # --python-exit-code: a Python error in the script fails Blender (it exits 0 otherwise).
     subprocess.run([blender, '-b', '--factory-startup', '--python-exit-code', '1', '-P', os.path.join(HERE, 'tools', 'decimate_blender.py'), '--',
@@ -273,20 +291,58 @@ def make_mobile(mod, out, ratio, blender):
     return out
 
 
+CONFIG = os.path.join(HERE, 'config.json')
+
+
+def load_config(path, ap):
+    """config.json (or --config): the options as {"option": value}, named as on the command line without the dashes
+    ("parts": ["ships", "sectors"], "no-sounds": true, "out": "..."). They become the defaults; the command line wins."""
+    if not os.path.exists(path): return {}
+    try:
+        cfg = json.load(open(path, encoding='utf-8-sig'))
+    except ValueError as e:
+        fail(f'{path} isn\'t valid JSON: {e}')
+    if not isinstance(cfg, dict): fail(f'{path} must be a JSON object: {{"option": value, ...}}')
+    known = {a.dest for a in ap._actions} - {'help', 'config', 'list_parts'}
+    out = {}
+    for k, v in cfg.items():
+        if k.startswith('_'): continue   # ("_comment" and the like)
+        dest = k.lstrip('-').replace('-', '_')
+        if dest not in known: fail(f'{path}: unknown option "{k}" (known: {", ".join(sorted(known))})')
+        if dest == 'parts' and isinstance(v, list): v = ','.join(v)
+        out[dest] = v
+    return out
+
+
+def list_parts(build):
+    print('What the mod can hold (--parts, or "parts" in config.json):\n')
+    for name, (title, desc) in build.PARTS.items():
+        needs = build.NEEDS.get(name)
+        brings = (needs or []) + build.WITH.get(name, [])
+        print(f'  {name:9} {title}: {desc}' + (f'  (brings {", ".join(brings)})' if brings else ''))
+    print('\nShortcuts:')
+    for name, parts in build.ALIASES.items():
+        print(f'  {name:9} = {", ".join(parts)}')
+    print('\nExamples:  --parts all   --parts ships   --parts systems   --parts ships,weapons,devices')
+
+
 def main():
     # A Windows console that can't show a character (a name in another script) mustn't stop the build.
     for stream in (sys.stdout, sys.stderr):
         try: stream.reconfigure(errors='replace')
         except (AttributeError, ValueError): pass
     ap = argparse.ArgumentParser(description='Builds the es2_ships mod for the Galaxy on Fire 2 Unity Remake from your own EVERSPACE 2 export.')
-    ap.add_argument('export', help="FModel's Output/Exports folder (or its ES2/Content folder)")
+    ap.add_argument('export', nargs='?', help="FModel's Output/Exports folder (or its ES2/Content folder)")
+    ap.add_argument('--parts', default='all', help='what the mod holds: all (default), or a list like ships,sectors (--list-parts shows them)')
+    ap.add_argument('--list-parts', action='store_true', help='list the parts and shortcuts, and stop')
+    ap.add_argument('--config', help='a settings file (default: config.json next to this script, when there is one)')
     ap.add_argument('--out', default=os.path.join(HERE, MOD_ID), help='where the mod goes (default: es2_ships next to this script)')
     ap.add_argument('--mobile', action='store_true', help='also make a lighter version for phones (needs Blender)')
     ap.add_argument('--ratio', type=float, default=0.25, help='the phone version keeps this share of the triangles (default 0.25)')
     ap.add_argument('--blender', help='the Blender executable (or Blender.app on a Mac), if it isn\'t found by itself')
     ap.add_argument('--vgmstream', help='the vgmstream-cli executable for the sounds, if it isn\'t found by itself (FModel\'s '
                                         'Output/.data folder, or vgmstream-cli on the PATH)')
-    ap.add_argument('--no-sounds', action='store_true', help='skip EVERSPACE 2\'s sounds (the ships keep the game\'s)')
+    ap.add_argument('--no-sounds', action='store_true', help='skip EVERSPACE 2\'s sounds (the ships keep the game\'s); the same as leaving "sounds" out of --parts')
     ap.add_argument('--zip', action='store_true', help='also zip the desktop mod')
     ap.add_argument('--jobs', type=int, help='worker threads for the maps and ships (default: half the CPUs, fewer when memory is short)')
     ap.add_argument('--no-preview', action='store_true', help='skip the preview image\'s renders (a plain card instead)')
@@ -295,37 +351,52 @@ def main():
                                      'then use the game\'s own plates instead of drawn ones')
     ap.add_argument('--item-icons', help='a folder of EVERSPACE 2\'s item icons as PNG (default: the export\'s UI/Images/Items): '
                                          'the weapons\', devices\' and consumables\' shop icons are made from them')
+    first, _ = ap.parse_known_args()
+    config = os.path.abspath(os.path.expanduser(first.config)) if first.config else CONFIG
+    if first.config and not os.path.exists(config): fail(f'no settings file at {config}')
+    ap.set_defaults(**load_config(config, ap))
     a = ap.parse_args()
-    if not 0.05 <= a.ratio <= 1: fail('--ratio must be between 0.05 and 1')
-
     check_python()
+    build = importlib.import_module('build')
+    if a.list_parts:
+        list_parts(build); return
+    if not a.export: ap.error(f'give the FModel export folder (or "export" in {os.path.basename(config)})')
+    if not 0.05 <= a.ratio <= 1: fail('--ratio must be between 0.05 and 1')
+    try:
+        parts, pulled = build.resolve_parts(a.parts)
+    except ValueError as e:
+        fail(str(e) + '\n  (--list-parts lists them)')
+    if a.no_sounds and 'sounds' in parts: parts.remove('sounds'); pulled = [p for p in pulled if p != 'sounds']
+    if os.path.exists(config): print(f'Settings: {config}')
+    print('Parts: ' + ', '.join(parts) + (f'  (with {", ".join(pulled)}: the parts asked for need or bring them)' if pulled else ''))
+
     content = find_content(a.export)
     print(f'EVERSPACE 2 export: {content}')
-    check_export(content)
+    check_export(content, parts)
     blender = find_blender(a.blender) if a.mobile else None
     out = os.path.abspath(os.path.expanduser(a.out))
     prepare_out(out)
 
-    sys.path.insert(0, os.path.join(HERE, 'tools'))
     jobs = importlib.import_module('jobs')
     jobs.JOBS = a.jobs
     jobs.lower_priority()   # (the desktop stays usable while every worker runs)
     print(f'  {jobs.workers()} workers')
-    build = importlib.import_module('build')
     audio = importlib.import_module('audio')
-    audio.options(vgmstream=a.vgmstream, enabled=not a.no_sounds)
+    audio.options(vgmstream=a.vgmstream, enabled='sounds' in parts)
     build.configure(content, out)
     icons = importlib.import_module('icons')
     icons.configure(os.path.expanduser(a.item_icons) if a.item_icons else os.path.join(content, 'UI', 'Images', 'Items'), a.remake)
     print(f'Building the mod into {out} ...')
-    build.main(VERSION)
-    if not a.no_icons:
+    made = build.main(VERSION, parts)
+    if 'ships' in made and not a.no_icons:
         print('Making the ships\' shop icons ...')
         print(f'  icons: {make_icons(out, find_blender(a.blender, required=False))}')
     print('Making the preview image ...')
     print(f'  preview.png: {make_preview(out, None if a.no_preview else find_blender(a.blender, required=False), a.remake)}')
 
-    done = [f'  the mod:           {out}']
+    left = [p for p in parts if p not in made]
+    done = [f'  the mod:           {out}', f'  holds:             {", ".join(made) or "nothing"}']
+    if left: done.append(f'  not built:         {", ".join(left)} (the export lacks their files: see the notes above)')
     if a.zip: done.append(f'  the mod as a zip:  {zip_folder(out, out + ".zip")}')
     if a.mobile:
         print('Making the phone version ...')

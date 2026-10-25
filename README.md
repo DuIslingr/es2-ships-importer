@@ -2,7 +2,10 @@
 
 Builds the **es2_ships** mod for the Galaxy on Fire 2 Unity Remake from **your own copy of EVERSPACE 2**: nine customizable
 ships (Light: Vanguard, Scout, Stinger; Medium: Interceptor, Sentinel, Striker; Heavy: Bomber, Vindicator, Gunship) that you
-put together in the hangar from EVERSPACE 2's ship modules, in its colour schemes, with its weapon and turret models.
+put together in the hangar from EVERSPACE 2's ship modules, in its colour schemes, with its weapon and turret models; and
+as much more of EVERSPACE 2 as you want: its weapons, devices and consumables, its fighters, warships and freighters in the
+traffic, the Mobile Homebase, and its ten sectors as star systems. Build all of it, or only the parts you pick
+(`--parts`, see "Building the mod").
 
 This importer contains **nothing from EVERSPACE 2**: no models, textures or game data, only the scripts that convert the files
 you export from your own installation. The mod it builds does contain EVERSPACE 2's models and textures (© ROCKFISH Games),
@@ -176,8 +179,29 @@ the terminal window types its path):
 - Windows: `py import.py "C:\Tools\FModel\Output\Exports"`
 - macOS / Linux: `python3 import.py ~/FModel/Output/Exports`
 
-It checks the export first and lists anything missing, then
-writes the mod to `es2_ships` next to this script (about 20 seconds). Options:
+It checks the export first and lists anything missing, then writes the mod to `es2_ships` next to this script. Options:
+
+- `--parts <list>`: what the mod holds. `all` (the default) builds everything; or pick, comma-separated:
+
+  | Part | What it adds |
+  |---|---|
+  | `ships` | the nine customizable player ships and the Okkar Wraith (parts, colours, liveries, decals, engine trails, weapon and turret models, exhaust styles); brings `sounds` |
+  | `weapons` | EVERSPACE 2's weapons as shop items |
+  | `devices` | EVERSPACE 2's devices and consumables in the shops |
+  | `fighters` | the enemy fighters and drones, flying for their factions |
+  | `warships` | the warships and freighters in the orbits' traffic, and the Dreadnought's raids; brings `ships`, `weapons` and `fighters` (their hangars launch them, their turrets fire the weapons) |
+  | `homebase` | the Mobile Homebase, a station you dock in that roams the sectors (or every system without them) |
+  | `sectors` | the ten sectors as star systems with their stations, hangars and resources to mine; brings `fighters` (their traffic) |
+  | `sounds` | the ships' engine, boost and weapon sounds |
+
+  Shortcuts: `systems` = sectors, `items` = weapons + devices, `traffic` = fighters + warships, `world` = sectors + homebase.
+  Examples: `--parts ships` (the ships only), `--parts systems`, `--parts ships,items`. `--list-parts` prints the list.
+  A part the export has no files for is left out with a note, and the summary at the end says what the mod holds. The
+  mod's id is `es2_ships` whatever it holds, so a later build with more parts replaces it.
+- `--config <file>`: a settings file. Without it, `config.json` next to `import.py` is read when there is one: copy
+  `config.example.json` to `config.json` and set your export folder, parts and other options there once; then
+  `python3 import.py` alone builds with them. Keys are the options' names without the dashes (`"parts": ["ships",
+  "sectors"]`, `"no-sounds": true`); an option given on the command line wins.
 
 - `--no-preview`: skip rendering the mod's preview image (the Mods screen's card, 1280 x 720). By default, when Blender
   is found, it shows the Dreadnought with warships, freighters and the Mobile Homebase behind it, four player ships in
@@ -199,7 +223,7 @@ writes the mod to `es2_ships` next to this script (about 20 seconds). Options:
 - `--ratio 0.4`: the share of triangles the phone version keeps (default 0.25).
 - `--blender <path>`: Blender's executable (or `Blender.app` on a Mac), if it isn't found by itself.
 - `--vgmstream <path>`: the `vgmstream-cli` that decodes raw `.binka` sounds, if it isn't found by itself.
-- `--no-sounds`: build without EVERSPACE 2's sounds.
+- `--no-sounds`: build without EVERSPACE 2's sounds (the same as leaving `sounds` out of the parts).
 - `--jobs 4`: how many things the build does at once (default: half your processor's cores, fewer when memory is short).
   The build also runs at a lower priority, so the computer stays usable meanwhile.
 
