@@ -226,6 +226,8 @@ def asset_list(path):
         lv = Level(lid)
         for m, *_ in cluster(lv.pieces(), lv.docks()):
             if not os.path.exists(os.path.join(SRC, m.replace('/Game/', '') + '.glb')): need.add(m)
+    dust = '/Game/Assets/Effects/Textures/T_Smoke_001_M'   # (the docks' landing dust, dock_dust)
+    if not os.path.exists(os.path.join(SRC, dust.replace('/Game/', '') + '.png')): need.add(dust)
     with open(path, 'w') as f:
         f.write('# What the stations need beyond a plain FModel export (tools/stations.py). tools/shaders: export <this file> <Exports> all\n')
         for m in sorted(need): f.write(m + '\n')
