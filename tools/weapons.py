@@ -19,7 +19,7 @@ split by bone like build.turret_model into base / pivot / gun with their texture
 import json, os, re, glob, struct, io
 import numpy as np
 from PIL import Image
-import glbtool, es2mat
+import glbtool, es2mat, icons
 
 SRC = MOD = None
 LOG = print
@@ -157,6 +157,97 @@ def parse(bp):
     return fam, rest
 
 
+# Each weapon's ES2 item icon (items.CSV's icon column, by its blueprint): icons.py turns it into a GoF2 shop icon. The
+# DLC weapons have no row there and take a related weapon's icon in their own colour (FALLBACK_ICONS).
+WEAPON_ICONS = {
+    'armorbreakermissilelauncher': 'item_weapon_secondary_armor_breaker_missile_86x86_2x',
+    'autocannon': 'art_board10_Gatling',
+    'autocannon_bloodstar': 'art_board10_Gatling',
+    'autocannon_legendary_secondary_boost': 'item_weapon_legendary_primary_final_reckoning_86x86_2x',
+    'autocannon_okkar': 'sand_storm_86x86_2x',
+    'beamlaser': 'art_board8_Beam-Laser',
+    'beamlaser_charged': 'art_board8_Beam-Laser',
+    'beamlaser_legendary_backer_1': 'item_weapon_legendary_primary_the_pidgeons_stare_86x86_2x',
+    'beamlaser_legendary_backer_2': 'item_weapon_legendary_primary_rgbeam_laser_86x86_2x',
+    'beamlaser_okkar': 'pugilist_86x86_2x',
+    'blaster': 'art_board12_Fusion-Blaster',
+    'blaster_eclipse': 'art_board12_Fusion-Blaster',
+    'blaster_legendary_instakill': 'grim_reaper',
+    'blaster_okkar': 'voltaic_blaster_86x86_2x',
+    'blaster_okkar2': 'barrage_blaster_86x86_2x',
+    'coilgun': 'art_board14_Coil-Gun',
+    'coilgun_judge': 'art_board14_Coil-Gun',
+    'coilgun_legendary_ult': 'item_weapon_legendary_primary_devotion_86x86_2x',
+    'coilgun_okkar': 'tangle_coil_86x86_2x',
+    'coilgun_parallel': 'art_board14_Coil-Gun',
+    'coilgun_scatter': 'art_board14_Coil-Gun',
+    'corrosionmissilelauncher': 'item_weapon_secondary_corrosion_missile_86x86_2x',
+    'cruisemissilelauncher': 'item_weapon_secondary_cruise_missile_86x86_2x',
+    'destabilizermissilelauncher': 'item_weapon_secondary_destabilizer_missile_86x86_2x',
+    'empmissilelauncher': 'item_weapon_secondary_emp_missile_86x86_2x',
+    'exorcisermissilelauncher': 'item_weapon_secondary_exorcist_missile_86x86_2x',
+    'flak': 'art_board13_Flak-Cannon',
+    'flak_eclipse': 'art_board13_Flak-Cannon',
+    'flak_highfirerate': 'art_board13_Flak-Cannon',
+    'flak_legendary_backer_1': 'item_weapon_legendary_primary_crimson_sun_86x86_2x',
+    'flak_okkar': 'canister_flak_86x86_2x',
+    'gausscannon': 'item_weapon_primary_gauss_cannon_86x86_2x',
+    'gausscannon_heavy': 'item_weapon_primary_gauss_cannon_86x86_2x',
+    'gausscannon_legendary_killcharge': 'perfect_hatred',
+    'gausscannon_okkar': 'panorama_gauss_86x86_2x',
+    'gausscannon_redemption': 'item_weapon_primary_gauss_cannon_86x86_2x',
+    'googun_legendary': 'goo_gun',
+    'homingmissilelauncher': 'art_board15_Homing-Missile',
+    'homingmissilelauncher_legendary_battery': 'ritual',
+    'homingmissilelauncher_okkar': 'faithstrike_missile_86x86_2x',
+    'legendary_autocannonminelauncher': 'mine_autocannon',
+    'minelauncher': 'art_board26_Mine',
+    'minelauncher_backer_1': 'item_weapon_legendary_secondary_birds_nest_86x86_2x',
+    'minelauncher_backer_2': 'figure_of_eight',
+    'minelauncher_cluster': 'mine_cluster',
+    'minelauncher_corrosion': 'item_weapon_secondary_corrosion_mine_86x86_2x',
+    'minelauncher_destabilize': 'destabilizer_mines_86x86_2x',
+    'minelauncher_dropper': 'mine_drop',
+    'minelauncher_emp': 'mine_emp',
+    'minelauncher_legendary_resonate': 'the_schrader_86x86_2x',
+    'minelauncher_legendary_shield': 'wardens_embrace_86x86_2x',
+    'minelauncher_waspnest': 'mine_swarm',
+    'minelauncher_web': 'item_weapon_secondary_web_cloud_mine_86x86_2x',
+    'parasiticmissilelauncher': 'missile_parasitic',
+    'plasmathrower_legendary': 'plasma_thrower',
+    'pulselaser': 'art_board7_Pulse-Laser',
+    'pulselaser_legendary_freeze': 'rime',
+    'pulselaser_legendary_slime': 'slimerizer',
+    'pulselaser_okkar': 'unifier_86x86_2x',
+    'pulselaser_parallel': 'art_board7_Pulse-Laser',
+    'pulselaser_resonancereplenisher': 'art_board7_Pulse-Laser',
+    'pulselaser_togetherwestand': 'art_board7_Pulse-Laser',
+    'railgun': 'art_board9_Rail-Gun',
+    'railgun_legendary_damageboost': 'last_rites',
+    'railgun_okkar': 'shard_gun_86x86_2x',
+    'rocketlauncher': 'item_weapon_secondary_rockets_86x86_2x',
+    'rocketlauncher_legendary_frostexplosions': 'ok_boomer',
+    'rocketlauncher_okkar': 'parabel_rockets_86x86_2x',
+    'scattergun': 'art_board11_Scatter-Gun',
+    'scattergun_bloodstar': 'art_board11_Scatter-Gun',
+    'scattergun_legendary_absorb': 'the_scourge',
+    'scattergun_okkar': 'stoic_scatter_gun_86x86_2x',
+    'shieldbreakermissilelauncher': 'item_weapon_secondary_shield_breaker_missile_86x86_2x',
+    'sporemissilelauncher': 'missile_spore',
+    'thermogun': 'item_weapon_primary_thermo_gun_86x86_2x',
+    'thermogun_legendary_chain': 'hunters_fang',
+    'thermogun_okkar': 'omniflare_86x86_2x',
+    'webmissilelauncher': 'item_weapon_secondary_web_cloud_missile_86x86_2x',
+}
+FALLBACK_ICONS = {
+    'autocannon_cryo': 'autocannon', 'chargeorb': 'blaster', 'cryobeam': 'beamlaser', 'cryolance': 'railgun',
+    'lightninggun': 'coilgun', 'thermalbeam': 'beamlaser', 'thermalpulse': 'pulselaser', 'thermogun_dragon': 'thermogun',
+    'cryomissilelauncher': 'homingmissilelauncher', 'thermalmissilelauncher': 'homingmissilelauncher',
+    'tethermissilelauncher_legendary': 'homingmissilelauncher', 'legendary_swarmmissilelauncher': 'homingmissilelauncher_legendary_battery',
+    'minelauncher_cryo': 'minelauncher', 'minelauncher_spore': 'sporemissilelauncher',
+}
+
+
 def round_price(v):
     m = 10 ** max(0, len(str(int(v))) - 2)
     return int(round(v / m) * m)
@@ -234,7 +325,7 @@ def make_item(bp):
     for k, v in stats_extra.items():
         if k in ('empDamage', 'shieldDamage', 'salvoShots', 'salvoCount', 'salvoGapMs'): stats[k] = int(v)
     occurrence = 3 if legendary else 25 if tl <= 6 else 15 if tl <= 8 else 8
-    return {
+    out = {
         'id': bp[len('BP_Weapon_'):].lower(), 'base': spec[0], 'name': name,
         'description': describe(fam, known, secondary, stats, legendary),
         'techLevel': tl, 'occurrence': occurrence, 'price': item_price(tl, secondary, legendary),
@@ -242,6 +333,12 @@ def make_item(bp):
         'fx': fx_parts(spec[1], colour),
         '_cues': cues, '_model': mesh, '_es2model': (None if secondary else spec[5]), '_secondary': secondary,
     }
+    item = out
+    wid = item['id']
+    item['_icon'] = WEAPON_ICONS.get(wid) or WEAPON_ICONS.get(FALLBACK_ICONS.get(wid, ''))
+    item['_own_icon'] = wid in WEAPON_ICONS
+    item['_frame'] = 'secondary' if secondary else 'primary'
+    return item
 
 
 def fx_parts(kind, colour):
@@ -537,6 +634,11 @@ def build():
     for it in out:
         if not it['_secondary'] and it['_es2model']:
             rules.append({'slot': 'primary', 'model': f'equipment/weapon_{it["_es2model"]:03d}.glb', 'items': ['es2_ships:' + it['id']]})
+    # Their shop icons (icons.py; the capital turrets are never sold and keep their base's).
+    icons.share(out)
+    made = icons.apply(out, MOD)
+    LOG(f'  icons: {made} of {len(out)} weapons, on {icons.frame_kind()}' if icons.available()
+        else '  icons: none (no ES2 item icons in the export: UI/Images/Items): the weapons show their base\'s')
     for it in out:
         for k in [k for k in it if k.startswith('_')]: del it[k]
     return out + turrets, rules

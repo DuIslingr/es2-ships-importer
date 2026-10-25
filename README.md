@@ -61,6 +61,7 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Maps/POIs/POI_HomebaseCarrier_001` | Properties (.json) (optional: the Mobile Homebase's own hangar and casino; then also run `tools/shaders`' `export` on `tools/homebase_assets.txt` with `all`, for the props and the hall's materials FModel's export lacks) |
    | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
    | `ES2/Content/Assets/Vehicles/Shared/Textures` | Textures (optional: `T_Vehicles_Floaters_Emissive_M`, the glow pattern of the engine nozzles, `T_ShipModules_FX_001_M_A`, the pattern of the wings' hologram discs, the damage maps and `T_Vehicles_Okkar_Techdetail_001_*`, the Wraith's plating) |
+   | `ES2/Content/UI/Images/Items` | Textures (optional: EVERSPACE 2's item icons, from which the weapons', devices' and consumables' shop icons are made in Galaxy on Fire 2's style) |
 
    The **Wraith** (the Okkar ship of the Wrath of the Ancients DLC) comes along when `ShipModules/Okkar` was exported with
    the rest (its hull `SK_ShipOkkar_C_001` and cockpit) and its plating textures above: one hull of its own (kit "okkar"),
@@ -77,8 +78,20 @@ With the warship folders the mod also brings EVERSPACE 2's warships and freighte
 Okkar, G&B, Outlaw, cultist and swarmer capital ships with turrets you can shoot off them, launch decks of ES2 fighters, the
 Okkar frigate's weak spots; pirate and Void warships hostile; the Mobile Homebase a station that roams every system and
 that you can dock at, into its own hangar with its six landing pads and its casino as the Space Lounge), EVERSPACE 2's weapons in the shops (every primary and
-secondary, the Okkar and legendary variants, with their own colours, sounds and models), and the Outlaw Dreadnought at
-Herjaza once the Valkyrie add-on's story is over. Without them the mod is just the ships.
+secondary, the Okkar and legendary variants, with their own colours, sounds and models), and the Outlaw
+Dreadnought raiding convoys now and then (Options > Gameplay "Dreadnought raids"). Without them the mod is just the ships.
+
+Always: EVERSPACE 2's devices and consumables in the shops (`tools/devices.py`), each on the Galaxy on Fire 2 equipment or
+secondary that does most nearly what it does in EVERSPACE 2 (the Scout's Shadow Strike and Vanish as cloaks, Spectral Form
+as a phase cloak, Static Overload and the repulsors as shock blasts, ARC-9000 as a nuke, the EMP Generator and the
+Peacemaker as EMP bombs, the Missile Defense System letting your auto turrets shoot down incoming missiles (the remake's
+`missileDefense`), the Phalanx, the Turret and the Combat Drone as sentry guns, Void Swarm, Siphon Pulse and the Nano
+Transmitter as transfusion beams, nanobots as repair bots, Entropy Anchor and the Energy Shield as emergency systems, Time
+Extender, Energized Boost, Weapon Overdrive and the rest). Those with no GoF2 mechanic to stand on (teleports, grappling
+hooks, damage over time, ...) are left out. With the item icons exported, every weapon, device and
+consumable gets a shop icon made from EVERSPACE 2's own (`tools/icons.py`): cut out, laid like GoF2's guns, given GoF2's
+gloss and a shadow on the plate of its type (red primaries, orange secondaries, green equipment); the white device symbols
+become embossed steel emblems glowing in the plate's colour, and weapons sharing an icon get it in their own colour.
 
 Without the weapons and the turret the ships still work: the guns fire from the ships' own weapon sockets, just without
 weapon models on them. Without the noise texture the engine flames are smooth instead of streaked, and without the nozzle
@@ -103,7 +116,8 @@ writes the mod to `es2_ships` next to this script (about 20 seconds). Options:
   the game's own ship icons (from its left, above and a little ahead, the nose dipping to the bottom left) and put on a
   ship frame (`icons/<ship>.png`, 180 x 88).
 - `--remake <folder>`: a checkout of the remake's source (or its `Assets/Textures/textures/gof2_interface2_ipad_large.png`):
-  the icons then use the game's own ship frame; without it they get a drawn look-alike.
+  the ships' and items' icons then use the game's own plates; without it they get drawn look-alikes.
+- `--item-icons <folder>`: EVERSPACE 2's item icons as PNG from somewhere else than the export's `UI/Images/Items`.
 - `--out <folder>`: write it somewhere else, for example straight into the game's Mods folder (`.../Mods/es2_ships`). An
   earlier build there is replaced; any other folder is never touched.
 - `--zip`: also make `es2_ships.zip`.

@@ -1087,8 +1087,8 @@ def main(version):
     else:
         print('  no sounds: ' + audio.unavailable_reason())
     # EVERSPACE 2's weapons (items.json), warships and freighters (ships.json: "traffic": { "capital" }, their subsystems), the
-    # Dreadnought and its encounter at Herjaza (events/).
-    import weapons, warships, encounter, homebase_hangar
+    # Dreadnought and its raids (events/).
+    import weapons, warships, encounter, homebase_hangar, devices
     items = []
     if os.path.isdir(os.path.join(SRC, 'Blueprints/Equipment/Weapons')):
         print('Adding the weapons ...')
@@ -1115,6 +1115,9 @@ def main(version):
         print('  encounter: ' + encounter.build(MOD))
     else:
         print('  no warships in the export (Assets/Vehicles/Warships): no capital ships, no Dreadnought')
+    # EVERSPACE 2's devices and consumables (devices.py: on the nearest GoF2 equipment / secondary).
+    print('Adding the devices and consumables ...')
+    items += devices.build(MOD)
     if items: json.dump(items, open(os.path.join(MOD, 'items.json'), 'w', encoding='utf-8'), indent=1)
     json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)
     json.dump(exhaust_styles(palettes), open(os.path.join(MOD, 'exhausts.json'), 'w', encoding='utf-8'), indent=1)
@@ -1122,8 +1125,9 @@ def main(version):
     json.dump({'id': 'es2_ships', 'name': 'EVERSPACE 2 ships', 'version': version, 'author': 'built by es2_ships_importer',
                'description': 'Nine customizable EVERSPACE 2 ships (Light / Medium / Heavy) with their parts, colour schemes, weapons '
                               'and turret' + (', and the Okkar Wraith' if has_okkar() else '') +
+                              '; EVERSPACE 2\'s devices and consumables in the shops' +
                               ('; EVERSPACE 2\'s weapons in the shops; its warships and freighters in the orbits\' traffic; the Outlaw '
-                               'Dreadnought at Herjaza once the Valkyrie is gone' if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')) else '') +
+                               'Dreadnought raiding convoys now and then' if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')) else '') +
                               '. Built on this device from your own EVERSPACE 2 files. Customize the ships in the hangar.',
                'credits': 'Models, textures and colours: EVERSPACE 2 (c) ROCKFISH Games, from the player\'s own copy of the game. '
                           'For personal use: don\'t share the built mod.',

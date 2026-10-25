@@ -189,47 +189,9 @@ def make_preview(mod, blender):
     return 'rendered' if renders else 'a plain card (Blender not found)'
 
 
-ICON_W, ICON_H = 178, 86   # the picture inside the 180 x 88 shop icon (the game's ItemIcon / HullIcon builders)
 
 
-def drawn_frame():
-    """A stand-in for the game's ship frame (gof2_interface2_ipad_large.png image 1276, which this importer doesn't ship),
-    drawn to its measurements: a dark plate with corners rounded 9 px, scanlines 2 rows bright / 2 at 70 %, narrow brighter
-    diagonal bands every 48 px leaning right, blue (green 0.66 of the blue) brightest in the middle and fading to black at
-    both ends."""
-    import numpy as np
-    from PIL import Image
-    w, h = ICON_W, ICON_H
-    y, x = np.mgrid[0:h, 0:w].astype(np.float32)
-    band = ((x + 0.55 * y) % 48.0) < 21.0                                # the brighter diagonal bands
-    scan = np.where((y.astype(int) // 2) % 2 == 0, 1.0, 0.7)            # the scanlines
-    env = np.sin(np.pi * np.clip((x + 0.5) / w, 0, 1)) ** 1.1           # dark at both ends
-    blue = 0.34 * env * np.where(band, 1.0, 0.62) * scan                # (over black: up to ~80 / 255)
-    alpha = np.where(band, 0.38, 0.45)
-    pm = np.stack([0 * blue, 0.66 * blue, blue], -1)                    # the colour as it shows over black
-    r = 9.0                                                              # rounded corners
-    cx, cy = np.clip(x, r, w - 1 - r), np.clip(y, r, h - 1 - r)
-    inside = np.clip(r + 0.5 - np.hypot(x - cx, y - cy), 0, 1)
-    alpha = alpha * inside
-    rgb = np.where(alpha[..., None] > 0, pm / np.maximum(alpha[..., None], 1e-3), 0)
-    img = np.dstack([np.clip(rgb * 255, 0, 255), alpha * 255]).astype(np.uint8)
-    out = Image.new('RGBA', (180, 88), (0, 0, 0, 0)); out.alpha_composite(Image.fromarray(img, 'RGBA'), (1, 1))
-    return out
-
-
-def game_frame(remake):
-    """The game's own ship frame from a checkout of the remake's source (its Assets/Textures/textures atlas), or None."""
-    from PIL import Image
-    atlas = os.path.join(os.path.expanduser(remake), 'Assets', 'Textures', 'textures', 'gof2_interface2_ipad_large.png') \
-        if os.path.isdir(os.path.expanduser(remake)) else os.path.expanduser(remake)
-    if not os.path.exists(atlas): return None
-    a = Image.open(atlas).convert('RGBA')
-    x, y = 1821, 1   # frame_ship, Reference/research/item_icons.json
-    out = Image.new('RGBA', (180, 88), (0, 0, 0, 0)); out.alpha_composite(a.crop((x, y, x + ICON_W, y + ICON_H)), (1, 1))
-    return out
-
-
-def make_icons(mod, blender, remake=None):
+def make_icons(mod, blender):
     """Each ship's shop icon (icons/<id>.png, ships.json "icon"): its default build rendered like the game's own ship icons
     (tools/preview_blender.py icon), fitted to the drawn pixels with a 4 % margin, over the ship frame. Returns a note."""
     from PIL import Image
@@ -238,9 +200,8 @@ def make_icons(mod, blender, remake=None):
     shutil.rmtree(renders, ignore_errors=True); os.makedirs(renders)
     r = subprocess.run([blender, '-b', '--factory-startup', '--python-exit-code', '1', '-P', os.path.join(HERE, 'tools', 'preview_blender.py'),
                         '--', mod, renders, 'icon'], capture_output=True, text=True)
-    frame = game_frame(remake) if remake else None
-    kind = 'the game\'s frame' if frame else 'a drawn frame'
-    frame = frame or drawn_frame()
+    import icons
+    frame, kind = icons.frame('ship'), icons.frame_kind()
     ships = json.load(open(os.path.join(mod, 'ships.json'), encoding='utf-8-sig'))
     os.makedirs(os.path.join(mod, 'icons'), exist_ok=True)
     made = 0
@@ -251,9 +212,9 @@ def make_icons(mod, blender, remake=None):
         box = im.getchannel('A').point(lambda v: 255 if v > 25 else 0).getbbox()
         if not box: continue
         im = im.crop(box)
-        k = min(ICON_W * 0.96 / im.width, ICON_H * 0.96 / im.height)
+        k = min(icons.W * 0.96 / im.width, icons.H * 0.96 / im.height)
         im = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
-        icon = frame.copy(); icon.alpha_composite(im, (1 + (ICON_W - im.width) // 2, 1 + (ICON_H - im.height) // 2))
+        icon = frame.copy(); icon.alpha_composite(im, (1 + (icons.W - im.width) // 2, 1 + (icons.H - im.height) // 2))
         icon.save(os.path.join(mod, 'icons', s['id'] + '.png'), optimize=True)
         s['icon'] = f"icons/{s['id']}.png"; made += 1
     json.dump(ships, open(os.path.join(mod, 'ships.json'), 'w', encoding='utf-8'), indent=1)
@@ -323,7 +284,9 @@ def main():
     ap.add_argument('--no-preview', action='store_true', help='skip the preview image\'s renders (a plain card instead)')
     ap.add_argument('--no-icons', action='store_true', help='skip the ships\' shop icons (they show the Phantom\'s instead)')
     ap.add_argument('--remake', help='a checkout of the remake\'s source (or its gof2_interface2_ipad_large.png): the icons '
-                                     'then use the game\'s own ship frame instead of a drawn one')
+                                     'then use the game\'s own plates instead of drawn ones')
+    ap.add_argument('--item-icons', help='a folder of EVERSPACE 2\'s item icons as PNG (default: the export\'s UI/Images/Items): '
+                                         'the weapons\', devices\' and consumables\' shop icons are made from them')
     a = ap.parse_args()
     if not 0.05 <= a.ratio <= 1: fail('--ratio must be between 0.05 and 1')
 
@@ -340,11 +303,13 @@ def main():
     audio = importlib.import_module('audio')
     audio.options(vgmstream=a.vgmstream, enabled=not a.no_sounds)
     build.configure(content, out)
+    icons = importlib.import_module('icons')
+    icons.configure(os.path.expanduser(a.item_icons) if a.item_icons else os.path.join(content, 'UI', 'Images', 'Items'), a.remake)
     print(f'Building the mod into {out} ...')
     build.main(VERSION)
     if not a.no_icons:
         print('Making the ships\' shop icons ...')
-        print(f'  icons: {make_icons(out, find_blender(a.blender, required=False), a.remake)}')
+        print(f'  icons: {make_icons(out, find_blender(a.blender, required=False))}')
     print('Making the preview image ...')
     print(f'  preview.png: {make_preview(out, None if a.no_preview else find_blender(a.blender, required=False))}')
 
