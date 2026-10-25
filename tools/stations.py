@@ -357,6 +357,33 @@ def dock_sounds():
     return _dock_sounds
 
 
+_dock_dust = None
+
+
+def dock_dust():
+    """P_Vehicle_LandingDust's flipbook (M_Smoke_NonDirectional_001's T_Smoke_001_M: 6 x 6 frames, its green the opacity) as
+    the mod's textures/es2_landing_dust.png (greyscale, 2048 px): {'dust': path}, empty when the export lacks it (export it
+    with tools/shaders: export of /Game/Assets/Effects/Textures/T_Smoke_001_M)."""
+    global _dock_dust
+    if _dock_dust is not None: return _dock_dust
+    _dock_dust = {}
+    try:
+        from PIL import Image
+        src = os.path.join(SRC, 'Assets/Effects/Textures/T_Smoke_001_M.png')
+        if not os.path.exists(src):
+            print('  landing dust: T_Smoke_001_M.png not in the export (tools/shaders export), no dust')
+            return _dock_dust
+        rel = 'textures/es2_landing_dust.png'
+        out = os.path.join(MOD, rel)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        g = Image.open(src).convert('RGBA').split()[1]
+        g.resize((2048, 2048), Image.LANCZOS).save(out, optimize=True)
+        _dock_dust = {'dust': rel}
+    except Exception as e:
+        print(f'  landing dust: {e}')
+    return _dock_dust
+
+
 def dock_room(d, others, g):
     """interiors.json's fields for docking EVERSPACE 2's way at dock 'd' (World.Es2Dock; docks() gives it): its markers (room
     metres, Unity's frame; 'g' turns Unreal cm into the model's glTF metres) and settings; 'others' the docks close by, as
@@ -378,7 +405,7 @@ def dock_room(d, others, g):
             # ES2's CineCamera: a 1400 mm lens on a 1000 mm square filmback, 39 deg across: 23 deg up a 16:9 screen
             'fov': 23, 'near': 1, 'far': 20000, 'ambient': [0.34, 0.36, 0.42], 'lightIntensity': 1.4,
             'startYaw': round(math.degrees(math.atan2(fu[0], fu[2])), 1), 'flights': False, 'dock': 'es2',
-            'rise': round(d['rise'] / 100.0 * SCALE, 2), **dock_sounds(),
+            'rise': round(d['rise'] / 100.0 * SCALE, 2), **dock_sounds(), **dock_dust(),
             # (the box's half extents: ES2's X forward, Y right, Z up -> the dock's right, up, forward)
             'dockZone': [round(d['zoneExt'][1] / 100.0 * SCALE, 1), round(d['zoneExt'][2] / 100.0 * SCALE, 1),
                          round(d['zoneExt'][0] / 100.0 * SCALE, 1)]}
@@ -451,6 +478,7 @@ def build(stations_json, log=print):
     rooms = []
     todo = [(lid, gid) for _, lid, gid in station_locations() if gid in by]
     dock_sounds()   # (once, before the workers: each room names them)
+    dock_dust()
     # on the step workers (jobs.run, warships.logged), their lines in the table's order: not jobs.pool(), whose workers are
     # the texture writes the builds wait for (all of them taken by builds, the batch ran nearly one station at a time)
     for (lid, gid), (r, lines) in zip(todo, jobs.run(lambda x: warships.logged(build_station, *x, warships.say), todo)):
