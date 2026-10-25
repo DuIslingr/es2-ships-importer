@@ -1267,7 +1267,7 @@ def main(version):
                               '; EVERSPACE 2\'s devices and consumables in the shops' +
                               ('; EVERSPACE 2\'s weapons in the shops; its warships and freighters in the orbits\' traffic; the Outlaw '
                                'Dreadnought raiding convoys now and then' if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')) else '') +
-                              ('; EVERSPACE 2\'s Ceto sector past the edge of the star map (a Khador Drive away), with ES2\'s resources to mine' if sectors.available() else '') +
+                              ('; EVERSPACE 2\'s ten sectors past the edge of the star map (a Khador Drive away, linked by their own jumpgates), with ES2\'s resources to mine' if sectors.available() else '') +
                               '. Built on this device from your own EVERSPACE 2 files. Customize the ships in the hangar.',
                'credits': 'Models, textures and colours: EVERSPACE 2 (c) ROCKFISH Games, from the player\'s own copy of the game. '
                           'For personal use: don\'t share the built mod.',

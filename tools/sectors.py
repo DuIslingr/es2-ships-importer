@@ -61,11 +61,12 @@ def R(key, chance=1):
 ORE_IRON, ORE_TITANIUM = 156, 155
 SECTORS = {
     'S01': {
-        # 'gates': the ES2 sectors its jumpgate reaches (their GoF2 ids; none yet: Ceto is the only one so far), from
-        # 'gateStation' (Union Bridge, ES2's "Jump Gate & Trading Station")
+        # 'gates': the ES2 sectors its jumpgate reaches (links(): ES2's own jumpgates and wormholes), from 'gateStation'
+        # (Union Bridge, ES2's "Jump Gate & Trading Station")
         # 'race': the faction that owns it (factions.py), 'locals' its local fighters' factions, 'raiders' who raids it; only
         # ES2's ships fly there (systems.json "traffic": "mod"): ES2's galaxy has none of GoF2's races
-        'id': 'es2_ceto', 'race': 'gb', 'locals': ['gb', 'freelancer'], 'raiders': ['outlaw'], 'security': 2, 'gates': [],
+        # (Ceto is laid out by hand; the other sectors by auto_spec from ES2's own data)
+        'id': 'es2_ceto', 'race': 'gb', 'locals': ['gb', 'freelancer'], 'raiders': ['outlaw'], 'security': 2,
         'gateStation': 'es2_union_bridge',
         'spaceMusic': 'LayeredSong_003_1Calm', 'stationMusic': 'LayeredSong_004_1Calm',
         'locations': [
@@ -82,6 +83,186 @@ SECTORS = {
         ],
     },
 }
+
+# Every sector of ES2's galaxy (its travel maps: Maps/TravelMode/Map_TravelMode_SNN); those not in SECTORS are laid out by
+# auto_spec from ES2's own data.
+SECTOR_KEYS = ['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07', 'S08', 'S09', 'S14']
+
+# What ES2 doesn't say in data, the remake's picks from its story: who owns a sector where its stations disagree (the Khaït
+# Nebula's stations are freelance traders in Okkar space), and who raids it (ES2 spawns its enemies per encounter, not per
+# sector): the factions met there.
+OWNER = {'S04': 'okkar'}
+RAIDERS = {'S02': ['outlaw'], 'S03': ['outlaw', 'retaliators'], 'S04': ['cultist', 'okkar_prime'], 'S05': ['okkar_prime'],
+           'S06': ['outlaw', 'retaliators'], 'S07': ['rogueai', 'zurilia'], 'S08': ['zurilia', 'outlaw'],
+           'S09': ['ancient'], 'S14': ['okkar_prime', 'ancient']}
+# A faction's station looks (original stations of the GoF2 race whose hangar and bar it borrows, factions.py) and interior
+# race (0 Terran, 1 Vossk, 2 Nivelian, 3 Midorian)
+FACTION_LOOK = {'gb': ([20, 22, 23, 24, 21], 3), 'freelancer': ([0, 1, 3, 2, 4, 30, 47], 2),
+                'coalition': ([5, 6, 8, 9, 7, 10, 37], 0), 'kato': ([42, 37], 0), 'okkar': ([16, 17, 28, 26, 18, 25, 29], 1),
+                'outlaw': (['gof2:station_pirates'], 2)}
+# Places whose names say the asteroids are the point of them, and places hostile factions hold (seen, not docked at)
+MINING_WORDS = ('asteroid', 'belt', 'mining', 'field', 'deposit', 'ridge', 'cluster', 'fault', 'rift', 'shelf')
+HOSTILE_WORDS = ('outlaw', 'stronghold', 'smugglers', 'immaculate', 'ascension')
+# The ores of a sector by its locations' ES2 level: low, middle, high
+ORES = {
+    'low': [{'item': ORE_IRON, 'chance': 2}, R('copper', 3), R('aetheum', 2), R('insidium', 1)],
+    'mid': [{'item': ORE_TITANIUM, 'chance': 2}, R('insidium', 2), R('culver', 2), R('mallemite', 2), R('baromite', 1), R('clygon', 1)],
+    'high': [R('baromite', 2), R('clygon', 2), R('glacit', 2), R('coruscate', 1), R('phazium', 2), R('mallemite', 1)],
+}
+
+
+def _slug(text):
+    import re, unicodedata
+    t = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode().lower()
+    return re.sub(r'[^a-z0-9]+', '_', t).strip('_')
+
+
+_dockables = None
+def dockables():
+    """ES2's dockable stations (DataFiles/dockables.CSV): [{id, name, faction, system, location, trader}]."""
+    global _dockables
+    if _dockables is None:
+        _dockables = []
+        p = os.path.join(SRC, 'DataFiles', 'dockables.CSV')
+        if os.path.exists(p):
+            for line in open(p, encoding='utf-8-sig', errors='replace'):
+                c = line.rstrip('\r\n').split('|~')
+                if len(c) < 13 or not c[0]: continue
+                _dockables.append({'id': c[0], 'name': c[1], 'faction': c[2], 'system': c[3], 'location': c[4],
+                                   'trader': c[11] == '1'})
+    return _dockables
+
+
+_secs = {}
+def sector(key):
+    with jobs.once(('sector', key)):
+        if key not in _secs: _secs[key] = read(key)
+    return _secs[key]
+
+
+def system_id(key):
+    """A sector's GoF2 system id (es2_<its name>)."""
+    return SECTORS[key]['id'] if key in SECTORS else 'es2_' + _slug(sector(key)['name'])
+
+
+def links():
+    """ES2's galaxy as GoF2 sees it: {sector: {'gate': the location its gate is at, 'to': [sectors]}}, from every location's
+    jumpgates and wormholes (a GoF2 system has one jumpgate, so all of a sector's links go through one: a security-zone
+    gate first, then one named a gate, then the first); links inside a sector left out."""
+    where = {}
+    for k in SECTOR_KEYS:
+        for lid in sector(k)['locations']: where[lid] = k
+    out = {}
+    for k in SECTOR_KEYS:
+        cand = []
+        for L in sector(k)['locations'].values():
+            to = [where[t] for kind, ids in L['links'] for t in ids if t in where and where[t] != k]
+            if to: cand.append((L, to))
+        if not cand: continue
+        def rank(c):
+            L, to = c
+            jump = any(kind == 'JumpGate' for kind, _ in L['links'])
+            return (not L['security'], 'gate' not in (L['name'] or '').lower(), not jump, L['id'])
+        cand.sort(key=rank)
+        out[k] = {'gate': cand[0][0]['id'], 'to': sorted({t for _, to in cand for t in to})}
+    return out
+
+
+def _nearest_planet(sec, L):
+    """The planet (or moon) a location circles: the nearest planet among its space objects, else by the map."""
+    best = None
+    for o in L['objects']:
+        if o['type'] == 2 and o['id'] in sec['planets']:
+            d = np.linalg.norm(o['rel'])
+            if best is None or d < best[0]: best = (d, o['id'])
+    if best: return best[1]
+    if not sec['planets']: return None
+    return min(sec['planets'].values(), key=lambda p: np.linalg.norm(p['pos'] - L['map']))['id']
+
+
+def auto_spec(key):
+    """A sector's spec as SECTORS writes it, from ES2's data: its dockable stations (dockables.CSV: their factions, the
+    owner the most of them), its gate location (links()), landmark places to fill the 7 orbits, tech levels and ores by
+    the locations' ES2 levels, its music (Audio/MusikSets/DA_MusicSet_Sector_NNN: the set's first two songs)."""
+    sec = sector(key)
+    sys_no = str(int(key[1:]))
+    docks = [d for d in dockables() if d['system'] == sys_no and d['trader'] and d['location'] in sec['locations']]
+    by_loc = {}
+    for d in docks: by_loc.setdefault(d['location'], []).append(d)
+    count = {}
+    for d in docks:
+        if d['faction'] in FACTION_LOOK: count[d['faction']] = count.get(d['faction'], 0) + 1
+    owner = OWNER.get(key) or (max(count, key=count.get) if count else 'freelancer')
+    locals_ = [owner] + [f for f in sorted(count, key=lambda f: -count[f]) if f != owner and f in ('gb', 'freelancer', 'coalition', 'okkar', 'kato')][:1]
+    if len(locals_) == 1: locals_.append('freelancer' if owner != 'freelancer' else 'coalition')
+    gate = links().get(key, {}).get('gate')
+
+    def ok(L):
+        n = L['name'] or ''
+        return not (L['hidden'] or n.startswith('**') or '?' in n or 'notinuse' in n.lower())
+    locs = [L for L in sec['locations'].values() if ok(L)]
+    # the orbits: the gate, then the stations (the most traders first, main locations before mini ones), then landmarks
+    # (mining places, then hostile holds, then the rest), at most 7, no name twice
+    chosen, names = [], set()
+    def take(L):
+        if L['id'] in [c['id'] for c in chosen] or (L['name'] or '').lower() in names or len(chosen) >= 7: return
+        chosen.append(L); names.add((L['name'] or '').lower())
+    if gate: take(sec['locations'][gate])
+    for L in sorted((L for L in locs if L['id'] in by_loc), key=lambda L: (-len(by_loc[L['id']]), 'ML' in L['id'], L['id'])):
+        take(L)
+    low = lambda L: (L['name'] or '').lower()
+    for L in sorted(locs, key=lambda L: (not any(w in low(L) for w in MINING_WORDS), not any(w in low(L) for w in HOSTILE_WORDS),
+                                         'ML' in L['id'], L['level'] or 0, L['id'])):
+        take(L)
+
+    levels = [c['level'] or 10 for c in chosen]
+    tier = 'low' if min(levels) < 12 else 'mid' if min(levels) < 22 else 'high'
+    used = {}
+    locations = []
+    for L in chosen:
+        lev = L['level'] or 10
+        tech = int(np.clip(round(1 + lev * 9 / 30), 1, 10))
+        here = by_loc.get(L['id'], [])
+        pid = _nearest_planet(sec, L)
+        pl = sec['planets'].get(pid) if pid else None
+        ice = pl is not None and 'ice' in pl['material'].lower()
+        kind = 'ice' if ice or key == 'S07' else 'rock'
+        if here:
+            fac = max({d['faction'] for d in here if d['faction'] in FACTION_LOOK} or {owner},
+                      key=lambda f: sum(d['faction'] == f for d in here))
+            pool, interior = FACTION_LOOK.get(fac, FACTION_LOOK[owner])
+            look = pool[used.get(fac, 0) % len(pool)]; used[fac] = used.get(fac, 0) + 1
+            asteroids = {'count': 40, 'type': kind, 'ores': ORES[tier]}
+            tech = min(10, tech + 1)
+        elif any(w in low(L) for w in HOSTILE_WORDS):
+            look, interior, asteroids = 'gof2:station_pirates nodock', FACTION_LOOK[owner][1], False
+        else:
+            look, interior = None, FACTION_LOOK[owner][1]
+            mining = any(w in low(L) for w in MINING_WORDS)
+            asteroids = ({'count': 200, 'type': kind, 'spread': 150000, 'ores': ORES[tier]} if mining
+                         else {'count': 60, 'type': kind, 'ores': ORES[tier]})
+        locations.append((L['id'], 'es2_' + _slug(L['name']), look, interior, tech, pid, asteroids))
+
+    songs = []
+    p = os.path.join(SRC, f'Audio/MusikSets/DA_MusicSet_Sector_{int(key[1:]):03d}.json')
+    if os.path.exists(p):
+        for s in json.load(open(p, encoding='utf-8-sig'))[0]['Properties'].get('SongList', []):
+            # (a song's _NoBattle variant plays the song's own waves)
+            songs.append(s['AssetPathName'].rsplit('.', 1)[-1].replace('DA_', '').replace('_NoBattle', '') + '_1Calm')
+    songs = songs or ['LayeredSong_003_1Calm', 'LayeredSong_004_1Calm']
+    security = 3 if min(levels) < 10 else 2 if min(levels) < 18 else 1 if min(levels) < 26 else 0
+    return {'id': system_id(key), 'race': owner, 'locals': locals_, 'raiders': RAIDERS.get(key, ['outlaw']),
+            'security': security, 'gateStation': 'es2_' + _slug(sec['locations'][gate]['name']) if gate else None,
+            'spaceMusic': songs[0], 'stationMusic': songs[1 % len(songs)], 'locations': locations}
+
+
+def spec_of(key):
+    s = SECTORS[key] if key in SECTORS else auto_spec(key)
+    s = dict(s)
+    s['gates'] = [system_id(t) for t in links().get(key, {}).get('to', [])]
+    return s
+
+
 # Where ES2's galaxy lies on GoF2's star map: its sectors' places on ES2's galaxy map (BP_TravelMode_System LocationOnMap:
 # X -750 .. 4100, Y -1620 .. 1100) scaled into a cluster past GoF2's edge (GoF2's systems lie at x 15-94, y 2-96, z 10-90;
 # x and y are the map's screen axes, z its depth): x from 104, its y centred on GoF2's middle, z GoF2's middle.
@@ -93,6 +274,14 @@ def galaxy_position(loc):
     g = GALAXY
     return [int(round(g['x0'] + (loc[0] - g['x_from']) * g['scale'])), int(round(g['y_mid'] + (loc[1] - g['y_from']) * g['scale'])), g['z']]
 SKY_W, SKY_H = 8192, 4096
+# The game's skies by their sun sprite's colour (reference.md "Skies"): the star map draws a system's sun from its sky
+SUN_SKIES = [(0, (0.3, 1.0, 0.35)), (1, (1.0, 0.55, 0.2)), (3, (1.0, 0.3, 0.9)), (5, (1.0, 0.25, 0.15)), (7, (1.0, 0.9, 0.45)),
+             (8, (0.4, 0.8, 1.0)), (9, (1.0, 1.0, 1.0)), (10, (0.3, 0.4, 1.0))]
+
+
+def map_sky(sun):
+    c = np.array(sun, np.float64); c = c / max(c.max(), 1e-6)
+    return min(SUN_SKIES, key=lambda s: float(np.sum((np.array(s[1]) - c) ** 2)))[0]
 PLANET_MAP = (2048, 1024)
 
 
@@ -172,7 +361,12 @@ def read(sector):
                 objs.append({'type': ty['IntValue'] if ty else 0, 'id': o.get('ID'), 'rel': _vec(o['RelativeTransform']['Translation'])})
             out['locations'][L['LocationID']] = {
                 'id': L['LocationID'], 'name': _text(L.get('Name')), 'subtitle': _text(L.get('Subtitle')),
-                'map': _vec(L.get('LocationOnMap')), 'level': L.get('StaticLevel'), 'objects': objs}
+                'map': _vec(L.get('LocationOnMap')), 'level': L.get('StaticLevel'), 'objects': objs,
+                'type': (L.get('LocationType') or '').split('::')[-1], 'security': bool(L.get('Security')),
+                'hidden': bool(L.get('bNeverShowIngame')),
+                # its jumpgates / wormholes: [(kind, [location ids])]
+                'links': [(c.get('ConnectionType', '').split('::')[-1], list(c.get('LocationIDs') or []))
+                          for c in L.get('Connections') or []]}
     # the moons have no ID: they are known by their actor name; their place in the locations' objects is by distance
     return out
 
@@ -263,6 +457,25 @@ def planet_map(pl):
         col = col * (1 - clouds[..., None] * 0.8) + clouds[..., None] * 0.9
         pole = np.abs(v - 0.5) * 2
         col = np.where((pole > 0.88)[..., None], np.minimum(col + 0.6, 0.95), col)
+    elif 'volcanic' in mat:
+        # dark rock (its height, blue) cracked by lava (the mask's green) in a molten orange
+        t = _sample(_texture(PLANET_TEX + 'T_Planet_Volcanic_001_M.png', 2048), u, v)
+        base = sur * 0.6 if pl['surface'] else np.array([0.22, 0.18, 0.16], np.float32)
+        col = _ramp(t[..., 2] * 0.7 + t[..., 0] * 0.3, [(0.0, base * 0.25), (0.6, base * 0.7), (1.0, np.minimum(base * 1.2, 1.0))])
+        lava = np.clip((t[..., 1] - 0.35) * 2.2, 0.0, 1.0)[..., None]
+        col = col * (1 - lava) + np.array([1.0, 0.42, 0.1], np.float32) * lava
+    elif 'ice' in mat:
+        # pale ice in the planet's own colour, its craters and ridges shaded
+        t = _sample(_texture(PLANET_TEX + 'T_Planet_Craters_001_H_C_R.png', 2048), u, v)
+        base = np.minimum(np.array(pl['surface'] or pl['atmosphere'], np.float32) * 0.5 + 0.5, 1.0)
+        col = _ramp(t[..., 1] * 0.5 + t[..., 0] * 0.5, [(0.0, base * 0.45), (0.55, base * 0.8), (1.0, base)])
+    elif 'okkar' in mat:
+        # an Okkar world: desert rock with the lights of its cities (the city mask's lines)
+        t = _sample(_texture(PLANET_TEX + 'T_Planet_Rock_001_H_C_R.png', 2048), u, v)
+        col = _ramp(t[..., 1] * 0.7 + t[..., 0] * 0.3, [(0.0, sur * 0.3), (0.5, sur * 0.65), (1.0, np.minimum(sur * 1.05, 1.0))])
+        city = _sample(_texture(PLANET_TEX + 'T_Planet_City_Okkar_001_M.png', 2048), u * 2, v * 2)
+        lit = (city[..., 2] * np.clip(city[..., 1] * 1.5, 0, 1))[..., None]
+        col = col * (1 - lit * 0.6) + np.array([0.55, 1.0, 0.75], np.float32) * lit * 0.6
     elif pl['destroyed'] or 'cratered' in mat or not mat:
         t = _sample(_texture(PLANET_TEX + 'T_Planet_Craters_001_H_C_R.png', 2048), u, v)
         base = sur if pl['surface'] else np.array([0.5, 0.5, 0.5], np.float32)
@@ -366,8 +579,8 @@ def _write_png(rel, arr):
 
 def build_sector(key):
     """systems.json / stations.json entries of one sector, its images and music; returns (system, stations, music files)."""
-    spec = SECTORS[key]
-    sec = read(key)
+    spec = spec_of(key)
+    sec = sector(key)
     sid = spec['id']
     os.makedirs(os.path.join(MOD, 'sectors', sid), exist_ok=True)
     kept = [l for l in spec['locations'] if l[0] in sec['locations']]
@@ -381,11 +594,11 @@ def build_sector(key):
               'locals': [f'es2_ships:{f}' for f in spec['locals']], 'raiders': [f'es2_ships:{f}' for f in spec['raiders']],
               'security': spec['security'], 'visible': True,
               # 'sky': the game's sky whose sun sprite the star map shows (its own sun, sky and light replace the rest):
-              # Nesla's (8), blue-white like ES2's Ceto sun
-              'position': galaxy_position(sec.get('galaxy', np.zeros(3))), 'sky': 8,
+              # the one whose sun's colour is nearest the sector's
+              'position': galaxy_position(sec.get('galaxy', np.zeros(3))), 'sky': map_sky(sec['sun']),
               'sunTexture': sun_rel.replace(os.sep, '/'), 'sunColor': [round(float(0.55 + 0.45 * v), 3) for v in sc],
               'skybox': {'nebula': sky_rel, 'stars': 'none', 'rotation': [0, 0, 0]}}
-    if spec['gates']:   # ES2's own jumpgates, to its own sectors only
+    if spec['gates'] and spec.get('gateStation'):   # ES2's own jumpgates and wormholes, to its own sectors only
         system['gates'] = [f'es2_ships:{g}' for g in spec['gates']]
         system['gateStation'] = f'es2_ships:{spec["gateStation"]}'
     # the planets the kept orbits circle
@@ -464,9 +677,15 @@ def build(log=print):
     LOG = log
     systems, stations = [], []
     music = []
-    for key in SECTORS:
+    ids = set()
+    for key in SECTOR_KEYS:
         system, sts, sec = build_sector(key)
-        spec = SECTORS[key]
+        spec = spec_of(key)
+        for st in sts:   # (ES2 reuses names across sectors: a second one takes its sector's name)
+            if st['id'] in ids:
+                old = st['id']; st['id'] = old + '_' + system['id'][4:]
+                if system.get('gateStation') == f'es2_ships:{old}': system['gateStation'] = f'es2_ships:{st["id"]}'
+            ids.add(st['id'])
         systems.append(system); stations += sts
         music.append((system, sts, spec))
     jobs.flush()

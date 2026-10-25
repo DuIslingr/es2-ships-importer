@@ -67,7 +67,7 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
    | `ES2/Content/Assets/Vehicles/Shared/Textures` | Textures (optional: `T_Vehicles_Floaters_Emissive_M`, the glow pattern of the engine nozzles, `T_ShipModules_FX_001_M_A`, the pattern of the wings' hologram discs, the damage maps and `T_Vehicles_Okkar_Techdetail_001_*`, the Wraith's plating) |
    | `ES2/Content/UI/Images/Items` | Textures (optional: EVERSPACE 2's item icons, from which the weapons', devices' and consumables' shop icons are made in Galaxy on Fire 2's style) |
-   | `ES2/Content/DataFiles` | ES2's tables, which FModel doesn't export (optional: `factions.csv` and `faction_relations.csv`, who fights whom). Extract them with `tools/shaders`' `pak` mode: `... dotnet run -c Release -- pak pakchunk0-Windows.pak "DataFiles/.*\.csv" <FModel's Output/Exports folder>`. Without them the factions are made without ES2's relations |
+   | `ES2/Content/DataFiles` | ES2's tables, which FModel doesn't export (optional: `factions.csv` and `faction_relations.csv`, who fights whom; `dockables.csv`, the sectors' stations and their factions). Extract them with `tools/shaders`' `pak` mode: `... dotnet run -c Release -- pak pakchunk0-Windows.pak "DataFiles/.*\.csv" <FModel's Output/Exports folder>`. Without them the factions are made without ES2's relations |
 
    The **Wraith** (the Okkar ship of the Wrath of the Ancients DLC) comes along when `ShipModules/Okkar` was exported with
    the rest (its hull `SK_ShipOkkar_C_001` and cockpit) and its plating textures above: one hull of its own (kit "okkar"),
@@ -116,25 +116,32 @@ become embossed steel emblems glowing in the plate's colour, and weapons sharing
 (FModel's bulk export may leave `UI/Images/Items` as .json only; `tools/shaders`' `export` on `tools/item_icons.txt`
 fetches the images.)
 
-With the travel maps and the sky and planet textures, the mod brings **EVERSPACE 2's galaxy** (`tools/sectors.py`), so far its
-Ceto sector (Sector 1): a system past the edge of Galaxy on Fire 2's star map, laid out as ES2 lays out its galaxy. It is a
-galaxy of its own: no jumpgate links it to Galaxy on Fire 2's systems, so a Khador Drive takes you there (its sectors will
-link to each other through ES2's own jumpgates as they are added). Ceto holds 7 of its 33 places: Union Bridge (the trading
-station), Alcyone Station and Nephtys Plains (Grady & Brunt), Ceto Orbit (the solar research station), Fort Cetus (the
-Outlaw HQ, seen but not docked at), the G&B Mining Grounds and Ceto Outer Rim (asteroid fields). Each place's sun and planet
-lie where they do from it in ES2, and it sits on the star map where it does on ES2's. The sky is composed from ES2's star
-and nebula textures in the sector's own nebula colours; the planets (Maak, Hasde, Fennic, Mane, Dange, Alda and a moon) are
-drawn from ES2's planet textures in their own colours (ES2 draws both with its materials at runtime, so these are
-compositions, not copies). Its music is the sector's own. EVERSPACE 2's resources (Copper, Insidium, Baromite, Clygon,
-Glacit, Coruscate, Aetheum, Culver, Mallemite, Phazium) are new commodities, mined from Ceto's asteroids and traded like
-ores; Iron and Titanium are the game's own. ES2's stations are levels of many pieces: for now the stations look like Galaxy
-on Fire 2's of their faction.
+With the travel maps and the sky and planet textures, the mod brings **EVERSPACE 2's galaxy** (`tools/sectors.py`): its ten
+sectors (Ceto, Union, Zharkov, the Khaït Nebula, the Khaït Dominion, Drake, Khione, Aethon, Ushak and Rhak) as systems past
+the edge of Galaxy on Fire 2's star map, laid out as ES2 lays out its galaxy. It is a galaxy of its own: no jumpgate links it
+to Galaxy on Fire 2's systems, so a Khador Drive takes you there; inside it the sectors are linked as ES2 links them, its
+jumpgates and its wormholes both as Galaxy on Fire 2 jumpgates (Ceto - Union - Zharkov / Drake / Aethon, Zharkov - the Khaït
+Nebula / Ushak, the Khaït Nebula - the Khaït Dominion - Rhak - Ushak; Khione, which ES2 reaches by its story alone, only by
+the Khador Drive). A system holds 7 places: Ceto's are picked by hand (Union Bridge, Alcyone Station, Nephtys Plains, Ceto
+Orbit, Fort Cetus seen but not docked at, the G&B Mining Grounds and Ceto Outer Rim); the other sectors' come from ES2's own
+data: the location with the sector's jumpgate, the places with stations that trade (`DataFiles/dockables.csv`: who runs
+them, which sets the station's look and hangar, and the sector's owner, the faction running the most of them), then mining
+places, hostile holds (seen, not docked at) and other landmarks; their tech levels and ores follow the places' ES2 levels.
+Who raids each sector is a pick from ES2's story (ES2 spawns its enemies per encounter). Each place's sun and planet lie
+where they do from it in ES2, and each sector sits on the star map where it does on ES2's. The skies are composed from ES2's
+star and nebula textures in each sector's own nebula colours; the planets are drawn from ES2's planet textures in their own
+colours (gas giants, earthlike and water worlds, deserts, ice, volcanic and Okkar city worlds; ES2 draws both with its
+materials at runtime, so these are compositions, not copies). Each sector's music is its own (ES2's music sets). EVERSPACE
+2's resources (Copper, Insidium, Baromite, Clygon, Glacit, Coruscate, Aetheum, Culver, Mallemite, Phazium) are new
+commodities, mined from the sectors' asteroids and traded like ores; Iron and Titanium are the game's own. ES2's stations
+are levels of many pieces: for now the stations look like Galaxy on Fire 2's of their faction.
 
 ES2's ships fly for **ES2's own factions** (`tools/factions.py`), not Galaxy on Fire 2's races: Grady & Brunt, the
 Freelancers, the Coalition, the Okkar, Mr. Kato's Cartel, and the always-hostile Okkar Prime, Outlaws, Redeemers and
 Ancients, each with ES2's relations to the others (from `DataFiles/faction_relations.csv`) and the player's starting
-standing, an emblem from ES2's decal logos, and a reputation bar on the Status window (not the hostile ones). Ceto belongs
-to Grady & Brunt and flies ES2's ships only: G&B and Freelancer patrols, Outlaw raiders, ES2's freighters. Its lounges hold
+standing, an emblem from ES2's decal logos, and a reputation bar on the Status window (not the hostile ones). The sectors
+belong to them and fly ES2's ships only: Ceto and Zharkov Grady & Brunt's, Union and the far sectors the Freelancers', Drake
+the Coalition's, the Khaït and Okkar sectors the Okkar's, each with its local patrols, raiders and ES2's freighters. Their lounges hold
 diplomats who make peace with a faction you are at war with.
 
 **Everything the Supporter Pack adds** to the customization (and EVERSPACE 2's other skins): the **Kickstarter** and
