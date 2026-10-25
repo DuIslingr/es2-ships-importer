@@ -128,6 +128,42 @@ def _save(arr, rel, size=2048):
     return rel
 
 
+BAND_V0, BAND_V1 = 0.02, 0.98   # the vertex alpha's range in v (clear of the filtering across the wrap)
+
+
+def band_glow(m):
+    """M_Vehicles_Emissive_Parent with its Opacity switch (the Mobile Homebase's MI_Vehicles_Emissive_Warship_010): its
+    compiled pixel shader takes the colour from the mask's three vertical bands by UV u (R '1) Primary', G '2) Secondary', B
+    '3) Tertiary', x the mask's alpha) and multiplies the glow and the opacity (0.9 x) by the vertex colour's alpha: the big
+    panels fade to nothing across them. The remake's materials read no vertex colour, so split_prims writes the alpha into v
+    (the bands don't change along it) and band_maps ramp along v."""
+    return (es2mat.classify(m) == 'glow' and 'PM_Emissive' in m['tex'] and bool(m['sw'].get('Opacity'))
+            and es2mat.vertex_tints(m) is not None)
+
+
+def band_maps(m):
+    """(glow, opacity) maps for a band_glow material: the glow grey (the mask's band x its alpha x the vertex alpha x the
+    opacity: UE's translucent blend multiplies the emission by it), the opacity black with alpha 0.9 x the vertex alpha;
+    v = BAND_V0 + (BAND_V1 - BAND_V0) x the vertex alpha."""
+    key = ('bands', m['tex']['PM_Emissive'])
+    if key in _made: return _made[key]
+    a = _img(m['tex']['PM_Emissive'])
+    out = None
+    if a is not None:
+        a = a.astype(np.float32) / 255
+        prof = a[..., :3].max(axis=2).mean(axis=0) * a[..., 3].mean(axis=0)   # across u: the bands are vertical
+        v = (np.arange(64) + 0.5) / 64
+        al = np.clip((v - BAND_V0) / (BAND_V1 - BAND_V0), 0, 1)
+        op = np.minimum(1.0, 0.9 * al)
+        glow = np.round(np.outer(al * op, prof) ** (1 / 2.2) * 255).astype(np.uint8)   # sRGB: the emission map is colour
+        opa = np.zeros((64, len(prof), 4), np.uint8); opa[..., 3] = np.round(op * 255)[:, None]
+        n = es2mat._name(m['tex']['PM_Emissive'])
+        out = (_save(np.ascontiguousarray(np.repeat(glow[..., None], 3, axis=2)), f'warships/maps/{n}_bands_glow.png'),
+               _save(opa, f'warships/maps/{n}_bands_alpha.png'))
+    _made[key] = out
+    return out
+
+
 def tex(kind, src, ch=None, extra=None):
     """A texture made for a role, once per (role, texture, channel): 'colour' (RGB, or one channel as grey; alpha from 'extra'
     = (texture, channel) when masked), 'ms' (src = (metal, rough) each (texture, channel) or None), 'emit' (one channel),
@@ -176,6 +212,29 @@ def tex(kind, src, ch=None, extra=None):
     return rel
 
 
+def strips_map(m):
+    """M_StructuresStrips_Parent's markings (its compiled shader): painted, lit stripes and signs, not lights. The mask
+    T_Structures_Strips_M's R (the stripes) takes Color_1 and its G (the signs, letters) Color_2, mixed in linear; the
+    opacity is R + G (the surface between them see-through). Baked into one colour + alpha map per pair of colours."""
+    c1 = m['col'].get('Color_1') or [1.0, 1.0, 1.0]
+    c2 = m['col'].get('Color_2') or [1.0, 1.0, 1.0]
+    src = next((t for t in m['tex'].values() if t.startswith('T_Structures_Strips_M')), 'T_Structures_Strips_M')
+    key = ('strips', src, tuple(c1), tuple(c2))
+    if key in _made: return _made[key]
+    rel = None
+    a = _img(src)
+    if a is not None:
+        a = a.astype(np.float32) / 255
+        lin1 = np.array(c1, np.float32) ** 2.2; lin2 = np.array(c2, np.float32) ** 2.2
+        rgb = np.clip(a[..., 0:1] * lin1 + a[..., 1:2] * lin2, 0, 1) ** (1 / 2.2)
+        al = np.clip(a[..., 0] + a[..., 1], 0, 1)
+        img = np.dstack([np.round(rgb * 255), np.round(al * 255)]).astype(np.uint8)
+        h = ''.join('%02x' % int(round(v * 255)) for v in list(c1) + list(c2))
+        rel = _save(img, f'warships/maps/{src}_{h}.png', 1024)
+    _made[key] = rel
+    return rel
+
+
 def material_entries(prefix, mats_used):
     """ships.json "materials" for the renamed glTF materials: {new name: (es2 material, tint index or None)}."""
     out = []
@@ -183,6 +242,16 @@ def material_entries(prefix, mats_used):
         m = es2mat.resolve(src)
         kind = es2mat.classify(m)
         e = {'material': new}
+        if 'StructuresStrips' in m['root'] or 'StructuresStrips' in m['name']:
+            d = strips_map(m)
+            if d:
+                e.update({'diffuse': d, 'alphaClip': 0.4, 'color': [1.0, 1.0, 1.0], 'metallic': 0.0, 'smoothness': 0.35})
+                n = tex('normal', 'T_Structures_Strips_N')
+                if n: e['normal'] = n
+            else:
+                e.update({'diffuse': 'warships/maps/clear.png', 'alphaClip': 0.5})
+            out.append(e)
+            continue
         if kind == 'decal':
             e.update({'diffuse': 'warships/maps/clear.png', 'alphaClip': 0.5})
         elif kind == 'field':
@@ -192,6 +261,14 @@ def material_entries(prefix, mats_used):
         elif kind == 'glow':
             tints = es2mat.vertex_tints(m)
             c, i = es2mat.glow_colour(m)
+            if ti is not None and ti >= 10 and tints:
+                # a band_glow material: see-through, its glow and opacity from the maps (split_prims' v = the vertex alpha)
+                maps = band_maps(m)
+                e.update({'color': [0.0, 0.0, 0.0], 'emissionColor': [round(v, 3) for v in tints[ti - 10]], 'emissionIntensity': i,
+                          'metallic': 0.0, 'smoothness': 0.0})
+                if maps: e.update({'emission': maps[0], 'diffuse': maps[1], 'opacity': 0.999})
+                out.append(e)
+                continue
             if tints and ti is not None: c = tints[min(ti, 2)]
             e.update({'color': [0.04, 0.04, 0.045], 'emissionColor': [round(v, 3) for v in c], 'emissionIntensity': i})
         elif kind == 'glass':
@@ -238,14 +315,26 @@ def split_prims(prefix, prims, mats_used, layered=False):
         m = es2mat.resolve(mname)
         kind = es2mat.classify(m)
         vt = (kind == 'pbr' and es2mat.plan(m).get('tints')) or (kind == 'glow' and es2mat.vertex_tints(m))
-        if vt and 'COLOR_0' in attrs:
+        if band_glow(m) and 'COLOR_0' in attrs and 'TEXCOORD_0' in attrs:
+            # the colour by the mask's band under the face (u), the vertex alpha into v (material_entries: ti 10 + band)
+            uv = np.array(attrs['TEXCOORD_0'], np.float32)
+            al = np.clip(attrs['COLOR_0'][:, 3], 0.0, 1.0)
+            uv[:, 1] = BAND_V0 + (BAND_V1 - BAND_V0) * al
+            attrs = {**attrs, 'TEXCOORD_0': uv}
+            u = (uv[tri[:, 0], 0] + uv[tri[:, 1], 0] + uv[tri[:, 2], 0]) / 3
+            band = np.clip(np.floor(np.mod(u, 1.0) * 3).astype(int), 0, 2)
+            seen = np.maximum(np.maximum(al[tri[:, 0]], al[tri[:, 1]]), al[tri[:, 2]]) > 0.01   # (all clear: nothing to draw)
+            groups = [(10 + k, tri[(band == k) & seen]) for k in range(3)]
+        elif vt and 'COLOR_0' in attrs:
             col = attrs['COLOR_0'][:, :3]
             c = (col[tri[:, 0]] + col[tri[:, 1]] + col[tri[:, 2]]) / 3
             if layered:
                 # ES2's structures lerp BaseColor -> VtxR -> VtxG -> VtxB by the channels in turn: the last channel set wins
                 # (white is VtxB), none set is BaseColor
                 which = np.full(len(c), -1)
-                for k in range(3): which[c[:, k] >= 0.5] = k
+                w = (kind == 'pbr' and es2mat.plan(m).get('tintw')) or [1.0, 1.0, 1.0]
+                for k in range(3):
+                    if w[k] >= 0.5: which[c[:, k] >= 0.5] = k   # (a tint of alpha 0 lerps nowhere)
                 groups = [(None, tri[which == -1])] + [(k, tri[which == k]) for k in range(3)]
             else:
                 which = c.argmax(axis=1)

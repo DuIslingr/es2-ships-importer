@@ -134,9 +134,9 @@ def _structure_colour(mod, rel, tint):
     return out
 
 
-def _visible_spots(prims, cam, target, floor, fov_deg, n=6, aspect=16 / 9):
-    """Where the bar's visitors stand (glTF metres): points of the lounge floor itself (no table or counter on them) in the
-    camera's view, 12-38 m from it and in front of the facade, whose feet and head the camera sees and whose billboard
+def _visible_spots(prims, cam, target, floor, fov_deg, n=6, aspect=16 / 9, lower=None):
+    """Where the bar's visitors stand (glTF metres): points of the lounge floor itself (no table or counter on them), or of
+    the hall's floor at the foot of its stairs ('lower', its height), in the camera's view, 12-38 m from it and in front of the facade, whose feet and head the camera sees and whose billboard
     (VISITOR_HALF_WIDTH either side, VISITOR_HEIGHT up) no wall or furniture cuts (rays against the casino's triangles),
     spread across the screen. The guessed spots left some behind the facade's side panels."""
     tri = []
@@ -144,7 +144,7 @@ def _visible_spots(prims, cam, target, floor, fov_deg, n=6, aspect=16 / 9):
         P = a['POSITION'].astype(np.float64); T = t.reshape(-1, 3)
         A, B, C = P[T[:, 0]], P[T[:, 1]], P[T[:, 2]]
         c = (A + B + C) / 3
-        keep = (c[:, 0] > -5) & (c[:, 0] < 90) & (np.abs(c[:, 2]) < 80) & (c[:, 1] > floor - 5) & (c[:, 1] < floor + 45)
+        keep = (c[:, 0] > -5) & (c[:, 0] < 90) & (np.abs(c[:, 2]) < 80) & (c[:, 1] > min(floor, lower if lower is not None else floor) - 5) & (c[:, 1] < floor + 45)
         if keep.any(): tri.append((A[keep], B[keep], C[keep]))
     A = np.concatenate([x[0] for x in tri]); B = np.concatenate([x[1] for x in tri]); C = np.concatenate([x[2] for x in tri])
     E1, E2 = B - A, C - A
@@ -182,10 +182,10 @@ def _visible_spots(prims, cam, target, floor, fov_deg, n=6, aspect=16 / 9):
     right = np.cross(fwd, [0.0, 1.0, 0.0]); right /= np.linalg.norm(right); up = np.cross(right, fwd)
     tv = math.tan(math.radians(fov_deg / 2)) * 0.8; th = tv * aspect * 0.8
     cands = []
-    for x in np.arange(20.0, 78.0, 2.0):
+    for x in np.arange(20.0, 84.0, 2.0):
         for z in np.arange(-50.0, 52.0, 2.0):
             h = floor_under(x, z)
-            if h is None or abs(h - floor) > 0.4: continue
+            if h is None or (abs(h - floor) > 0.4 and (lower is None or abs(h - lower) > 0.4)): continue
             p = np.array([x, h, z]); d = p - cam; dist = float(np.linalg.norm(d))
             if not 12.0 <= dist <= 38.0 or x < 40.0: continue   # (x < 40: behind the lounge, at the facade)
             f = d @ fwd
@@ -250,17 +250,20 @@ def build(src, mod, log=print):
     marks['camera_target'] = [px, py + 4.0, pz]
     marks['light'] = [px - 40.0, py + 45.0, pz - 30.0]
 
-    # The casino (Unreal x 3..76 m at the hall's back): a trapezoid lounge floor, stairs down either side, the round fish tank
-    # at its open end toward the hangar (x ~59 m), the casino's facade with its name sign behind the lounge. Placed from
-    # renders of the room (es2_re/homebase/render_room.py, 'top' for the plan): the camera beside the tank, raised, looking
-    # over the lounge at the facade; the visitors on the lounge floor (its height measured under each spot).
+    # The casino (Unreal x 3..76 m at the hall's back): a trapezoid lounge floor (x ~38..66) with the casino's facade and its
+    # name sign at its back (x ~36), the round fish tank at its open end toward the hangar (x ~59), and a staircase either
+    # side of the tank down 4.3 m to the hall's floor (x ~62..72, |y| ~8..16). Placed from renders of the room
+    # (es2_re/homebase/render_room.py, 'top' for the plan): the camera on the hall's floor at the foot of the left stairs,
+    # looking up them at the tank and the sign; the visitors on the lounge floor or at the foot of the stairs (their floor
+    # measured under each spot).
     floor = _floor_at(prims, 4300, -1000, below=-10.0, above=-30.0)   # (below the tables and the bar counter)
+    hall = _floor_at(prims, 7800, -1200, below=(floor or 0.0) - 1.0, above=(floor or 0.0) - 10.0) if floor is not None else None
     vis, bar = [], None
     if floor is not None:
-        bar = {'bar_camera': [71.4, floor + 11.8, -21.4], 'bar_camera_target': [42.9, floor + 3.6, 3.6],
-               'bar_camera_start': [73.2, floor + 15.4, 0.0], 'bar_camera_start_target': [45.0, floor + 1.8, 0.0],
-               'bar_light': [46.0, floor + 16.0, 0.0]}
-        vis = _visible_spots(prims, bar['bar_camera'], bar['bar_camera_target'], floor, 60.0)
+        bar = {'bar_camera': [79.0, floor + 0.5, -18.0], 'bar_camera_target': [50.0, floor + 4.0, 2.0],
+               'bar_camera_start': [86.0, floor - 1.0, -25.0], 'bar_camera_start_target': [52.0, floor + 5.0, 2.0],
+               'bar_light': [70.0, floor + 16.0, -14.0]}
+        vis = _visible_spots(prims, bar['bar_camera'], bar['bar_camera_target'], floor, 60.0, lower=hall)
         for k, v in enumerate(vis, 1): marks[f'visitor_{k}'] = v
         if not vis: bar = None
 
@@ -270,7 +273,9 @@ def build(src, mod, log=print):
     # resolved form doesn't carry, so they are switched on here for every material that has them.
     for n in {x[2] for x in prims}:
         m = warships.es2mat.resolve(n)
-        if 'BaseColorVtxR' in m['col'] and 'UseVertexColorMasks' not in m['sw']: m['sw']['UseVertexColorMasks'] = True
+        if ('BaseColorVtxR' in m['col'] and 'UseVertexColorMasks' not in m['sw']
+                and any(m['cola'].get('BaseColorVtx' + c, 1.0) >= 0.5 for c in 'RGB')):
+            m['sw']['UseVertexColorMasks'] = True
 
     mats_used = {}
     out = split_prims('hb', prims, mats_used, layered=True)
@@ -283,12 +288,26 @@ def build(src, mod, log=print):
     w.write(p)
     materials = material_entries('hb', mats_used)
     for e in materials:
+        m = warships.es2mat.resolve(mats_used[e['material']][0])
+        kind = warships.es2mat.classify(m)
         # The hall's plating is nearly all polished metal (Plating_101's metal ~0.95): ES2 lights it with its reflection
         # captures, the remake's room has none, so it came out black.
         if e.get('metallicSmoothness'): e['metallicSmoothness'] = _less_metal(mod, e['metallicSmoothness'])
-        if re.search(r'_c\d+a?\.png$', e.get('diffuse', '')) and e.get('color'):
+        elif e.get('metallic', 0.0) > 0.5: e['metallic'] = round(e['metallic'] * 0.1, 3)
+        # M_Structures_Parent's family only (its shader's saturate(curvature x 2 x tint))
+        if 'CurvatureChannel' in m['col'] and re.search(r'_c\d+a?\.png$', e.get('diffuse', '')) and e.get('color'):
             e['diffuse'] = _structure_colour(mod, e['diffuse'], e['color']); e['color'] = [1.0, 1.0, 1.0]
-        if e.get('opacity') == 0.6: e['opacity'] = 0.18   # the windows: clear, space behind them
+        if kind == 'glass':
+            # their compiled shaders: the windows (M_ShipModules_Glass_Parent) WindowColor at 0.1 + grunge + fresnel, the
+            # casino's glass (M_Structures_Glass_Parent) Color at BaseOpacity (0) + scratches + fresnel: nearly clear, a
+            # pale cyan tint, the URP glass's own reflection standing in for the fresnel
+            c = m['col'].get('WindowColor') or m['col'].get('Color') or [0.8, 0.95, 1.0]
+            e.update({'color': [round(v, 3) for v in c], 'metallic': 0.0, 'smoothness': 0.95,
+                      'opacity': 0.12 if 'WindowColor' in m['col'] else 0.06})
+        elif kind == 'decal':
+            # M_Vehicles_Decals_Parent: the decal atlas' colour (over a neutral bake) cut out by its alpha
+            d = warships.tex('colour', 'T_Vehicles_Decals_001_C_A', 'rgb', ('T_Vehicles_Decals_001_C_A', 3))
+            if d: e.update({'diffuse': d, 'alphaClip': 0.5, 'color': [1.0, 1.0, 1.0], 'metallic': 0.0, 'smoothness': 0.3})
         # the landing pads' dark colour map (a quarter grey) under a 0.35 tint: black under the room's one light
         if 'LandingPads' in e.get('diffuse', ''): e['color'] = [round(min(1.0, c * 1.8), 3) for c in e['color']]
     tris = sum(len(i) // 3 for _, i, _ in out)
@@ -305,5 +324,5 @@ def build(src, mod, log=print):
         markers = {k[4:]: scaled(v, BAR_SCALE) for k, v in bar.items()}
         markers.update({k: scaled(v, BAR_SCALE) for k, v in marks.items() if k.startswith('visitor')})
         rooms.append({'id': 'homebase_casino', 'type': 'bar', 'model': rel, 'scale': BAR_SCALE, 'materials': materials,
-                      'markers': markers, 'fov': 60, 'far': 10000, 'ambient': [0.26, 0.23, 0.3], 'lightIntensity': 0.7})
+                      'markers': markers, 'fov': 60, 'far': 10000, 'ambient': [0.16, 0.14, 0.19], 'lightIntensity': 0.45})
     return rooms

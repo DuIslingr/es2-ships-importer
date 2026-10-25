@@ -91,6 +91,9 @@ def make(spec):
                 L.new(mul.outputs['Result'], bsdf.inputs['Emission Color'])
     if 'opacity' in spec:
         bsdf.inputs['Alpha'].default_value = spec['opacity']; m.blend_method = 'BLEND' if hasattr(m, 'blend_method') else None
+        if d:   # URP multiplies the base map's alpha in (see-through with a texture: the emissive bands' opacity map)
+            mul = N.new('ShaderNodeMath'); mul.operation = 'MULTIPLY'; mul.inputs[1].default_value = spec['opacity']
+            L.new(d.outputs['Alpha'], mul.inputs[0]); L.new(mul.outputs['Value'], bsdf.inputs['Alpha'])
     if spec.get('alphaClip') and d:
         L.new(d.outputs['Alpha'], bsdf.inputs['Alpha'])
     return m

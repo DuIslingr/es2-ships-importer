@@ -79,6 +79,9 @@ if (args[0] == "material")
 {
     var m = provider.LoadPackageObject<UMaterialInterface>(args[1]);
     Console.WriteLine($"{m.Name}: {m.LoadedMaterialResources.Count} resources");
+    // the parent chain (an instance without static switches of its own has no shaders: its parent's are drawn)
+    for (UMaterialInterface? p = m; p is UMaterialInstance mi && mi.Parent?.Load<UMaterialInterface>() is { } up; p = up)
+        Console.WriteLine($" parent {up.GetPathName()}");
     foreach (var r in m.LoadedMaterialResources)
     {
         var sm = r.LoadedShaderMap;

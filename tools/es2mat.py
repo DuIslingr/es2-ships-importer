@@ -63,14 +63,16 @@ def _hex(c):
 @functools.lru_cache(None)
 def resolve(name):
     """{'name', 'root', 'chain', 'blend', 'tex': {param: texture name}, 'col': {param: sRGB [r, g, b]}, 'sca', 'sw'}."""
-    out = {'name': _name(name), 'chain': [], 'blend': 0, 'tex': {}, 'col': {}, 'sca': {}, 'sw': {}}
+    out = {'name': _name(name), 'chain': [], 'blend': 0, 'tex': {}, 'col': {}, 'cola': {}, 'sca': {}, 'sw': {}}
     d = _load(name)
     if isinstance(d, dict):
         out['chain'].append(out['name'])
         out['blend'] = d.get('BlendMode', 0) or 0
         for k, v in (d.get('Textures') or {}).items():
             if isinstance(v, dict) and v.get('ObjectPath'): out['tex'][k] = _name(v['ObjectPath'])
-        for k, v in (d.get('Colors') or {}).items(): out['col'][k] = _hex(v)
+        for k, v in (d.get('Colors') or {}).items():
+            out['col'][k] = _hex(v)
+            if isinstance(v, dict) and 'A' in v: out['cola'][k] = float(v['A'])
         out['sca'] = dict(d.get('Scalars') or {})
         out['sw'] = dict(d.get('Switches') or {})
         # (its root material isn't named in this form: the instance's properties file, when there is one, is also
@@ -92,6 +94,7 @@ def resolve(name):
                 if v.get('ObjectPath'): out['tex'].setdefault(t['ParameterInfo']['Name'], _name(v['ObjectPath']))
             for t in pr.get('VectorParameterValues', []):
                 out['col'].setdefault(t['ParameterInfo']['Name'], _hex(t.get('ParameterValue') or {}))
+                if 'A' in (t.get('ParameterValue') or {}): out['cola'].setdefault(t['ParameterInfo']['Name'], float(t['ParameterValue']['A']))
             for t in pr.get('ScalarParameterValues', []):
                 out['sca'].setdefault(t['ParameterInfo']['Name'], t.get('ParameterValue'))
             for t in ((pr.get('StaticParametersRuntime') or pr.get('StaticParameters') or {}).get('StaticSwitchParameters') or []):
@@ -128,7 +131,8 @@ def classify(m):
 
 
 COLOUR = ['ColorTexture', 'C', 'PM_Diffuse', 'Diffuse', 'BaseColorTexture', 'C_A', 'Color', 'Albedo', 'BaseColor']
-MASKS = ['Masks', 'C_R_MT_A', 'C_R_MT_E', 'R_E_A', 'Roughness', 'R_MT_E', 'C_R_E', 'Mask']
+MASKS = ['Masks', 'C_R_MT_A', 'C_R_MT_E', 'R_E_A', 'Roughness', 'R_MT_E', 'C_R_E', 'C_R_M', 'Mask']
+CODES = {'C', 'R', 'MT', 'M', 'E', 'A', 'AO', 'H', 'N', 'O', 'D'}   # channel letters in a packed texture's name
 NORMAL = ['N', 'Normal Map', 'Normal', 'NormalMap', 'PM_Normals']
 ALPHA = ['ColorAlphaMask', 'Alpha Mask', 'AlphaMask', 'Opacity']
 
@@ -146,6 +150,11 @@ def channels(tex):
     parts = _name(tex).split('_')
     idx = max((i for i, p in enumerate(parts) if p.isdigit()), default=len(parts) - 1)
     toks = [p.upper() for p in parts[idx + 1:]]
+    if not toks:
+        # T_Container_C_R_MT_001: the channel letters before a trailing number
+        i = idx
+        while i > 0 and parts[i - 1].upper() in CODES: i -= 1
+        toks = [p.upper() for p in parts[i:idx]]
     if not toks: return ['RGB']
     if toks[0] == 'C' and len(toks) <= 2 and (len(toks) == 1 or toks[1] in ('A', 'AO', 'M')): return ['RGB'] + toks[1:]
     return toks
@@ -167,6 +176,10 @@ def plan(m):
     col = _tex(m, COLOUR)
     masks = _tex(m, MASKS)
     if col and col == masks: masks = None
+    if 'CurvatureChannel' in m['col'] and not m['sw'].get('UseColorTexture'):
+        # M_Structures_Parent's family (its compiled shader): the colour is saturate(the masks' curvature channel x 2 x the
+        # tint) unless its UseColorTexture switch is on; a 'C' map in the list is only a parent default then
+        col = None
     if col:
         ch = channels(col)
         p['colour'] = (col, 'rgb' if ch[0] == 'RGB' else ch.index('C') if 'C' in ch else 'rgb')
@@ -185,6 +198,20 @@ def plan(m):
         if e is not None: p['emit'] = (masks, e)
         if 'C' in ch and 'colour' not in p: p['colour'] = (masks, ch.index('C'))
         if 'A' in ch: p['alpha'] = (masks, ch.index('A'))
+        elif 'M' in ch and m['blend'] == 1: p['alpha'] = (masks, ch.index('M'))   # (foliage's C_R_M: M the opacity mask)
+    if m['blend'] == 1 and not masks and 'colour' not in p:
+        # a masked parent naming its maps only by their defaults (M_Structures_Floaters_Parent: T_X_R_E_A, its B the
+        # cut-out, and T_X_C_AO the colour)
+        for t in sorted(set(m['tex'].values())):
+            ch = channels(t)
+            if 'A' not in ch or ch[0] == 'RGB' or not texture_file(t): continue
+            p['alpha'] = (t, ch.index('A'))
+            if 'R' in ch: p['rough'] = (t, ch.index('R'))
+            stem = t.rsplit('_', len(ch))[0]
+            c = next((u for u in sorted(set(m['tex'].values())) if u.startswith(stem + '_') and u != t
+                      and channels(u)[0] == 'RGB' and texture_file(u)), None)
+            p['colour'] = (c, 'rgb') if c else (t, ch.index('A'))
+            break
     if 'colour' in p and p['colour'][1] == 'rgb' and 'A' in channels(p['colour'][0]): p.setdefault('alpha', (p['colour'][0], 3))
     am = _tex(m, ALPHA)
     if am and m.get('sw', {}).get('UseColorAlphaMask', True): p['alphaMask'] = am
@@ -194,6 +221,9 @@ def plan(m):
     p['tint'] = base
     if m['sw'].get('UseVertexColorMasks'):
         p['tints'] = [m['col'].get(f'BaseColor{i}') or m['col'].get('BaseColorVtx' + 'RGB'[i - 1]) or base for i in (1, 2, 3)]
+        # each lerp toward a vertex channel's tint is weighted by that tint's alpha (M_Structures_Parent: v.x x VtxR.a ...;
+        # the red tarp's are 0: no tint)
+        p['tintw'] = [m['cola'].get('BaseColorVtx' + 'RGB'[i], 1.0) for i in range(3)]
     t = m['sca'].get('Tiling')
     if t and abs(t - 1) > 1e-3: p['tiling'] = float(t)
     mo = m['sca'].get('MetalOverride', m['sca'].get('MetalnessOverride'))

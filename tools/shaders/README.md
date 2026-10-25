@@ -6,9 +6,12 @@ Research tools (not used by the importer): how EVERSPACE 2's effects are drawn, 
 - `ShaderDump` (needs the .NET 10 SDK and CUE4Parse cloned next to it: `git clone --recursive
   https://github.com/FabianFG/CUE4Parse.git`): `ES2_GAME=<install> ES2_USMAP=<.usmap> ES2_AES_KEY=0x... dotnet run -c
   Release -- material "ES2/Content/<path>.<Object>" <outdir>`: a material's shaders per platform (`<n>_<frequency>.bin`)
-  and `uniforms.json`. The AES key and mappings are the ones FModel needs (see the main README).
+  and `uniforms.json` (the shader's parameter names), and prints its parent chain: an instance without static switches
+  of its own has no shaders ("0 resources"), its parent's are drawn, so dump the parent. The AES key and mappings are the
+  ones FModel needs (see the main README).
 - `disasm.c`: `x86_64-w64-mingw32-gcc -O2 -o disasm.exe disasm.c`, then `wine disasm.exe <shader.bin> <out.asm>` (Wine's
-  `d3dcompiler_47` disassembles the DXBC container inside).
+  `d3dcompiler_47` disassembles the DXBC container inside). Only give it files that exist: on a missing one it crashes,
+  and Wine shows a crash dialog each time.
 - `export` mode: `... dotnet run -c Release -- export <list file> <FModel's Output/Exports folder> [all]` exports what
   your FModel export lacks, in its layout: each line of the list an object path (`/Game/...`); meshes as .glb with their
   materials (.json) and textures (.png). `all` resolves a material's parameters through its whole parent chain (the
