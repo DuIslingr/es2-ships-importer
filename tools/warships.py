@@ -59,6 +59,8 @@ FREIGHTERS = [
     ('es2_flying_trader', 'Flying Trader', 'A travelling trader\'s ship.', 2, None, ['Transporters/Meshes/SM_Transporter_006'], None),
     ('es2_tareen_trader', 'Tareen Trader', 'A Tareen trader with its tarps and neon signs.', 3, None, ['Transporters/Meshes/SM_Trader_001'], None),
 ]
+# The blueprints of the ships built without one (no turrets or parts to read), for their engine effects (engine_effects).
+ENGINE_BP = {'es2_flying_trader': 'BP_Ship_Traveling_Trader', 'es2_tareen_trader': 'BP_Ship_Tareen'}
 # The fighters a hangar launches by faction: the mod's kit ships (random builds).
 HANGAR_SHIPS = {'outlaw': ['es2_ships:striker', 'es2_ships:stinger', 'es2_ships:scout'],
                 'gb': ['es2_ships:interceptor', 'es2_ships:vanguard', 'es2_ships:sentinel'],
@@ -432,6 +434,28 @@ def components(name):
     return out
 
 
+def engine_effects(bp):
+    """ships.json "es2Engine" from a ship blueprint (and its parents, the child's values winning): its SpawnEngineGlow /
+    SpawnEngineTrails, both off with EngineVFXEnabled false (BP_ShipBase's InitializeEngineVFX), None = both on. EVERSPACE 2's
+    warships and freighters have them off (all but the Ancient Swarmer): their engines are their nozzles' glow. A blueprint
+    that isn't a ship's (the Dreadnought, an actor of its own) has no engine effects at all."""
+    found, n, seen, ship = {}, bp, set(), False
+    while n and n not in seen:
+        seen.add(n)
+        d = _bp(n)
+        if not d: break
+        for e in d:
+            if e.get('Name', '').startswith('Default__'):
+                for k, v in (e.get('Properties') or {}).items():
+                    if k in ('EngineVFXEnabled', 'SpawnEngineGlow', 'SpawnEngineTrails') and k not in found: found[k] = bool(v)
+        if n == 'BP_ShipBase': ship = True
+        n = _super(n)
+    if not ship: return {'glow': False, 'trails': False}
+    on = found.get('EngineVFXEnabled', True)
+    glow, trails = on and found.get('SpawnEngineGlow', True), on and found.get('SpawnEngineTrails', True)
+    return None if glow and trails else {'glow': glow, 'trails': trails}
+
+
 def isa(cls, word):
     """A child actor class is 'word' (by its own or a parent's name)."""
     n, seen = cls, set()
@@ -565,6 +589,9 @@ def build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar,
             'mounts': mounts, 'materials': materials, 'subsystems': subs,
             'traffic': {'capital': kind, **({} if traffic else {'weight': 0})},
             'explosionScale': round(min(20.0, max(4.0, float(size.max()) * f / 250.0)), 1)}
+    ebp = bp or ENGINE_BP.get(sid)
+    effects = engine_effects(ebp) if ebp else None
+    if effects: ship['es2Engine'] = effects
     tris = sum(len(i) // 3 for _, i, _ in out)
     LOG(f'  {name}: {round(float(size.max()) * f)} m, {tris} triangles, {len(eng) or len([m for m in mounts if m["slotType"] == 3])} engines, '
         f'{sum(1 for s in subs if s["kind"] == "turret")} turrets, {sum(1 for s in subs if s["kind"] == "hangar")} hangars, '
@@ -753,7 +780,10 @@ def build_dreadnought():
             'armor': 60000, 'cargo': 0, 'handling': 5, 'price': 0, 'slots': {'primary': 0, 'secondary': 0, 'turret': 0, 'equipment': 0},
             'model': rel, 'modelLength': round(length), 'modelYaw': 90, 'engineStyle': 'es2', 'mounts': mounts, 'materials': materials,
             'subsystems': subs, 'shieldMaterial': 'energyfield|', 'shieldedDamage': 0.0, 'hullFactor': 6.0,
-            'traffic': {'capital': 'battleship', 'weight': 0}, 'explosionScale': 20.0}
+            'traffic': {'capital': 'battleship', 'weight': 0}, 'explosionScale': 20.0,
+            'es2Engine': engine_effects('BP_Dreadnought'),
+            # never destroyed: it jumps away at an empty hull (BP_Encounter_Dreadnought_Base's OnHealthDepleted), so it can come again
+            'retreat': True}
     tris = sum(len(i) // 3 for _, i, _ in out)
     LOG(f'  Dreadnought: {round(float(size.max()) * f)} m, {tris} triangles, {len(pieces)} pieces, {len(subs)} subsystems '
         f'({sum(1 for s in subs if s.get("shields"))} shield, {sum(1 for s in subs if s["kind"] == "turret")} turrets, '
