@@ -1002,7 +1002,7 @@ def exhaust_styles(palettes):
 
 # (audio/: the sounds are encoded by whatever this computer has, ffmpeg's version or none, so the files differ between
 # players' builds; the names ships.json gives them don't.)
-MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'campaign.jpg']
+MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/']
 
 def main(version):
     os.makedirs(os.path.join(MOD, 'parts'), exist_ok=True)
@@ -1123,10 +1123,10 @@ def main(version):
     # EVERSPACE 2's devices and consumables (devices.py: on the nearest GoF2 equipment / secondary).
     print('Adding the devices and consumables ...')
     items += devices.build(MOD)
-    # EVERSPACE 2's Sector 1 as a system of its own, ES2's resources and the "EVERSPACE 2" campaign (sectors.py).
+    # EVERSPACE 2's sectors as systems past the edge of the star map, and ES2's resources (sectors.py).
     sectors.configure(SRC, MOD)
     if sectors.available():
-        print('Adding the EVERSPACE 2 sector and campaign ...')
+        print('Adding the EVERSPACE 2 sectors ...')
         systems, sector_stations, resources = sectors.build()
         world_stations += sector_stations; items += resources
         json.dump(systems, open(os.path.join(MOD, 'systems.json'), 'w', encoding='utf-8'), indent=1)
@@ -1145,7 +1145,7 @@ def main(version):
                               '; EVERSPACE 2\'s devices and consumables in the shops' +
                               ('; EVERSPACE 2\'s weapons in the shops; its warships and freighters in the orbits\' traffic; the Outlaw '
                                'Dreadnought raiding convoys now and then' if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')) else '') +
-                              ('; an "EVERSPACE 2" campaign in its Ceto sector, with ES2\'s resources to mine' if sectors.available() else '') +
+                              ('; EVERSPACE 2\'s Ceto sector past the edge of the star map (a Khador Drive away), with ES2\'s resources to mine' if sectors.available() else '') +
                               '. Built on this device from your own EVERSPACE 2 files. Customize the ships in the hangar.',
                'credits': 'Models, textures and colours: EVERSPACE 2 (c) ROCKFISH Games, from the player\'s own copy of the game. '
                           'For personal use: don\'t share the built mod.',

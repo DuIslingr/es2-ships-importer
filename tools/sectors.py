@@ -1,5 +1,7 @@
-"""EVERSPACE 2's sectors as Galaxy on Fire 2 systems, and an "EVERSPACE 2" campaign card that plays in them (the remake's mod
-systems, stations and campaigns: Modding/README.md "systems.json and stations.json", "Campaigns").
+"""EVERSPACE 2's sectors as Galaxy on Fire 2 systems (the remake's mod systems and stations: Modding/README.md "systems.json
+and stations.json"). ES2's galaxy is a galaxy of its own: its sectors lie in a cluster past the edge of GoF2's star map, in
+ES2's own layout (GALAXY), linked to each other only by ES2's own jumpgates and to GoF2's systems by none, so a Khador Drive
+is the way there.
 
 A sector comes from its travel-mode map (Maps/TravelMode/Map_TravelMode_SNN): BP_TravelMode_System (its name and colour),
 BP_TravelMode_Sun at the origin (its colour), BP_TravelMode_Planet (each planet's material, atmosphere and surface colours,
@@ -24,7 +26,7 @@ Those textures are not in a plain FModel export: tools/shaders' export with tool
 Coordinates: ES2 (X forward, Y right, Z up) -> GoF2 game (x left, y up, z ahead) = (-Y, Z, X); Unity = (x, y, -z)."""
 import json, math, os
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image
 import jobs
 
 SRC = MOD = None
@@ -59,7 +61,9 @@ def R(key, chance=1):
 ORE_IRON, ORE_TITANIUM = 156, 155
 SECTORS = {
     'S01': {
-        'id': 'es2_ceto', 'race': 2, 'security': 2, 'position': [50, 50, 50],
+        # 'gates': the ES2 sectors its jumpgate reaches (their GoF2 ids; none yet: Ceto is the only one so far), from
+        # 'gateStation' (Union Bridge, ES2's "Jump Gate & Trading Station")
+        'id': 'es2_ceto', 'race': 2, 'security': 2, 'gates': [], 'gateStation': 'es2_union_bridge',
         'spaceMusic': 'LayeredSong_003_1Calm', 'stationMusic': 'LayeredSong_004_1Calm',
         'locations': [
             ('S01L04', 'es2_union_bridge', 0, 2, 4, 'S01P02', {'count': 40, 'ores': [{'item': ORE_IRON, 'chance': 2}, R('copper', 3)]}),
@@ -75,15 +79,16 @@ SECTORS = {
         ],
     },
 }
-# The campaign: where it starts and what with; the traffic per race (the mod's fighters, ES2's factions as the races).
-CAMPAIGN = {
-    'start': 'es2_union_bridge', 'ship': 'vanguard', 'credits': 5000, 'equipment': ['autocannon'],
-    'traffic': {'terran': ['es2_coalition_fighter', 'es2_coalition_guard'],
-                'vossk': ['es2_okkar_fighter', 'es2_okkar_interceptor', 'es2_okkar_protector'],
-                'nivelian': ['es2_freelancer', 'es2_freelancer_escort'],
-                'midorian': ['es2_gb_fighter', 'es2_gb_light_fighter'],
-                'pirate': ['es2_outlaw_raider', 'es2_outlaw_scout', 'es2_outlaw_madcap', 'es2_outlaw_bomber', 'es2_outlaw_ravager']},
-}
+# Where ES2's galaxy lies on GoF2's star map: its sectors' places on ES2's galaxy map (BP_TravelMode_System LocationOnMap:
+# X -750 .. 4100, Y -1620 .. 1100) scaled into a cluster past GoF2's edge (GoF2's systems lie at x 15-94, y 2-96, z 10-90;
+# x and y are the map's screen axes, z its depth): x from 104, its y centred on GoF2's middle, z GoF2's middle.
+GALAXY = {'x0': 104.0, 'x_from': -750.0, 'y_mid': 50.0, 'y_from': -260.0, 'scale': 0.008, 'z': 50}
+
+
+def galaxy_position(loc):
+    """A sector's place on GoF2's star map ([x, y, z]) from its place on ES2's galaxy map."""
+    g = GALAXY
+    return [int(round(g['x0'] + (loc[0] - g['x_from']) * g['scale'])), int(round(g['y_mid'] + (loc[1] - g['y_from']) * g['scale'])), g['z']]
 SKY_W, SKY_H = 8192, 4096
 PLANET_MAP = (2048, 1024)
 
@@ -135,6 +140,7 @@ def read(sector):
         t, p = e.get('Type'), e.get('Properties') or {}
         if t == 'BP_TravelMode_System_C':
             out['name'] = _text(p['SystemData'].get('Name')) or sector
+            out['galaxy'] = _vec(p['SystemData'].get('LocationOnMap'))
             c = p.get('SystemColor'); out['colour'] = [c['R'], c['G'], c['B']] if c else out['colour']
         elif t == 'BP_TravelMode_Sun_C':
             c = p.get('Color'); out['sun'] = [c['R'], c['G'], c['B']] if c else out['sun']
@@ -369,9 +375,14 @@ def build_sector(key):
     sun_rel = _write_png(f'sectors/{sid}/sun.png', sun_image(sec['sun']))[len(MOD) + 1:]
     sc = np.array(sec['sun'], np.float32); sc = sc / max(sc.max(), 1e-6)
     system = {'id': sid, 'name': sec['name'], 'race': spec['race'], 'security': spec['security'], 'visible': True,
-              'position': spec['position'], 'sky': 3,
+              # 'sky': the game's sky whose sun sprite the star map shows (its own sun, sky and light replace the rest):
+              # Nesla's (8), blue-white like ES2's Ceto sun
+              'position': galaxy_position(sec.get('galaxy', np.zeros(3))), 'sky': 8,
               'sunTexture': sun_rel.replace(os.sep, '/'), 'sunColor': [round(float(0.55 + 0.45 * v), 3) for v in sc],
               'skybox': {'nebula': sky_rel, 'stars': 'none', 'rotation': [0, 0, 0]}}
+    if spec['gates']:   # ES2's own jumpgates, to its own sectors only
+        system['gates'] = [f'es2_ships:{g}' for g in spec['gates']]
+        system['gateStation'] = f'es2_ships:{spec["gateStation"]}'
     # the planets the kept orbits circle
     made = {}
     def planet_images(pid):
@@ -414,7 +425,7 @@ def build_sector(key):
             if pi[2]['ring']: st['mapRing'] = True
         if asteroids is False: orbit['asteroids'] = False
         elif asteroids: orbit['asteroids'] = dict(asteroids)
-        orbit['jumpgate'] = False
+        if not (spec['gates'] and gid == spec['gateStation']): orbit['jumpgate'] = False   # (the gate only where ES2's is)
         st['orbit'] = orbit
         m = L['map']
         st['mapPlace'] = {'angle': round(math.degrees(math.atan2(m[1], m[0])) % 360, 1),
@@ -423,32 +434,6 @@ def build_sector(key):
         LOG(f'  {L["name"]} ({L["subtitle"]}): ' + ('station' if 'station' not in orbit else str(orbit['station'])) +
             f', planet {sec["planets"][pid]["name"] if pid in sec["planets"] else "-"}')
     return system, stations, sec
-
-
-def card(sky_path, planet_path, title, subtitle, out):
-    """The campaign card (580 x 896): a crop of the sector's sky, its planet, the title."""
-    W, H = 580, 896
-    sky = Image.open(sky_path).convert('RGB')
-    # the brightest part of the sky (its nebulas) in a card-shaped crop
-    small = np.asarray(sky.resize((256, 128)), np.float32).sum(-1)
-    cx = int(np.argmax(small.sum(0)) / 256 * sky.size[0]); cy = int(np.argmax(small.sum(1)) / 128 * sky.size[1])
-    ch = int(sky.size[1] * 0.42); cw = int(ch * W / H)
-    x0 = min(max(0, cx - cw // 2), sky.size[0] - cw); y0 = min(max(0, cy - ch // 2), sky.size[1] - ch)
-    im = sky.crop((x0, y0, x0 + cw, y0 + ch)).resize((W, H), Image.LANCZOS).convert('RGBA')
-    pl = Image.open(planet_path).convert('RGBA').resize((520, 520), Image.LANCZOS)
-    im.alpha_composite(pl, (W - 330, H - 470))
-    shade = Image.new('RGBA', (W, 240), (0, 0, 0, 0)); sd = ImageDraw.Draw(shade)
-    for y in range(240): sd.line([(0, y), (W, y)], fill=(4, 6, 12, int(210 * (y / 240) ** 1.2)))
-    im.alpha_composite(shade, (0, H - 240))
-    d = ImageDraw.Draw(im)
-    def font(size, bold=True):
-        for n in (("DejaVuSans-Bold.ttf", "arialbd.ttf") if bold else ("DejaVuSans.ttf", "arial.ttf")):
-            try: return ImageFont.truetype(n, size)
-            except OSError: pass
-        return ImageFont.load_default()
-    d.text((30, H - 150), title, font=font(46), fill=(245, 246, 250))
-    d.text((32, H - 92), subtitle, font=font(24, False), fill=(200, 215, 235))
-    im.convert('RGB').save(out, quality=92)
 
 
 def resource_items(mod):
@@ -468,8 +453,8 @@ def resource_items(mod):
 
 
 def build(log=print):
-    """The sectors (systems.json, the stations to add to stations.json), the campaign (campaign.json) and its card. Returns
-    (systems, stations, items: ES2's resources)."""
+    """The sectors (systems.json, the stations to add to stations.json) and ES2's resources. Returns (systems, stations, items).
+    """
     global LOG
     LOG = log
     systems, stations = [], []
@@ -497,22 +482,6 @@ def build(log=print):
                 LOG(f'  music: {"space" if sp else "-"}, {"docked" if stm else "-"}')
     except Exception as e:
         LOG(f'  no sector music: {e}')
-    # the campaign
-    start = next(s for s in stations if s['id'] == CAMPAIGN['start'])
-    first = systems[0]
-    card(os.path.join(MOD, first['skybox']['nebula']), os.path.join(MOD, start['planetTexture']),
-         'EVERSPACE 2', f'{first["name"]} sector', os.path.join(MOD, 'campaign.jpg'))
-    traffic = {race: [f'es2_ships:{s}' for s in ships] for race, ships in CAMPAIGN['traffic'].items()}
-    campaign = {
-        'name': 'EVERSPACE 2',
-        'description': f'Start over in EVERSPACE 2\'s {first["name"]} sector: {len(stations)} of its places, its planets and '
-                       'sky, ES2\'s factions and ships. A prototype: one sector so far.',
-        'image': 'campaign.jpg', 'showTitle': False,
-        'startStation': f'es2_ships:{CAMPAIGN["start"]}', 'startShip': f'es2_ships:{CAMPAIGN["ship"]}',
-        'credits': CAMPAIGN['credits'], 'equipment': [f'es2_ships:{i}' for i in CAMPAIGN['equipment']],
-        'galaxy': 'mod', 'ships': 'mod', 'trafficShips': traffic}
-    json.dump(campaign, open(os.path.join(MOD, 'campaign.json'), 'w', encoding='utf-8'), indent=1)
-    LOG(f'  campaign: "EVERSPACE 2", starting at {start["name"]}')
     items = resource_items(MOD)
     LOG(f'  {len(items)} of EVERSPACE 2\'s resources as commodities ({sum(1 for i in items if i.get("icon"))} icons)')
     return systems, stations, items
