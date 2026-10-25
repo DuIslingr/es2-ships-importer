@@ -61,6 +61,8 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Dev/Alex/Environments/Structures/Textures` | Textures (optional: only `T_Structures_FX_Lights_001` is used, the light cards of the traffic, some fighters and drones; without it they are left out) |
    | `ES2/Content/Assets/Turrets/Meshes` | Models (all of them: the warships' turrets) |
    | `ES2/Content/Assets/Vehicles/Shared`, `ES2/Content/Assets/Environment/Structures`, `ES2/Content/Assets/Effects/Materials`, `ES2/Content/Assets/Blockouts/Materials` | Properties (.json), Textures (the warships' materials) |
+   | `ES2/Content/Maps/TravelMode` | Properties (.json) (optional: EVERSPACE 2's sectors, for the "EVERSPACE 2" campaign; then also run `tools/shaders`' `export` on `tools/sector_assets.txt`, the sky's and planets' textures FModel's export lacks) |
+   | `ES2/Content/Audio/MusikSets`, `ES2/Content/Audio/Music` | Properties (.json) and Audio (optional: the sector's music) |
    | `ES2/Content/Maps/POIs/POI_HomebaseCarrier_001` | Properties (.json) (optional: the Mobile Homebase's own hangar and casino; then also run `tools/shaders`' `export` on `tools/homebase_assets.txt` with `all`, for the props and the hall's materials FModel's export lacks) |
    | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
    | `ES2/Content/Assets/Vehicles/Shared/Textures` | Textures (optional: `T_Vehicles_Floaters_Emissive_M`, the glow pattern of the engine nozzles, `T_ShipModules_FX_001_M_A`, the pattern of the wings' hologram discs, the damage maps and `T_Vehicles_Okkar_Techdetail_001_*`, the Wraith's plating) |
@@ -107,6 +109,21 @@ hooks, damage over time, ...) are left out. With the item icons exported, every 
 consumable gets a shop icon made from EVERSPACE 2's own (`tools/icons.py`): cut out, laid like GoF2's guns, given GoF2's
 gloss and a shadow on the plate of its type (red primaries, orange secondaries, green equipment); the white device symbols
 become embossed steel emblems glowing in the plate's colour, and weapons sharing an icon get it in their own colour.
+(FModel's bulk export may leave `UI/Images/Items` as .json only; `tools/shaders`' `export` on `tools/item_icons.txt`
+fetches the images.)
+
+With the travel maps and the sky and planet textures, the mod brings an **"EVERSPACE 2" campaign** (`tools/sectors.py`): a
+card beside Galaxy on Fire 2's campaigns that starts you in ES2's Ceto sector (Sector 1), in a Vanguard with an
+autocannon at Union Bridge, with only ES2's systems, ships and fighters. Ceto is a system of its own with 7 of its 33
+places: Union Bridge (the trading station), Alcyone Station and Nephtys Plains (Grady & Brunt), Ceto Orbit (the solar
+research station), Fort Cetus (the Outlaw HQ, seen but not docked at), the G&B Mining Grounds and Ceto Outer Rim (asteroid
+fields). Each place's sun and planet lie where they do from it in ES2, and sits on the star map where it does on ES2's.
+The sky is composed from ES2's star and nebula textures in the sector's own nebula colours; the planets (Maak, Hasde,
+Fennic, Mane, Dange, Alda and a moon) are drawn from ES2's planet textures in their own colours (ES2 draws both with its
+materials at runtime, so these are compositions, not copies). Its music is the sector's own. EVERSPACE 2's resources
+(Copper, Insidium, Baromite, Clygon, Glacit, Coruscate, Aetheum, Culver, Mallemite, Phazium) are new commodities, mined
+from Ceto's asteroids and traded like ores; Iron and Titanium are the game's own. ES2's stations are levels of many
+pieces: for now the stations look like Galaxy on Fire 2's of their faction.
 
 Without the weapons and the turret the ships still work: the guns fire from the ships' own weapon sockets, just without
 weapon models on them. Without the noise texture the engine flames are smooth instead of streaked, and without the nozzle

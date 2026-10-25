@@ -1,0 +1,35 @@
+# What the EVERSPACE 2 sectors need beyond a plain FModel export (tools/sectors.py): the sky's star and nebula textures and
+# the planets' surface textures (the sky and planets are drawn by ES2's materials at runtime; sectors.py composes them).
+# tools/shaders: export <this file> <Exports>
+/Game/Assets/Environment/Skybox/Textures/T_AccretionDisk_Clouds_C_M
+/Game/Assets/Environment/Skybox/Textures/T_AccretionDisk_M
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_GasPlanet_M
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_Nebula_001_M
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_Nebula_002_M
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_Nebula_005_M
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_Nebula_Circular_002_M
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_Nebula_Circular_M
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_Nebula_Global_001_M
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_Nebula_Global_002_M
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_Stars_001_M
+/Game/Assets/Environment/Planets/Textures/T_Planet_City_Okkar_001_M
+/Game/Assets/Environment/Planets/Textures/T_Planet_City_Okkar_001_N
+/Game/Assets/Environment/Planets/Textures/T_Planet_Clouds_001_C_AO
+/Game/Assets/Environment/Planets/Textures/T_Planet_Clouds_001_N
+/Game/Assets/Environment/Planets/Textures/T_Planet_Craters_001_H_C_R
+/Game/Assets/Environment/Planets/Textures/T_Planet_Craters_001_N
+/Game/Assets/Environment/Planets/Textures/T_Planet_Gas_001_C_H
+/Game/Assets/Environment/Planets/Textures/T_Planet_Gas_001_N
+/Game/Assets/Environment/Planets/Textures/T_Planet_Gas_002_C_H
+/Game/Assets/Environment/Planets/Textures/T_Planet_Gas_002_N
+/Game/Assets/Environment/Planets/Textures/T_Planet_Gas_ThunderStorms_M
+/Game/Assets/Environment/Planets/Textures/T_Planet_GlobalMask_M
+/Game/Assets/Environment/Planets/Textures/T_Planet_Mountains_001_H_C_R
+/Game/Assets/Environment/Planets/Textures/T_Planet_Mountains_001_N
+/Game/Assets/Environment/Planets/Textures/T_Planet_Pole_001
+/Game/Assets/Environment/Planets/Textures/T_Planet_Rock_001_H_C_R
+/Game/Assets/Environment/Planets/Textures/T_Planet_Rock_001_N
+/Game/Assets/Environment/Planets/Textures/T_Planet_Rock_002_H_C_R
+/Game/Assets/Environment/Planets/Textures/T_Planet_Rock_002_N
+/Game/Assets/Environment/Planets/Textures/T_Planet_Volcanic_001_M
+/Game/Assets/Environment/Planets/Textures/T_Planet_Volcanic_001_N

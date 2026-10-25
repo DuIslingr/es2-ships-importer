@@ -1002,7 +1002,7 @@ def exhaust_styles(palettes):
 
 # (audio/: the sounds are encoded by whatever this computer has, ffmpeg's version or none, so the files differ between
 # players' builds; the names ships.json gives them don't.)
-MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/']
+MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'campaign.jpg']
 
 def main(version):
     os.makedirs(os.path.join(MOD, 'parts'), exist_ok=True)
@@ -1086,8 +1086,8 @@ def main(version):
         print('  no sounds: ' + audio.unavailable_reason())
     # EVERSPACE 2's weapons (items.json), warships and freighters (ships.json: "traffic": { "capital" }, their subsystems), the
     # Dreadnought and its raids (events/).
-    import weapons, warships, encounter, homebase_hangar, devices, fighters
-    items = []
+    import weapons, warships, encounter, homebase_hangar, devices, fighters, sectors
+    items, world_stations = [], []
     if os.path.isdir(os.path.join(SRC, 'Blueprints/Equipment/Weapons')):
         print('Adding the weapons ...')
         weapons.configure(SRC, MOD)
@@ -1111,7 +1111,7 @@ def main(version):
         ships += warships.build()
         stations = warships.build_homebase()
         if stations:
-            json.dump(stations, open(os.path.join(MOD, 'stations.json'), 'w', encoding='utf-8'), indent=1)
+            world_stations += stations
             print('  the Mobile Homebase: a station roaming every system')
             rooms = homebase_hangar.build(SRC, MOD)
             if rooms:
@@ -1123,6 +1123,17 @@ def main(version):
     # EVERSPACE 2's devices and consumables (devices.py: on the nearest GoF2 equipment / secondary).
     print('Adding the devices and consumables ...')
     items += devices.build(MOD)
+    # EVERSPACE 2's Sector 1 as a system of its own, ES2's resources and the "EVERSPACE 2" campaign (sectors.py).
+    sectors.configure(SRC, MOD)
+    if sectors.available():
+        print('Adding the EVERSPACE 2 sector and campaign ...')
+        systems, sector_stations, resources = sectors.build()
+        world_stations += sector_stations; items += resources
+        json.dump(systems, open(os.path.join(MOD, 'systems.json'), 'w', encoding='utf-8'), indent=1)
+    else:
+        print('  no sectors: the travel maps (Maps/TravelMode) or the sky and planet textures (tools/sector_assets.txt) are missing')
+    if world_stations:
+        json.dump(world_stations, open(os.path.join(MOD, 'stations.json'), 'w', encoding='utf-8'), indent=1)
     if items: json.dump(items, open(os.path.join(MOD, 'items.json'), 'w', encoding='utf-8'), indent=1)
     json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)
     json.dump(exhaust_styles(palettes), open(os.path.join(MOD, 'exhausts.json'), 'w', encoding='utf-8'), indent=1)
@@ -1134,6 +1145,7 @@ def main(version):
                               '; EVERSPACE 2\'s devices and consumables in the shops' +
                               ('; EVERSPACE 2\'s weapons in the shops; its warships and freighters in the orbits\' traffic; the Outlaw '
                                'Dreadnought raiding convoys now and then' if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')) else '') +
+                              ('; an "EVERSPACE 2" campaign in its Ceto sector, with ES2\'s resources to mine' if sectors.available() else '') +
                               '. Built on this device from your own EVERSPACE 2 files. Customize the ships in the hangar.',
                'credits': 'Models, textures and colours: EVERSPACE 2 (c) ROCKFISH Games, from the player\'s own copy of the game. '
                           'For personal use: don\'t share the built mod.',
