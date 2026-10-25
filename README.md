@@ -62,6 +62,7 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Assets/Turrets/Meshes` | Models (all of them: the warships' turrets) |
    | `ES2/Content/Assets/Vehicles/Shared`, `ES2/Content/Assets/Environment/Structures`, `ES2/Content/Assets/Effects/Materials`, `ES2/Content/Assets/Blockouts/Materials` | Properties (.json), Textures (the warships' materials) |
    | `ES2/Content/Maps/TravelMode` | Properties (.json) (optional: EVERSPACE 2's sectors as systems; then also run `tools/shaders`' `export` on `tools/sector_assets.txt`, the sky's and planets' textures FModel's export lacks) |
+   | `ES2/Content/Maps/Locations` | Properties (.json) (optional: the sectors' stations as ES2 builds them, with their docked views as hangars; then also run `tools/shaders`' `export` on `tools/station_assets.txt` with `all`, the structure pieces FModel's export lacks) |
    | `ES2/Content/Audio/MusikSets`, `ES2/Content/Audio/Music` | Properties (.json) and Audio (optional: the sector's music) |
    | `ES2/Content/Maps/POIs/POI_HomebaseCarrier_001` | Properties (.json) (optional: the Mobile Homebase's own hangar and casino; then also run `tools/shaders`' `export` on `tools/homebase_assets.txt` with `all`, for the props and the hall's materials FModel's export lacks) |
    | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
@@ -133,8 +134,12 @@ star and nebula textures in each sector's own nebula colours; the planets are dr
 colours (gas giants, earthlike and water worlds, deserts, ice, volcanic and Okkar city worlds; ES2 draws both with its
 materials at runtime, so these are compositions, not copies). Each sector's music is its own (ES2's music sets). EVERSPACE
 2's resources (Copper, Insidium, Baromite, Clygon, Glacit, Coruscate, Aetheum, Culver, Mallemite, Phazium) are new
-commodities, mined from the sectors' asteroids and traded like ores; Iron and Titanium are the game's own. ES2's stations
-are levels of many pieces: for now the stations look like Galaxy on Fire 2's of their faction.
+commodities, mined from the sectors' asteroids and traded like ores; Iron and Titanium are the game's own. With the
+locations' levels the stations are **ES2's own** (`tools/stations.py`): each place's station is the cluster of structure
+pieces round its docks in ES2's level (each different piece once in `stations/<id>.glb`, placed as ES2 places it), and
+docking there shows ES2's docked view as the hangar: the same model, the ship on ES2's dock pad, the camera where ES2's
+spring arm puts it (its 1400 mm lens), the take-off along ES2's path, other pads close by as parked ships, and the sector's
+sky outside. A place without a dock in its level keeps a Galaxy on Fire 2 station of its faction's look.
 
 ES2's ships fly for **ES2's own factions** (`tools/factions.py`), not Galaxy on Fire 2's races: Grady & Brunt, the
 Freelancers, the Coalition, the Okkar, Mr. Kato's Cartel, and the always-hostile Okkar Prime, Outlaws, Redeemers and

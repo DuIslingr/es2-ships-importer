@@ -1116,7 +1116,7 @@ def exhaust_styles(palettes):
 
 # (audio/: the sounds are encoded by whatever this computer has, ffmpeg's version or none, so the files differ between
 # players' builds; the names ships.json gives them don't.)
-MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'liveries/', 'decals/', 'trails/']
+MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'liveries/', 'decals/', 'trails/', 'stations/']
 
 def main(version):
     os.makedirs(os.path.join(MOD, 'parts'), exist_ok=True)
@@ -1251,6 +1251,17 @@ def main(version):
         print('Adding the EVERSPACE 2 sectors ...')
         systems, sector_stations, resources = sectors.build()
         world_stations += sector_stations; items += resources
+        # ES2's own stations and their landing pads as hangars (stations.py), where the export has their pieces
+        import stations
+        stations.configure(SRC, MOD)
+        st_rooms = stations.build(sector_stations)
+        if st_rooms:
+            p = os.path.join(MOD, 'interiors.json')
+            rooms = json.load(open(p, encoding='utf-8')) if os.path.exists(p) else []
+            json.dump(rooms + st_rooms, open(p, 'w', encoding='utf-8'), indent=1)
+            print(f'  {len(st_rooms)} of ES2\'s stations with their own models and hangars')
+        else:
+            print('  the stations look like Galaxy on Fire 2\'s: their pieces aren\'t in the export (tools/station_assets.txt)')
         json.dump(systems, open(os.path.join(MOD, 'systems.json'), 'w', encoding='utf-8'), indent=1)
     else:
         print('  no sectors: the travel maps (Maps/TravelMode) or the sky and planet textures (tools/sector_assets.txt) are missing')

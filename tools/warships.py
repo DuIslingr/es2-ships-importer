@@ -421,10 +421,10 @@ def is_light(m):
     return any('fx_lights' in n.lower() for n in m['chain'])
 
 
-def split_prims(prefix, prims, mats_used, layered=False):
+def split_prims(prefix, prims, mats_used, layered=False, names=None):
     """Renames every primitive's material "<prefix><n>|" (a vertex-colour-masked one into a material per tint) and returns
-    the Writer's primitives."""
-    names = {}
+    the Writer's primitives. 'names': the renaming shared across several calls (meshes written once each, stations.py)."""
+    names = {} if names is None else names
     out = []
     for attrs, tri, mname in prims:
         m = es2mat.resolve(mname)
