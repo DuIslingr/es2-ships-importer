@@ -617,7 +617,9 @@ def build_sector(key):
     radius_max = max(np.linalg.norm(sec['locations'][l[0]]['map'][:2]) for l in kept) or 1.0
     for es2_id, gid, look, interior, tech, pid, asteroids in kept:
         L = sec['locations'][es2_id]
-        st = {'id': gid, 'system': f'es2_ships:{sid}', 'name': L['name'], 'techLevel': tech, 'planet': 6, 'interior': interior}
+        # (GoF2 calls a station "<name> Station" itself: "Okrot Trading Station" would read "... Station Station")
+        name = L['name'][:-8] if L['name'].endswith(' Station') else L['name']
+        st = {'id': gid, 'system': f'es2_ships:{sid}', 'name': name, 'techLevel': tech, 'planet': 6, 'interior': interior}
         orbit = {}
         if look is None:
             orbit['station'] = False
