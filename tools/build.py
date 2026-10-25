@@ -6,7 +6,7 @@ import json, os, re, sys
 import numpy as np
 from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
-import glbtool
+import glbtool, jobs
 
 SRC = MOD = TEX = TABLES = WEAPONS = TURRET = None   # configure()
 
@@ -372,9 +372,7 @@ def exhaust_points(src):
     return pts
 
 def save(arr, name, size=None):
-    im = Image.fromarray(arr)
-    if size and im.size[0] > size: im = im.resize((size, size), Image.LANCZOS)
-    im.save(os.path.join(MOD, 'maps', name), optimize=True)
+    jobs.write_image(os.path.join(MOD, 'maps', name), arr, size, square=True)   # (on a worker)
 
 def textures():
     def load(n): return np.array(Image.open(os.path.join(TEX, n)).convert('RGBA'))
@@ -540,7 +538,7 @@ def materials():
     tech = lambda t: {'diffuse': f'maps/{t}_c.png', 'normal': f'maps/{t}_n.png', 'metallicSmoothness': f'maps/{t}_ms.png',
                       'emission': f'maps/{t}_e.png', 'emissionColor': [1, 1, 1], 'emissionIntensity': 2}
     embers = {'damageEmission': 'maps/embers_e.png', 'damageDetail': 'maps/char_c.png',
-              **({'damageNormal': 'maps/char_n.png'} if os.path.exists(os.path.join(MOD, 'maps', 'char_n.png')) else {})} if EMBERS else {}
+              **({'damageNormal': 'maps/char_n.png'} if jobs.exists(os.path.join(MOD, 'maps', 'char_n.png')) else {})} if EMBERS else {}
     paint = lambda n: {'material': f'Paint{n}', 'diffuse': 'maps/hull_c.png', 'normal': 'maps/hull_n.png', 'metallic': 0.1, 'smoothness': 0.5, **embers}
     return [
         *nozzles(),
@@ -1004,7 +1002,7 @@ def exhaust_styles(palettes):
 
 # (audio/: the sounds are encoded by whatever this computer has, ffmpeg's version or none, so the files differ between
 # players' builds; the names ships.json gives them don't.)
-MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/']
+MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/']
 
 def main(version):
     os.makedirs(os.path.join(MOD, 'parts'), exist_ok=True)
@@ -1088,7 +1086,7 @@ def main(version):
         print('  no sounds: ' + audio.unavailable_reason())
     # EVERSPACE 2's weapons (items.json), warships and freighters (ships.json: "traffic": { "capital" }, their subsystems), the
     # Dreadnought and its raids (events/).
-    import weapons, warships, encounter, homebase_hangar, devices
+    import weapons, warships, encounter, homebase_hangar, devices, fighters
     items = []
     if os.path.isdir(os.path.join(SRC, 'Blueprints/Equipment/Weapons')):
         print('Adding the weapons ...')
@@ -1100,6 +1098,13 @@ def main(version):
             hp = k.get('hardpoints')
             if hp and id(hp) not in seen:
                 seen.add(id(hp)); hp['weapons'] = rules + hp['weapons']
+    if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Fighters')):
+        # (before the warships: their hangars launch these)
+        print('Adding the enemy fighters and drones ...')
+        fighters.configure(SRC, MOD)
+        enemies = fighters.build()
+        ships += enemies
+        print(f'  {len(enemies)} fighters and drones as traffic of their faction\'s race')
     if os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships')):
         print('Adding the warships and freighters ...')
         warships.configure(SRC, MOD)
@@ -1122,6 +1127,7 @@ def main(version):
     json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)
     json.dump(exhaust_styles(palettes), open(os.path.join(MOD, 'exhausts.json'), 'w', encoding='utf-8'), indent=1)
     json.dump(ships, open(os.path.join(MOD, 'ships.json'), 'w', encoding='utf-8'), indent=1)
+    jobs.flush()   # every map written (the encodes queued on the workers)
     json.dump({'id': 'es2_ships', 'name': 'EVERSPACE 2 ships', 'version': version, 'author': 'built by es2_ships_importer',
                'description': 'Nine customizable EVERSPACE 2 ships (Light / Medium / Heavy) with their parts, colour schemes, weapons '
                               'and turret' + (', and the Okkar Wraith' if has_okkar() else '') +

@@ -15,11 +15,11 @@ material per tint like the kit hulls (Paint1-3).
 
 Scale: EVERSPACE 2's metres x 3.6 like the fighters (build.SCALE), but no hull past MAX_SIZE (the Dreadnought, the carrier and
 the frigate would reach 8-10 km, past the flight level's 15 km far plane at a few km's distance)."""
-import json, math, os, re, sys
+import json, math, os, re, sys, threading
 import numpy as np
 from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
-import glbtool, es2mat
+import glbtool, es2mat, jobs
 
 SRC = MOD = None
 SCALE = 3.6
@@ -67,6 +67,22 @@ HANGAR_SHIPS = {'outlaw': ['es2_ships:striker', 'es2_ships:stinger', 'es2_ships:
                 'okkar': ['es2_ships:wraith', 'es2_ships:interceptor'],
                 'swarmer': ['es2_ships:scout', 'es2_ships:stinger'],
                 'dreadnought': ['es2_ships:striker', 'es2_ships:gunship', 'es2_ships:bomber', 'es2_ships:stinger']}
+
+
+_lines = threading.local()
+
+def say(msg):
+    """LOG, or the line kept for the caller of logged() when on a worker."""
+    buf = getattr(_lines, 'buf', None)
+    if buf is None: LOG(msg)
+    else: buf.append(msg)
+
+
+def logged(fn, *a):
+    """fn(*a) with its say() lines kept: (result, lines)."""
+    _lines.buf = []
+    try: return fn(*a), _lines.buf
+    finally: _lines.buf = None
 
 
 def configure(src, mod, log=print):
@@ -121,12 +137,8 @@ def _img(tex):
 
 
 def _save(arr, rel, size=2048):
-    p = os.path.join(MOD, rel)
-    os.makedirs(os.path.dirname(p), exist_ok=True)
-    im = Image.fromarray(arr)
-    if max(im.size) > size:
-        s = size / max(im.size); im = im.resize((max(1, int(im.size[0] * s)), max(1, int(im.size[1] * s))), Image.LANCZOS)
-    im.save(p, optimize=True)
+    """Queues the map's write (jobs: encoded on a worker) and returns its path."""
+    jobs.write_image(os.path.join(MOD, rel), arr, size)
     return rel
 
 
@@ -148,7 +160,12 @@ def band_maps(m):
     opacity: UE's translucent blend multiplies the emission by it), the opacity black with alpha 0.9 x the vertex alpha;
     v = BAND_V0 + (BAND_V1 - BAND_V0) x the vertex alpha."""
     key = ('bands', m['tex']['PM_Emissive'])
-    if key in _made: return _made[key]
+    with jobs.once(key):
+        if key not in _made: _made[key] = _band_maps(m)
+    return _made[key]
+
+
+def _band_maps(m):
     a = _img(m['tex']['PM_Emissive'])
     out = None
     if a is not None:
@@ -162,7 +179,6 @@ def band_maps(m):
         n = es2mat._name(m['tex']['PM_Emissive'])
         out = (_save(np.ascontiguousarray(np.repeat(glow[..., None], 3, axis=2)), f'warships/maps/{n}_bands_glow.png'),
                _save(opa, f'warships/maps/{n}_bands_alpha.png'))
-    _made[key] = out
     return out
 
 
@@ -172,6 +188,12 @@ def tex(kind, src, ch=None, extra=None):
     'normal' (DirectX -> Unity)."""
     key = (kind, str(src), ch, str(extra))
     if key in _made: return _made[key]
+    with jobs.once(('tex',) + key):   # (the ships are built on several threads: each map made once)
+        if key in _made: return _made[key]
+        return _tex(key, kind, src, ch, extra)
+
+
+def _tex(key, kind, src, ch, extra):
     rel = None
     try:
         if kind == 'normal':
@@ -209,7 +231,7 @@ def tex(kind, src, ch=None, extra=None):
             if a is not None and a[..., ch].max() > 8:
                 rel = _save(np.repeat(a[..., ch:ch + 1], 3, axis=2).copy(), f'warships/maps/{es2mat._name(src)}_e{ch}.png', 1024)
     except Exception as e:
-        LOG(f'    texture {src}: {e}')
+        say(f'    texture {src}: {e}')
     _made[key] = rel
     return rel
 
@@ -222,16 +244,25 @@ def structure_colour(rel, tint):
     key = '%02x%02x%02x' % tuple(int(round(c * 255)) for c in tint[:3])
     out = re.sub(r'\.png$', f'_x2_{key}.jpg', rel)
     p = os.path.join(MOD, out)
-    if not os.path.exists(p):
-        im = Image.open(os.path.join(MOD, rel))
-        a = np.asarray(im.convert('RGBA' if im.mode in ('RGBA', 'LA') else 'RGB')).astype(np.float32) / 255.0
-        lin = np.clip(a[..., :1] * 2.0 * (np.array(tint[:3], np.float32) ** 2.2), 0.0, 1.0)
-        rgb = (lin ** (1 / 2.2) * 255.0 + 0.5).astype(np.uint8)
-        if a.shape[2] == 4:
-            out = out[:-4] + '.png'; p = os.path.join(MOD, out)
-            Image.fromarray(np.dstack([rgb, (a[..., 3:] * 255).astype(np.uint8)])).save(p, optimize=True)
-        else:
-            Image.fromarray(rgb).save(p, quality=92)
+    with jobs.once(('structure', out)):
+        if not jobs.exists(p) and not jobs.exists(p[:-4] + '.png'):
+            jobs.wait(os.path.join(MOD, rel))
+            out = _structure_colour(rel, tint, out)
+        elif not jobs.exists(p):
+            out = out[:-4] + '.png'
+    return out
+
+
+def _structure_colour(rel, tint, out):
+    im = Image.open(os.path.join(MOD, rel))
+    a = np.asarray(im.convert('RGBA' if im.mode in ('RGBA', 'LA') else 'RGB')).astype(np.float32) / 255.0
+    lin = np.clip(a[..., :1] * 2.0 * (np.array(tint[:3], np.float32) ** 2.2), 0.0, 1.0)
+    rgb = (lin ** (1 / 2.2) * 255.0 + 0.5).astype(np.uint8)
+    if a.shape[2] == 4:
+        out = out[:-4] + '.png'
+        jobs.write_image(os.path.join(MOD, out), np.dstack([rgb, (a[..., 3:] * 255).astype(np.uint8)]))
+    else:
+        jobs.write_image(os.path.join(MOD, out), rgb, quality=92)
     return out
 
 
@@ -529,7 +560,7 @@ def build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar,
     prims = []
     for m in meshes:
         p = os.path.join(SRC, 'Assets/Vehicles', m + '.glb')
-        if not os.path.exists(p): LOG(f'  {name}: missing {m}'); return None
+        if not os.path.exists(p): say(f'  {name}: missing {m}'); return None
         prims += read_prims(p)
     mn, mx = bounds(prims)
     size = mx - mn
@@ -593,7 +624,7 @@ def build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar,
     effects = engine_effects(ebp) if ebp else None
     if effects: ship['es2Engine'] = effects
     tris = sum(len(i) // 3 for _, i, _ in out)
-    LOG(f'  {name}: {round(float(size.max()) * f)} m, {tris} triangles, {len(eng) or len([m for m in mounts if m["slotType"] == 3])} engines, '
+    say(f'  {name}: {round(float(size.max()) * f)} m, {tris} triangles, {len(eng) or len([m for m in mounts if m["slotType"] == 3])} engines, '
         f'{sum(1 for s in subs if s["kind"] == "turret")} turrets, {sum(1 for s in subs if s["kind"] == "hangar")} hangars, '
         f'{sum(1 for s in subs if s.get("weakspot"))} weak spots, {len(materials)} materials')
     return ship, f, prims, mats_used
@@ -604,16 +635,16 @@ def build(log=print):
     os.makedirs(os.path.join(MOD, 'warships', 'maps'), exist_ok=True)
     Image.fromarray(np.zeros((4, 4, 4), np.uint8)).save(os.path.join(MOD, 'warships', 'maps', 'clear.png'))
     ships, props = [], []
-    for sid, name, desc, race, kind, bp, meshes, turret, missile, hangar in WARSHIPS:
-        r = build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar)
+    # every warship and freighter on the workers (jobs.run), their lines printed in the table's order
+    todo = list(WARSHIPS) + [(sid, name, desc, race, 'freighter', bp, meshes, turret, None, None)
+                                              for sid, name, desc, race, bp, meshes, turret in FREIGHTERS]
+    for (sid, *_), (r, lines) in zip(todo, jobs.run(lambda w: logged(build_ship, *w), todo)):
+        for l in lines: LOG(l)
         if not r: continue
         if sid == 'es2_okkar_frigate':   # its weak spots on ES2's weak point mesh
             subs, pr = frigate_weakpoints(r[1])
             r[0]['subsystems'] += subs; props += pr
         ships.append(r[0])
-    for sid, name, desc, race, bp, meshes, turret in FREIGHTERS:
-        r = build_ship(sid, name, desc, race, 'freighter', bp, meshes, turret, None, None)
-        if r: ships.append(r[0])
     ships += build_dreadnought()
     return ships + props
 

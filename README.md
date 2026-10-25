@@ -56,6 +56,7 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Assets/Shared/Textures/Effects` | Textures (optional: only `T_Noise_018_M` is used, the engine flames' noise) |
    | `ES2/Content/Blueprints/Pawns`, `ES2/Content/Blueprints/Equipment`, `ES2/Content/Blueprints/Missions` | Properties (.json) (optional: the warships' layouts, the weapons' stats and fire sounds, the Dreadnought) |
    | `ES2/Content/Assets/Vehicles/Warships`, `ES2/Content/Assets/Vehicles/Transporters` | Properties (.json), Models (optional: the warships, freighters and the Dreadnought) |
+   | `ES2/Content/Assets/Vehicles/Fighters`, `ES2/Content/Assets/Vehicles/Drones` | Properties (.json), Models (optional: EVERSPACE 2's enemy fighters and drones as traffic) |
    | `ES2/Content/Assets/Turrets/Meshes` | Models (all of them: the warships' turrets) |
    | `ES2/Content/Assets/Vehicles/Shared`, `ES2/Content/Assets/Environment/Structures`, `ES2/Content/Assets/Effects/Materials`, `ES2/Content/Assets/Blockouts/Materials` | Properties (.json), Textures (the warships' materials) |
    | `ES2/Content/Maps/POIs/POI_HomebaseCarrier_001` | Properties (.json) (optional: the Mobile Homebase's own hangar and casino; then also run `tools/shaders`' `export` on `tools/homebase_assets.txt` with `all`, for the props and the hall's materials FModel's export lacks) |
@@ -80,6 +81,13 @@ Okkar frigate's weak spots; pirate and Void warships hostile; the Mobile Homebas
 that you can dock at, into its own hangar with its six landing pads and its casino as the Space Lounge), EVERSPACE 2's weapons in the shops (every primary and
 secondary, the Okkar and legendary variants, with their own colours, sounds and models), and the Outlaw
 Dreadnought raiding convoys now and then (Options > Gameplay "Dreadnought raids"). Without them the mod is just the ships.
+
+With `Fighters` and `Drones` it also brings 42 of EVERSPACE 2's enemy fighters and drones (`tools/fighters.py`, from their
+blueprints: the Outlaws' raiders, scouts, bombers and drones as pirates, the Okkar as Vossk, the Okkar Prime, the Redeemers
+and the Ancients' swarmers as the Void, Grady & Brunt as Midorians, the Coalition as Terrans, the Freelancers as Nivelians),
+each with its own name on the lock plate, ES2's exhaust flames and engine trails. They fly as their race's traffic (Options
+> Gameplay "Mod ships in traffic"), the warships' hangars launch them, and the Okkar Prime Claw is a pirate boss's hull. They
+are never sold.
 
 Always: EVERSPACE 2's devices and consumables in the shops (`tools/devices.py`), each on the Galaxy on Fire 2 equipment or
 secondary that does most nearly what it does in EVERSPACE 2 (the Scout's Shadow Strike and Vanish as cloaks, Spectral Form
@@ -130,6 +138,8 @@ writes the mod to `es2_ships` next to this script (about 20 seconds). Options:
 - `--blender <path>`: Blender's executable (or `Blender.app` on a Mac), if it isn't found by itself.
 - `--vgmstream <path>`: the `vgmstream-cli` that decodes raw `.binka` sounds, if it isn't found by itself.
 - `--no-sounds`: build without EVERSPACE 2's sounds.
+- `--jobs 4`: how many things the build does at once (default: half your processor's cores, fewer when memory is short).
+  The build also runs at a lower priority, so the computer stays usable meanwhile.
 
 ## Installing
 

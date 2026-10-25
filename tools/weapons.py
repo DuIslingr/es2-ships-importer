@@ -585,6 +585,8 @@ def add_sounds(items):
             if c not in cues: cues[c] = audio.cue(c)
     cues = {k: v for k, v in cues.items() if v and v['waves']}
     decoded, tmp = audio.decode({w for c in cues.values() for w, _ in c['waves']})
+    import jobs
+    pending = []
     made = 0
     try:
         written = {}
@@ -594,12 +596,15 @@ def add_sounds(items):
             files = []
             for wname, loop in c['waves']:
                 if loop or wname not in decoded: continue
-                if wname not in written: written[wname] = audio.write(decoded[wname], 'audio/weapons/' + wname)
+                if wname not in written:   # (encoded on a worker)
+                    written[wname] = 'audio/weapons/' + wname + '.ogg'
+                    pending.append(jobs.submit(audio.write, decoded[wname], 'audio/weapons/' + wname))
                 files.append(written[wname])
             if files:
                 it['fx']['shot'] = files if len(files) > 1 else files[0]
                 made += 1
     finally:
+        for f in pending: f.result()   # (before the decoded waves go)
         import shutil
         shutil.rmtree(tmp, ignore_errors=True)
     return f'{made} weapon sounds'
@@ -619,11 +624,9 @@ def build():
         it = make_item(bp)
         if it: out.append(it)
     # Turret models (one GLB per ES2 mesh) and the turret items.
-    models = {}
-    for tid, (_, _, mesh, *_r) in TURRETS.items():
-        if mesh not in models:
-            rel = turret_glb(mesh, f'warships/turrets/{mesh.lower()}.glb')
-            if rel: models[mesh] = rel
+    meshes = list(dict.fromkeys(mesh for _, _, mesh, *_r in TURRETS.values()))
+    import jobs   # (each its own GLB: on the workers)
+    models = {m: rel for m, rel in zip(meshes, jobs.run(lambda m: turret_glb(m, f'warships/turrets/{m.lower()}.glb'), meshes)) if rel}
     turrets = [make_turret(t, models) for t in TURRETS]
     LOG(f'  weapons: {len(out)} ES2 weapons ({sum(1 for i in out if not i["_secondary"])} primaries), {len(turrets)} capital turrets, '
         f'{len(models)} turret models')

@@ -178,15 +178,17 @@ def decode(names):
         if playable: out[n] = playable
         elif '.binka' in files: raw.append(n)
     cmd = vgmstream() if raw else None
-    for i in range(0, len(raw) if cmd else 0, 60):
-        batch = []
+    def batch(i):   # (the batches side by side on the workers)
+        files = []
         for n in raw[i:i + 60]:
-            dst = os.path.join(tmp, n + '.binka'); shutil.copy(waves[n]['.binka'], dst); batch.append(dst)
+            dst = os.path.join(tmp, n + '.binka'); shutil.copy(waves[n]['.binka'], dst); files.append(dst)
         env = dict(os.environ, WINEDEBUG='-all')
-        subprocess.run(cmd + batch, cwd=tmp, env=env, capture_output=True)   # writes <file>.wav beside each
-        for n in raw[i:i + 60]:
-            wav = os.path.join(tmp, n + '.binka.wav')
-            if os.path.exists(wav): out[n] = wav
+        subprocess.run(cmd + files, cwd=tmp, env=env, capture_output=True)   # writes <file>.wav beside each
+    import jobs
+    jobs.run(batch, range(0, len(raw) if cmd else 0, 60))
+    for n in raw:
+        wav = os.path.join(tmp, n + '.binka.wav')
+        if os.path.exists(wav): out[n] = wav
     return out, tmp
 
 
@@ -266,13 +268,16 @@ def build(ships, hardpoints):
     cues = {n: c for n, c in cues.items() if c and c['waves']}
     waves = {w for c in cues.values() for w, _ in c['waves']}
     decoded, tmp = decode(waves)
+    import jobs
+    pending = []
     try:
         written = {}
         def files(c, looping):
             out = []
             for w, lp in c['waves']:
                 if lp != looping or w not in decoded: continue
-                if w not in written: written[w] = write(decoded[w], 'audio/' + w)
+                if w not in written:   # (encoded on a worker: write() names the .ogg whatever it ends up writing)
+                    written[w] = 'audio/' + w + '.ogg'; pending.append(jobs.submit(write, decoded[w], 'audio/' + w))
                 out.append(written[w])
             return out
         def sound(c, looping, volume, pitch=None):
@@ -319,4 +324,5 @@ def build(ships, hardpoints):
                      'export Audio with FModel\'s "Convert audio on bulk export" on, or check vgmstream')
         return line
     finally:
+        for f in pending: f.result()   # (before the decoded waves go)
         shutil.rmtree(tmp, ignore_errors=True)

@@ -104,11 +104,14 @@ def _less_metal(mod, rel, k=0.1, smooth=0.6):
     """A metallicSmoothness map with a tenth of its metal and 60 % of its smoothness: ES2 lights this polished hall with
     reflection captures; the remake's room reflects black space instead (checked against a Blender render of the room)."""
     from PIL import Image
+    import jobs
     out = rel[:-4] + '_room2.png'
-    if not os.path.exists(os.path.join(mod, out)):
-        a = np.array(Image.open(os.path.join(mod, rel)).convert('RGBA')).astype(np.float32)
-        a[..., :3] *= k; a[..., 3] *= smooth
-        Image.fromarray(a.astype(np.uint8)).save(os.path.join(mod, out), optimize=True)
+    with jobs.once(('room2', out)):
+        if not jobs.exists(os.path.join(mod, out)):
+            jobs.wait(os.path.join(mod, rel))   # (the map itself may still be on its way: warships._save)
+            a = np.array(Image.open(os.path.join(mod, rel)).convert('RGBA')).astype(np.float32)
+            a[..., :3] *= k; a[..., 3] *= smooth
+            jobs.write_image(os.path.join(mod, out), a.astype(np.uint8))
     return out
 
 

@@ -288,6 +288,7 @@ def main():
                                         'Output/.data folder, or vgmstream-cli on the PATH)')
     ap.add_argument('--no-sounds', action='store_true', help='skip EVERSPACE 2\'s sounds (the ships keep the game\'s)')
     ap.add_argument('--zip', action='store_true', help='also zip the desktop mod')
+    ap.add_argument('--jobs', type=int, help='worker threads for the maps and ships (default: half the CPUs, fewer when memory is short)')
     ap.add_argument('--no-preview', action='store_true', help='skip the preview image\'s renders (a plain card instead)')
     ap.add_argument('--no-icons', action='store_true', help='skip the ships\' shop icons (they show the Phantom\'s instead)')
     ap.add_argument('--remake', help='a checkout of the remake\'s source (or its gof2_interface2_ipad_large.png): the icons '
@@ -306,6 +307,10 @@ def main():
     prepare_out(out)
 
     sys.path.insert(0, os.path.join(HERE, 'tools'))
+    jobs = importlib.import_module('jobs')
+    jobs.JOBS = a.jobs
+    jobs.lower_priority()   # (the desktop stays usable while every worker runs)
+    print(f'  {jobs.workers()} workers')
     build = importlib.import_module('build')
     audio = importlib.import_module('audio')
     audio.options(vgmstream=a.vgmstream, enabled=not a.no_sounds)
