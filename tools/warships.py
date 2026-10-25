@@ -357,6 +357,19 @@ def material_entries(prefix, mats_used):
                 e.update({'diffuse': 'warships/maps/clear.png', 'alphaClip': 0.5})
             out.append(e)
             continue
+        if kind == 'logo':
+            # M_Logos_Additive_Parent (its compiled base-pass shader): unlit, additive, the logo atlas' RGB x the vertex colour x
+            # EmissivePower x (1 + EmissiveExposureCompensation 10); the glitched ones' flicker (Time, Flicker1 / 2) left out
+            src = next((t for t in m['tex'].values() if t.startswith('T_Logos_')), 'T_Logos_101_C_A')
+            em = tex('colour', src, 'rgb')
+            c = m['col'].get('ColorBase') or [1.0, 1.0, 1.0]
+            ep = float(m['sca'].get('EmissivePower', 1.0) or 0.0)
+            e.update({'diffuse': 'warships/maps/clear.png', 'opacity': 0.999, 'color': [0.0, 0.0, 0.0], 'metallic': 0.0,
+                      'smoothness': 0.0, 'doubleSided': True, 'emissionColor': [round(v, 3) for v in c],
+                      'emissionIntensity': round(min(6.0, max(0.5, ep * 11.0 / 3.0)), 2)})
+            if em: e['emission'] = em
+            out.append(e)
+            continue
         if kind == 'decal':
             e.update({'diffuse': 'warships/maps/clear.png', 'alphaClip': 0.5})
         elif kind == 'field':
@@ -769,9 +782,10 @@ def build(log=print):
 HOMEBASE_SYSTEM = 2            # its home (where its route starts; it roams every system)
 HOMEBASE_STAY = 30             # minutes in each orbit ...
 HOMEBASE_SYSTEM_MINUTES = 120  # ... and in each system
+MODEL_SCALE = 2.8              # the carrier with its hall (homebase_hangar.SCALE): ES2's metres x2.8, like its stations
 
 
-def build_homebase():
+def build_homebase(model=None):
     """EVERSPACE 2's Mobile Homebase (SM_Warship_010, BP_Ship_Mobile_Homebase: the pilots' carrier with its hangar and casino)
     as stations.json's mobile station: no planet, it cruises through every system (two hours in each, half an hour per orbit)
     and is docked at wherever it is, into the game's Terran hangar and bar. Its model is centred on its bounds (as the remake
@@ -781,16 +795,28 @@ def build_homebase():
     ship, f, prims, _ = r
     mn, mx = bounds(prims)
     centre = glb_to_game((mn + mx) / 2, f)
+    # 'model' (homebase_hangar.build): the carrier with its hall, the model in space and the hangar both (same frame as the
+    # warship's mesh, at the hangar's x2.8): its engines from that model's middle and scale
+    k = f / 0.05
     engines = []
     for m in ship['mounts']:
         if m['slotType'] != 3: continue
-        p = [round(m['position_engine'][i] - centre[i], 1) for i in range(3)]
-        rad = max(250, round(m.get('socketScale', 1.0) * 450))
+        if model:
+            pe = m['position_engine']
+            v = np.array([pe[2] / k, pe[1] / k, -pe[0] / k]) - np.array(model['centre'])
+            p = glb_to_game(v, MODEL_SCALE)
+            rad = max(250, round(m.get('socketScale', 1.0) * 450 * MODEL_SCALE / f))
+        else:
+            p = [round(m['position_engine'][i] - centre[i], 1) for i in range(3)]
+            rad = max(250, round(m.get('socketScale', 1.0) * 450))
         engines.append({'position_engine': p, 'glowSize': [rad, rad, rad * 3]})
+    look = ({'model': model['model'], 'modelSize': model['modelSize'], 'materials': model['materials']} if model else
+            {'model': ship['model'], 'modelSize': round(float((mx - mn).max()) * f / 0.05), 'materials': ship['materials']})
     return [{
         'id': 'es2_homebase', 'system': HOMEBASE_SYSTEM, 'name': 'Mobile Homebase', 'techLevel': 9, 'planet': 0, 'looksLike': 70,
-        'model': ship['model'], 'modelSize': round(float((mx - mn).max()) * f / 0.05), 'modelYaw': 90, 'materials': ship['materials'],
-        'interior': 'terran', 'hangar': 'es2_ships:homebase_hangar', 'bar': 'es2_ships:homebase_casino',
+        **look, 'modelYaw': 90,
+        # docked EVERSPACE 2's way (its hangar is the model: homebase_hangar), no Space Lounge
+        'interior': 'terran', 'hangar': 'es2_ships:homebase_hangar', 'bar': 'none',
         'mobile': {'route': 'any', 'stayMinutes': HOMEBASE_STAY, 'systemMinutes': HOMEBASE_SYSTEM_MINUTES, 'speed': 0.12,
                    'race': 'terran', 'engines': engines, 'engineColor': [0.07, 0.89, 0.89]},
     }]

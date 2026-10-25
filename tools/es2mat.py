@@ -70,6 +70,9 @@ def resolve(name):
         out['blend'] = d.get('BlendMode', 0) or 0
         for k, v in (d.get('Textures') or {}).items():
             if isinstance(v, dict) and v.get('ObjectPath'): out['tex'][k] = _name(v['ObjectPath'])
+            # (a root material's own parameters are soft paths: M_Structures' hull platings named their maps only so)
+            elif isinstance(v, dict) and v.get('AssetPathName') and not v['AssetPathName'].startswith('/Engine/'):
+                out['tex'][k] = _name(v['AssetPathName'])
         for k, v in (d.get('Colors') or {}).items():
             out['col'][k] = _hex(v)
             if isinstance(v, dict) and 'A' in v: out['cola'][k] = float(v['A'])
@@ -119,6 +122,7 @@ def _blend(v):
 def classify(m):
     names = ' '.join(m['chain']).lower()
     if 'decal' in names: return 'decal'
+    if 'logos_additive' in names: return 'logo'
     if 'forcefield' in names or 'energyabsorbing' in names or 'energyshield' in names or 'stasisbubble' in names: return 'field'
     if 'engineexhaust' in names: return 'flame'
     if 'interioroccl' in names: return 'dark'
@@ -130,8 +134,8 @@ def classify(m):
     return 'pbr'
 
 
-COLOUR = ['ColorTexture', 'C', 'PM_Diffuse', 'Diffuse', 'BaseColorTexture', 'C_A', 'Color', 'Albedo', 'BaseColor']
-MASKS = ['Masks', 'C_R_MT_A', 'C_R_MT_E', 'R_E_A', 'Roughness', 'R_MT_E', 'C_R_E', 'C_R_M', 'Mask']
+COLOUR = ['ColorTexture', 'C', 'PM_Diffuse', 'Diffuse', 'BaseColorTexture', 'C_A', 'Color', 'Albedo', 'BaseColor', 'C_AO_Primary']
+MASKS = ['Masks', 'C_R_MT_A', 'C_R_MT_E', 'R_E_A', 'Roughness', 'R_MT_E', 'C_R_E', 'C_R_M', 'Mask', 'C_R_E_MT']
 CODES = {'C', 'R', 'MT', 'M', 'E', 'A', 'AO', 'H', 'N', 'O', 'D'}   # channel letters in a packed texture's name
 NORMAL = ['N', 'Normal Map', 'Normal', 'NormalMap', 'PM_Normals']
 ALPHA = ['ColorAlphaMask', 'Alpha Mask', 'AlphaMask', 'Opacity']
@@ -211,6 +215,11 @@ def plan(m):
         if 'C' in ch and 'colour' not in p: p['colour'] = (masks, ch.index('C'))
         if 'A' in ch: p['alpha'] = (masks, ch.index('A'))
         elif 'M' in ch and m['blend'] == 1: p['alpha'] = (masks, ch.index('M'))   # (foliage's C_R_M: M the opacity mask)
+    if structure(m) and masks and 'colour' not in p:
+        # M_Structures_Parent's colour is dot(Masks, CurvatureChannel) whatever the map holds: an R_MT_E mask (the generic tech
+        # details, the outlaw floors) gives its roughness channel (the compiled shader reads no other)
+        v = _channel_vec(m, 'CurvatureChannel')
+        if v is not None: p['colour'] = (masks, v)
     if m['blend'] == 1 and not masks and 'colour' not in p:
         # a masked parent naming its maps only by their defaults (M_Structures_Floaters_Parent: T_X_R_E_A, its B the
         # cut-out, and T_X_C_AO the colour)

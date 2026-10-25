@@ -1,13 +1,13 @@
-"""The Mobile Homebase's own hangar and casino as the remake's interiors.json rooms (Modding/README.md, "Custom hangars and
-bars"): EVERSPACE 2's carrier level POI_HomebaseCarrier_001 (Maps/POIs), the hall inside SM_Warship_010 where the player
-lands: its interior, platform and detailing meshes, the six landing pads, the containers and hangar props, the robots (in
-their bind pose), the force fields along both long sides. One model serves both rooms: the hangar looks at the landing pads,
-the bar at the casino at the back of the hall.
+"""The Mobile Homebase as one model, in space and as its hangar (the remake's stations.json model and interiors.json room,
+Modding/README.md): EVERSPACE 2's carrier level POI_HomebaseCarrier_001 (Maps/POIs), the carrier SM_Warship_010 with the hall
+inside it where the player lands: its interior, platform and detailing meshes, the six landing pads, the containers and
+hangar props, the robots (in their bind pose). It docks EVERSPACE 2's way (World.Es2Dock): the ship flies in through the
+hall's open side onto its pad (the level's BP_DockableStation, stations.dock_room) and takes off from it; the other pads hold
+parked ships. No Space Lounge (the casino stays scenery).
 
 The level's actors are read from FModel's .json of the map (its StaticMeshComponents / SkeletalMeshComponents without a
 parent, their Unreal transforms applied to the meshes); the meshes the user's FModel export lacked come from the export
-mode of es2_re's ShaderDump (CUE4Parse), into the same folder. Markers are glTF nodes named as interiors.json wants them
-(the pads' tops, the gate in the side force field, the cameras, the light, the casino's visitors)."""
+mode of es2_re's ShaderDump (CUE4Parse), into the same folder."""
 import json, math, os, re
 import numpy as np
 import warships
@@ -16,11 +16,7 @@ import glbtool
 
 MAP = 'Maps/POIs/POI_HomebaseCarrier_001.json'
 SCALE = 2.8                   # ES2's 36 m pads hold its ~18 m fighters; x2.8 they take a GoF2 hull (~47 m) about as full
-BAR_SCALE = 7.5               # the casino as the bar: the game's visitor billboards are ~26 m tall and ~30 m wide (the
-                              # original bars' scale), a person in ES2 1.8 m; at the hangar's x2.8 they stuck through walls
-VISITOR_HALF_WIDTH = 2.0      # the billboard's half width and height, in the casino's own metres (x BAR_SCALE in the game)
-VISITOR_HEIGHT = 3.5
-SKIP = ('SM_Warship_010.', 'HLOD', 'SK_Homebase_Turret', 'SK_Turret_', 'SM_Warship_010_Caustics', 'SM_Sphere')
+SKIP = ('HLOD', 'SK_Homebase_Turret', 'SK_Turret_', 'SM_Warship_010_Caustics', 'SM_Sphere')
 PLAYER_PAD = (12444, 4)      # the pad BP_DockableStation_C_1 rides on (Unreal cm)
 
 
@@ -115,84 +111,11 @@ def _less_metal(mod, rel, k=0.1, smooth=0.6):
     return out
 
 
-def _visible_spots(prims, cam, target, floor, fov_deg, n=6, aspect=16 / 9, lower=None):
-    """Where the bar's visitors stand (glTF metres): points of the lounge floor itself (no table or counter on them), or of
-    the hall's floor at the foot of its stairs ('lower', its height), in the camera's view, 12-38 m from it and in front of the facade, whose feet and head the camera sees and whose billboard
-    (VISITOR_HALF_WIDTH either side, VISITOR_HEIGHT up) no wall or furniture cuts (rays against the casino's triangles),
-    spread across the screen. The guessed spots left some behind the facade's side panels."""
-    tri = []
-    for a, t, _ in prims:
-        P = a['POSITION'].astype(np.float64); T = t.reshape(-1, 3)
-        A, B, C = P[T[:, 0]], P[T[:, 1]], P[T[:, 2]]
-        c = (A + B + C) / 3
-        keep = (c[:, 0] > -5) & (c[:, 0] < 90) & (np.abs(c[:, 2]) < 80) & (c[:, 1] > min(floor, lower if lower is not None else floor) - 5) & (c[:, 1] < floor + 45)
-        if keep.any(): tri.append((A[keep], B[keep], C[keep]))
-    A = np.concatenate([x[0] for x in tri]); B = np.concatenate([x[1] for x in tri]); C = np.concatenate([x[2] for x in tri])
-    E1, E2 = B - A, C - A
-    N = np.cross(E1, E2)
-
-    def blocked(o, p):
-        d = p - o; L = np.linalg.norm(d); d = d / L
-        h = np.cross(d, E2); det = np.einsum('ij,ij->i', E1, h)
-        ok = np.abs(det) > 1e-9
-        inv = np.where(ok, 1.0 / np.where(ok, det, 1), 0)
-        s = o - A
-        u = np.einsum('ij,ij->i', s, h) * inv
-        q = np.cross(s, E1)
-        v = (q @ d) * inv
-        tt = np.einsum('ij,ij->i', E2, q) * inv
-        return bool((ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (tt > 0.05) & (tt < L - 0.05)).any())
-
-    def floor_under(x, z):
-        # the highest upward surface under (x, z) below 3 m over the floor
-        d = np.array([0.0, -1.0, 0.0]); o = np.array([x, floor + 3.0, z])
-        h = np.cross(d, E2); det = np.einsum('ij,ij->i', E1, h)
-        ok = np.abs(det) > 1e-9
-        inv = np.where(ok, 1.0 / np.where(ok, det, 1), 0)
-        s = o - A
-        u = np.einsum('ij,ij->i', s, h) * inv
-        q = np.cross(s, E1)
-        v = (q @ d) * inv
-        tt = np.einsum('ij,ij->i', E2, q) * inv
-        hit = ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (tt > 0)
-        up = np.abs(N[:, 1]) > 0.7 * np.linalg.norm(N, axis=1)
-        hit &= up
-        return float(o[1] - tt[hit].min()) if hit.any() else None
-
-    cam = np.array(cam, np.float64); fwd = np.array(target, np.float64) - cam; fwd /= np.linalg.norm(fwd)
-    right = np.cross(fwd, [0.0, 1.0, 0.0]); right /= np.linalg.norm(right); up = np.cross(right, fwd)
-    tv = math.tan(math.radians(fov_deg / 2)) * 0.8; th = tv * aspect * 0.8
-    cands = []
-    for x in np.arange(20.0, 84.0, 2.0):
-        for z in np.arange(-50.0, 52.0, 2.0):
-            h = floor_under(x, z)
-            if h is None or (abs(h - floor) > 0.4 and (lower is None or abs(h - lower) > 0.4)): continue
-            p = np.array([x, h, z]); d = p - cam; dist = float(np.linalg.norm(d))
-            if not 12.0 <= dist <= 38.0 or x < 40.0: continue   # (x < 40: behind the lounge, at the facade)
-            f = d @ fwd
-            if f <= 0 or abs(d @ right) / f > th or abs((p + [0, 1.1, 0] - cam) @ up) / f > tv: continue
-            if blocked(cam, p + [0, 0.15, 0]) or blocked(cam, p + [0, 2.0, 0]): continue
-            # the billboard faces the camera: nothing along its width at the figure's heights, nothing over its top
-            if any(blocked(p + [0, hh, 0], p + [0, hh, 0] + sg * VISITOR_HALF_WIDTH * right)
-                   for hh in (0.3, 1.0, 1.8, 2.8) for sg in (-1, 1)): continue
-            if blocked(p + [0, 0.3, 0], p + [0, VISITOR_HEIGHT, 0]): continue
-            cands.append((p, (d @ right) / f))
-    if not cands: return []
-    # Spread across the screen: the visitors' billboards are taller than a person here, so one standing in front of
-    # another along the camera's line hid it. Each pick is the spot farthest across the screen from those taken (and at
-    # least 6 m from them), the first the one nearest the view's centre.
-    picks = [min(cands, key=lambda c: abs(c[1]))]
-    while len(picks) < n:
-        rest = [c for c in cands if min(np.linalg.norm(c[0] - q[0]) for q in picks) >= 2.2 * VISITOR_HALF_WIDTH]
-        if not rest: break
-        best = max(rest, key=lambda c: (min(abs(c[1] - q[1]) for q in picks), np.linalg.norm(c[0] - cam)))
-        if min(abs(best[1] - q[1]) for q in picks) < 0.06: break
-        picks.append(best)
-    return [[round(float(c), 3) for c in p] for p, _ in picks]
-
-
 def build(src, mod, log=print):
-    """Writes warships/homebase_room.glb; returns interiors.json's two rooms (the hangar, the casino as the bar)."""
+    """Writes warships/homebase_room.glb, the carrier whole (its hull SM_Warship_010 around the hall): the Homebase's model in
+    space and its hangar both, docked EVERSPACE 2's way (stations.dock_room: its BP_DockableStation on the player's pad);
+    returns (interiors.json's hangar room, the station's model fields: model, modelSize, materials, and 'centre', the
+    model's middle in glTF metres, for its engines)."""
     prims, pads = [], []
     missing = set()
     for mesh, loc, rot, scale in _actors(src):
@@ -201,7 +124,7 @@ def build(src, mod, log=print):
         prims += _placed(read_prims(p), loc, rot, scale)
         if 'Landingpad' in mesh: pads.append(loc)
     if missing: log(f'  Homebase hangar: missing {sorted(missing)} (export them with es2_re/ShaderDump export)')
-    if len(pads) < 2: log('  Homebase hangar: no landing pads found'); return []
+    if len(pads) < 2: log('  Homebase hangar: no landing pads found'); return None, None
 
     # The pads' tops: the pad's landing surface, measured on the placed pads themselves.
     def pad_top(loc):
@@ -213,40 +136,6 @@ def build(src, mod, log=print):
     marks['pad'] = [pads[0][0] / 100.0, top0, pads[0][1] / 100.0]
     for k, l in enumerate(pads[1:], 1):
         marks[f'parked_{k}'] = [l[0] / 100.0, pad_top(l), l[1] / 100.0]
-
-    # The flights' gate: the middle of the force field on the hall's -Y side, the way out 150 m beyond it.
-    field = [a['POSITION'] for a, _, n in prims if 'Forcefield' in n]
-    if field:
-        f = np.concatenate(field); f = f[f[:, 2] < 0]
-        gx, gy, gz = float((f[:, 0].min() + f[:, 0].max()) / 2), float(top0 + 25.0), float(f[:, 2].min())
-        span = [float(f[:, 1].min()), float(f[:, 1].max())]
-    else:
-        gx, gy, gz, span = marks['pad'][0], top0 + 25.0, -114.0, [top0, top0 + 50.0]
-    marks['gate'] = [gx, gy, gz]
-    marks['gate_out'] = [gx, gy, gz - 150.0]
-
-    # The hangar's view: from the hall's middle toward the casino end, above the deck, at the player's pad.
-    px, py, pz = marks['pad']
-    marks['camera'] = [px - 52.0, py + 17.0, pz - 40.0]
-    marks['camera_target'] = [px, py + 4.0, pz]
-    marks['light'] = [px - 40.0, py + 45.0, pz - 30.0]
-
-    # The casino (Unreal x 3..76 m at the hall's back): a trapezoid lounge floor (x ~38..66) with the casino's facade and its
-    # name sign at its back (x ~36), the round fish tank at its open end toward the hangar (x ~59), and a staircase either
-    # side of the tank down 4.3 m to the hall's floor (x ~62..72, |y| ~8..16). Placed from renders of the room
-    # (es2_re/homebase/render_room.py, 'top' for the plan): the camera on the hall's floor at the foot of the left stairs,
-    # looking up them at the tank and the sign; the visitors on the lounge floor or at the foot of the stairs (their floor
-    # measured under each spot).
-    floor = _floor_at(prims, 4300, -1000, below=-10.0, above=-30.0)   # (below the tables and the bar counter)
-    hall = _floor_at(prims, 7800, -1200, below=(floor or 0.0) - 1.0, above=(floor or 0.0) - 10.0) if floor is not None else None
-    vis, bar = [], None
-    if floor is not None:
-        bar = {'bar_camera': [79.0, floor + 0.5, -18.0], 'bar_camera_target': [50.0, floor + 4.0, 2.0],
-               'bar_camera_start': [86.0, floor - 1.0, -25.0], 'bar_camera_start_target': [52.0, floor + 5.0, 2.0],
-               'bar_light': [70.0, floor + 16.0, -14.0]}
-        vis = _visible_spots(prims, bar['bar_camera'], bar['bar_camera_target'], floor, 60.0, lower=hall)
-        for k, v in enumerate(vis, 1): marks[f'visitor_{k}'] = v
-        if not vis: bar = None
 
     prims = [x for x in prims if 'Forcefield' not in x[2]]   # the openings' film: only washed the view of space out
 
@@ -290,18 +179,20 @@ def build(src, mod, log=print):
         # the landing pads' dark colour map (a quarter grey) under a 0.35 tint: black under the room's one light
         if 'LandingPads' in e.get('diffuse', ''): e['color'] = [round(min(1.0, c * 1.8), 3) for c in e['color']]
     tris = sum(len(i) // 3 for _, i, _ in out)
-    log(f'  Homebase hangar: {len(prims)} meshes, {tris} triangles, {len(materials)} materials, {len(pads)} pads, '
-        f'{len(vis)} casino spots, {os.path.getsize(p) // (1 << 20)} MB')
+    log(f'  Homebase: {len(prims)} meshes, {tris} triangles, {len(materials)} materials, {len(pads)} pads, '
+        f'{os.path.getsize(p) // (1 << 20)} MB')
 
     def scaled(v, k=SCALE): return [round(-v[0] * k, 2), round(v[1] * k, 2), round(v[2] * k, 2)]   # glTFast mirrors x
-    hangar = {'id': 'homebase_hangar', 'type': 'hangar', 'model': rel, 'scale': SCALE, 'materials': materials,
-              'markers': {k: scaled(v) for k, v in marks.items() if not k.startswith('visitor')},
-              'fov': 50, 'far': 4000, 'ambient': [0.62, 0.64, 0.7], 'lightIntensity': 1.6,
-              'cruise': round(40.0 * SCALE), 'gateSpan': [round(max(span[0], top0 + 5.0) * SCALE), round(span[1] * SCALE)]}
-    rooms = [hangar]
-    if bar:
-        markers = {k[4:]: scaled(v, BAR_SCALE) for k, v in bar.items()}
-        markers.update({k: scaled(v, BAR_SCALE) for k, v in marks.items() if k.startswith('visitor')})
-        rooms.append({'id': 'homebase_casino', 'type': 'bar', 'model': rel, 'scale': BAR_SCALE, 'materials': materials,
-                      'markers': markers, 'fov': 60, 'far': 10000, 'ambient': [0.16, 0.14, 0.19], 'lightIntensity': 0.45})
-    return rooms
+    import stations
+    stations.configure(src, mod)
+    docks = stations.Level(None, MAP).docks()
+    if not docks: log('  Homebase hangar: no BP_DockableStation in the level'); return None, None
+    room = {'id': 'homebase_hangar', 'type': 'hangar', 'model': rel, 'scale': SCALE, 'materials': materials,
+            **stations.dock_room(docks[0], [], lambda v: np.array(_g(v)))}
+    room['markers'].update({k: scaled(v) for k, v in marks.items() if k.startswith('parked')})   # the other pads
+    room.update({'fov': 23, 'far': 4000})
+    allp = np.concatenate([a['POSITION'] for a, _, _ in out])
+    mn, mx = allp.min(0), allp.max(0)
+    model = {'model': rel, 'modelSize': round(float((mx - mn).max()) * SCALE / 0.05), 'materials': materials,
+             'centre': ((mn + mx) / 2).tolist()}
+    return room, model

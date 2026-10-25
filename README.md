@@ -64,7 +64,7 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Maps/TravelMode` | Properties (.json) (optional: EVERSPACE 2's sectors as systems; then also run `tools/shaders`' `export` on `tools/sector_assets.txt`, the sky's and planets' textures FModel's export lacks) |
    | `ES2/Content/Maps/Locations` | Properties (.json) (optional: the sectors' stations as ES2 builds them, with their docked views as hangars; then also run `tools/shaders`' `export` on `tools/station_assets.txt` with `all`, the structure pieces FModel's export lacks) |
    | `ES2/Content/Audio/MusikSets`, `ES2/Content/Audio/Music` | Properties (.json) and Audio (optional: the sector's music) |
-   | `ES2/Content/Maps/POIs/POI_HomebaseCarrier_001` | Properties (.json) (optional: the Mobile Homebase's own hangar and casino; then also run `tools/shaders`' `export` on `tools/homebase_assets.txt` with `all`, for the props and the hall's materials FModel's export lacks) |
+   | `ES2/Content/Maps/POIs/POI_HomebaseCarrier_001` | Properties (.json) (optional: the Mobile Homebase as ES2's carrier with its hall, docked inside; then also run `tools/shaders`' `export` on `tools/homebase_assets.txt` with `all`, for the props and the hall's materials FModel's export lacks) |
    | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
    | `ES2/Content/Assets/Vehicles/Shared/Textures` | Textures (optional: `T_Vehicles_Floaters_Emissive_M`, the glow pattern of the engine nozzles, `T_ShipModules_FX_001_M_A`, the pattern of the wings' hologram discs, the damage maps and `T_Vehicles_Okkar_Techdetail_001_*`, the Wraith's plating) |
    | `ES2/Content/UI/Images/Items` | Textures (optional: EVERSPACE 2's item icons, from which the weapons', devices' and consumables' shop icons are made in Galaxy on Fire 2's style) |
@@ -83,8 +83,8 @@ sounds; export `Audio` again with the setting on.
 
 With the warship folders the mod also brings EVERSPACE 2's warships and freighters into the game's traffic (Colonial,
 Okkar, G&B, Outlaw, cultist and swarmer capital ships with turrets you can shoot off them, launch decks of ES2 fighters, the
-Okkar frigate's weak spots; pirate and Void warships hostile; the Mobile Homebase a station that roams every system and
-that you can dock at, into its own hangar with its six landing pads and its casino as the Space Lounge), EVERSPACE 2's weapons in the shops (every primary and
+Okkar frigate's weak spots; pirate and Void warships hostile; the Mobile Homebase a station that roams ES2's sectors: you fly
+into its hall and land on its pad, as in ES2), EVERSPACE 2's weapons in the shops (every primary and
 secondary, the Okkar and legendary variants, with their own colours, sounds and models), and the Outlaw
 Dreadnought raiding convoys now and then (Options > Gameplay "Dreadnought raids"). Without them the mod is just the ships.
 
@@ -136,10 +136,12 @@ materials at runtime, so these are compositions, not copies). Each sector's musi
 2's resources (Copper, Insidium, Baromite, Clygon, Glacit, Coruscate, Aetheum, Culver, Mallemite, Phazium) are new
 commodities, mined from the sectors' asteroids and traded like ores; Iron and Titanium are the game's own. With the
 locations' levels the stations are **ES2's own** (`tools/stations.py`): each place's station is the cluster of structure
-pieces round its docks in ES2's level (each different piece once in `stations/<id>.glb`, placed as ES2 places it), and
-docking there shows ES2's docked view as the hangar: the same model, the ship on ES2's dock pad, the camera where ES2's
-spring arm puts it (its 1400 mm lens), the take-off along ES2's path, other pads close by as parked ships, and the sector's
-sky outside. A place without a dock in its level keeps a Galaxy on Fire 2 station of its faction's look.
+pieces round its docks in ES2's level (each different piece once in `stations/<id>.glb`, placed as ES2 places it, with the
+level's own material choices), and you dock as in ES2: the dock's marker shows in space, the Dock button inside ES2's dock
+box lands the ship on ES2's pad under the dock's camera (its 1400 mm lens on its spring arm, its docking timeline, sway and
+sounds), and the station's menu opens over the orbit; Launch takes off from the pad along ES2's path. Other pads close by
+hold parked ships. ES2's stations have no Space Lounge. A place without a dock in its level keeps a Galaxy on Fire 2
+station of its faction's look.
 
 ES2's ships fly for **ES2's own factions** (`tools/factions.py`), not Galaxy on Fire 2's races: Grady & Brunt, the
 Freelancers, the Coalition, the Okkar, Mr. Kato's Cartel, and the always-hostile Okkar Prime, Outlaws, Redeemers and

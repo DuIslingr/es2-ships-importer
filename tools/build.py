@@ -1231,14 +1231,15 @@ def main(version):
         print('Adding the warships and freighters ...')
         warships.configure(SRC, MOD)
         ships += warships.build()
-        stations = warships.build_homebase()
+        # the Mobile Homebase: the carrier with its hall, its model in space and its hangar (docked EVERSPACE 2's way)
+        room, model = homebase_hangar.build(SRC, MOD)
+        stations = warships.build_homebase(model)
         if stations:
             world_stations += stations
-            print('  the Mobile Homebase: a station roaming every system')
-            rooms = homebase_hangar.build(SRC, MOD)
-            if rooms:
-                json.dump(rooms, open(os.path.join(MOD, 'interiors.json'), 'w', encoding='utf-8'), indent=1)
-                print('  its own hangar and casino (interiors.json)')
+            print('  the Mobile Homebase: a station roaming the sectors')
+            if room:
+                json.dump([room], open(os.path.join(MOD, 'interiors.json'), 'w', encoding='utf-8'), indent=1)
+                print('  docked inside it, on its pad (interiors.json)')
         print('  encounter: ' + encounter.build(MOD))
     else:
         print('  no warships in the export (Assets/Vehicles/Warships): no capital ships, no Dreadnought')
@@ -1251,6 +1252,12 @@ def main(version):
         print('Adding the EVERSPACE 2 sectors ...')
         systems, sector_stations, resources = sectors.build()
         world_stations += sector_stations; items += resources
+        # the Mobile Homebase roams ES2's own sectors only (stations.json "mobile" "systems"), home in the first
+        for st in world_stations:
+            if st.get('id') == 'es2_homebase' and systems:
+                st['system'] = f'es2_ships:{systems[0]["id"]}'
+                st['mobile']['systems'] = [f'es2_ships:{x["id"]}' for x in systems]
+                print('  the Mobile Homebase roams the sectors only')
         # ES2's own stations and their landing pads as hangars (stations.py), where the export has their pieces
         import stations
         stations.configure(SRC, MOD)
