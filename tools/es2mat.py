@@ -148,16 +148,27 @@ def channels(tex):
     """A packed texture's channels by its name's suffix: T_X_001_C_R_MT_E -> ['C', 'R', 'MT', 'E'] (R, G, B, A); an RGB colour
     map (_C, _C_A, _C_AO) -> ['RGB', 'A' / 'AO']."""
     parts = _name(tex).split('_')
-    idx = max((i for i, p in enumerate(parts) if p.isdigit()), default=len(parts) - 1)
-    toks = [p.upper() for p in parts[idx + 1:]]
-    if not toks:
-        # T_Container_C_R_MT_001: the channel letters before a trailing number
-        i = idx
-        while i > 0 and parts[i - 1].upper() in CODES: i -= 1
-        toks = [p.upper() for p in parts[i:idx]]
+    digits = [i for i, p in enumerate(parts) if p.isdigit()]
+    if digits and digits[-1] < len(parts) - 1:
+        toks = [p.upper() for p in parts[digits[-1] + 1:]]
+    else:
+        # the channel letters at the end, before a trailing number (T_Container_C_R_MT_001) or without one
+        # (T_Structures_Trims_GB_C_R_MT)
+        end = len(parts) - 1 if digits else len(parts)
+        i = end
+        while i > 1 and parts[i - 1].upper() in CODES: i -= 1
+        toks = [p.upper() for p in parts[i:end]]
     if not toks: return ['RGB']
     if toks[0] == 'C' and len(toks) <= 2 and (len(toks) == 1 or toks[1] in ('A', 'AO', 'M')): return ['RGB'] + toks[1:]
     return toks
+
+
+def structure(m):
+    """M_Structures_Parent's family: its base colour is saturate(the masks' curvature channel x 2 x the tint), the tint lerped
+    BaseColor -> VtxR -> VtxG -> VtxB by the vertex colour, each weighted by its tint's alpha (its compiled base-pass
+    shader). Known by a BaseColor beside a CurvatureChannel: the vehicle parents (the Ancient Swarmer) have the channel
+    selector without a BaseColor."""
+    return 'CurvatureChannel' in m['col'] and 'BaseColor' in m['col']
 
 
 def _channel_vec(m, key):
@@ -176,9 +187,10 @@ def plan(m):
     col = _tex(m, COLOUR)
     masks = _tex(m, MASKS)
     if col and col == masks: masks = None
-    if 'CurvatureChannel' in m['col'] and not m['sw'].get('UseColorTexture'):
-        # M_Structures_Parent's family (its compiled shader): the colour is saturate(the masks' curvature channel x 2 x the
-        # tint) unless its UseColorTexture switch is on; a 'C' map in the list is only a parent default then
+    if structure(m) and m['sw'].get('UseColorTexture') is False:
+        # M_Structures_Parent's family (its compiled shader): with its UseColorTexture switch off the colour is the masks'
+        # curvature channel (structure_colour), and a 'C' map in the list is only a parent's default (no such parameter in
+        # the compiled shader: the containers, the red tarp)
         col = None
     if col:
         ch = channels(col)

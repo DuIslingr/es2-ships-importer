@@ -112,28 +112,6 @@ def _less_metal(mod, rel, k=0.1, smooth=0.6):
     return out
 
 
-def _structure_colour(mod, rel, tint):
-    """ES2's structure base colour, as its shader computes it (MI_Structures_PortableHomebase_Parent's base-pass pixel
-    shader, read with es2_re/ShaderDump): saturate(C x 2 x tint) in linear light, C the masks texture's colour channel (linear
-    data), tint the vertex-colour-chosen BaseColor (sRGB parameter). Baked per tint into a colour map: Unity would read the
-    channel as sRGB and has no saturate for a colour above 1, so a 'color' can't do it."""
-    from PIL import Image
-    key = '%02x%02x%02x' % tuple(int(round(c * 255)) for c in tint[:3])
-    out = re.sub(r'\.png$', f'_x2_{key}.jpg', rel)
-    p = os.path.join(mod, out)
-    if not os.path.exists(p):
-        im = Image.open(os.path.join(mod, rel))
-        a = np.asarray(im.convert('RGBA' if im.mode in ('RGBA', 'LA') else 'RGB')).astype(np.float32) / 255.0
-        lin = np.clip(a[..., :1] * 2.0 * (np.array(tint[:3], np.float32) ** 2.2), 0.0, 1.0)
-        rgb = (lin ** (1 / 2.2) * 255.0 + 0.5).astype(np.uint8)
-        if a.shape[2] == 4:
-            out = out[:-4] + '.png'; p = os.path.join(mod, out)
-            Image.fromarray(np.dstack([rgb, (a[..., 3:] * 255).astype(np.uint8)])).save(p, optimize=True)
-        else:
-            Image.fromarray(rgb).save(p, quality=92)
-    return out
-
-
 def _visible_spots(prims, cam, target, floor, fov_deg, n=6, aspect=16 / 9, lower=None):
     """Where the bar's visitors stand (glTF metres): points of the lounge floor itself (no table or counter on them), or of
     the hall's floor at the foot of its stairs ('lower', its height), in the camera's view, 12-38 m from it and in front of the facade, whose feet and head the camera sees and whose billboard
@@ -294,9 +272,7 @@ def build(src, mod, log=print):
         # captures, the remake's room has none, so it came out black.
         if e.get('metallicSmoothness'): e['metallicSmoothness'] = _less_metal(mod, e['metallicSmoothness'])
         elif e.get('metallic', 0.0) > 0.5: e['metallic'] = round(e['metallic'] * 0.1, 3)
-        # M_Structures_Parent's family only (its shader's saturate(curvature x 2 x tint))
-        if 'CurvatureChannel' in m['col'] and re.search(r'_c\d+a?\.png$', e.get('diffuse', '')) and e.get('color'):
-            e['diffuse'] = _structure_colour(mod, e['diffuse'], e['color']); e['color'] = [1.0, 1.0, 1.0]
+        # (the structures' colour, saturate(curvature x 2 x tint), is baked by warships.material_entries)
         if kind == 'glass':
             # their compiled shaders: the windows (M_ShipModules_Glass_Parent) WindowColor at 0.1 + grunge + fresnel, the
             # casino's glass (M_Structures_Glass_Parent) Color at BaseOpacity (0) + scratches + fresnel: nearly clear, a

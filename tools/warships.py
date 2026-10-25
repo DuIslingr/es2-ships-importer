@@ -212,6 +212,27 @@ def tex(kind, src, ch=None, extra=None):
     return rel
 
 
+def structure_colour(rel, tint):
+    """ES2's structure base colour as its shader computes it (M_Structures_Parent's base-pass pixel shader, read with
+    tools/shaders' ShaderDump): saturate(C x 2 x tint) in linear light, C the masks texture's curvature channel (linear data),
+    tint the vertex-colour-chosen BaseColor (an sRGB parameter). Baked per tint into a colour map: Unity would read the
+    channel as sRGB and has no saturate for a colour above 1, so a material colour can't do it."""
+    key = '%02x%02x%02x' % tuple(int(round(c * 255)) for c in tint[:3])
+    out = re.sub(r'\.png$', f'_x2_{key}.jpg', rel)
+    p = os.path.join(MOD, out)
+    if not os.path.exists(p):
+        im = Image.open(os.path.join(MOD, rel))
+        a = np.asarray(im.convert('RGBA' if im.mode in ('RGBA', 'LA') else 'RGB')).astype(np.float32) / 255.0
+        lin = np.clip(a[..., :1] * 2.0 * (np.array(tint[:3], np.float32) ** 2.2), 0.0, 1.0)
+        rgb = (lin ** (1 / 2.2) * 255.0 + 0.5).astype(np.uint8)
+        if a.shape[2] == 4:
+            out = out[:-4] + '.png'; p = os.path.join(MOD, out)
+            Image.fromarray(np.dstack([rgb, (a[..., 3:] * 255).astype(np.uint8)])).save(p, optimize=True)
+        else:
+            Image.fromarray(rgb).save(p, quality=92)
+    return out
+
+
 def strips_map(m):
     """M_StructuresStrips_Parent's markings (its compiled shader): painted, lit stripes and signs, not lights. The mask
     T_Structures_Strips_M's R (the stripes) takes Color_1 and its G (the signs, letters) Color_2, mixed in linear; the
@@ -302,6 +323,8 @@ def material_entries(prefix, mats_used):
                 if em:
                     e.update({'emission': em, 'emissionColor': [round(v, 3) for v in p['emissionColor']], 'emissionIntensity': p['emission']})
             if p.get('tiling'): e['tiling'] = p['tiling']
+            if es2mat.structure(m) and re.search(r'_c\d+a?\.png$', e.get('diffuse', '')) and e.get('color'):
+                e['diffuse'] = structure_colour(e['diffuse'], e['color']); e['color'] = [1.0, 1.0, 1.0]
         out.append(e)
     return out
 
