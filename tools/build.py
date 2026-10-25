@@ -109,80 +109,68 @@ def tech_split(g, binary, p, name):
     out += [(f'Lamp{n}_S{4 + s}', tri[label == s].reshape(-1)) for s in range(4)]
     return out
 
-# T_ShipModules_Floaters_001 is two things: the strip texture in its top left corner (u < 0.25, v < 0.15), which the thin
-# inset strips along the panels map onto: EVERSPACE 2's cybernetic glow lights them (its circuit pattern); and alpha-cut
-# detail cards (vents, grilles, sockets, lettering) everywhere else, which never glow. The strips go to "CyberStrip".
+# M_ShipModules_Floaters_Parent, as its compiled pixel shader computes it: the colour (T_ShipModules_Floaters_001_C_A)
+# x its R_MT_E's blue x "Emissive Intensity" (MI_ShipModules_Floaters_001: 30) always glows (a few vents and grilles of the
+# atlas), and the cybernetic glow is R_MT_E's alpha (three strips in the atlas' top left corner, which the thin inset
+# strips along the panels map onto) x EdgeLighting^3 x 80 x EdgeLightingIntensity x EdgeLightingColor. The faces that
+# show a lit alpha texel go to "CyberStrip"; the rest are alpha-cut detail cards.
+_floater_masks = {}
+
+def floater_mask():
+    if 'm' not in _floater_masks:
+        f = os.path.join(SRC, 'Assets/Vehicles/ShipModules/Shared/Textures/T_ShipModules_Floaters_001_R_MT_E.png')
+        _floater_masks['m'] = np.array(Image.open(f).convert('RGBA')) if os.path.exists(f) else None
+    return _floater_masks['m']
+
 def floater_split(g, binary, p, name):
     if 'TEXCOORD_0' not in p['attributes'] or 'indices' not in p: return None
     uv = glbtool.read(g, binary, p['attributes']['TEXCOORD_0'])[0].astype(np.float32)
     tri = glbtool.read(g, binary, p['indices'])[0].reshape(-1, 3).astype(np.int64)
-    c = uv[tri].mean(axis=1)
-    strip = (np.mod(c[:, 0], 1) < 0.25) & (np.mod(c[:, 1], 1) < 0.15)
+    tex = floater_mask()
+    if tex is None:   # (without the mask: the strip texture's corner)
+        c = uv[tri].mean(axis=1)
+        strip = (np.mod(c[:, 0], 1) < 0.25) & (np.mod(c[:, 1], 1) < 0.15)
+    else:
+        k = 4
+        w = np.array([(a / k, b / k) for a in range(k + 1) for b in range(k + 1 - a)], np.float32)
+        pts = (uv[tri[:, 0]][:, None] * (1 - w[:, 0] - w[:, 1])[None, :, None] + uv[tri[:, 1]][:, None] * w[None, :, 0, None]
+               + uv[tri[:, 2]][:, None] * w[None, :, 1, None])
+        h, wd = tex.shape[:2]
+        x = (np.mod(pts[..., 0], 1) * wd).astype(int).clip(0, wd - 1)
+        y = (np.mod(pts[..., 1], 1) * h).astype(int).clip(0, h - 1)
+        strip = tex[y, x, 3].max(axis=1) > 40
     return [(name, tri[~strip].reshape(-1)), ('CyberStrip', tri[strip].reshape(-1))]
 
 def glow_split(g, binary, p):
-    # M_Vehicles_Floaters_Emissive is ES2's engine glow on the nozzles, their rings, frames and fin edges (EngineColor,
-    # EngineGlowIntensity 20; the player's screenshots show Rear_009's rings and frame burning orange). Its vertex colours:
-    # green marks the hot disc deep in a nozzle (NozzleCore, a little hotter), black the unlit parts (NozzleOff), every other
-    # colour the glow itself (NozzleGlow). Each triangle by its vertices' mean colour.
-    # Besides the engine glow it carries the ship's Emissive 1 / 2 lights, told apart by the face's vertex colour and the
-    # glow atlas row its UVs use (glTF v as stored), matched against EVERSPACE 2's customization screen:
-    #   black: Emissive 2 (the long line across the wing top, the V around the blades' crescent lights);
-    #   white: Emissive 1 for the dots at v < 0.25, u 0.4..0.5 (the dotted lines along the fins); Emissive 2 in the
-    #          thin-strip rows (v < 0.25 from u 0.5: the fins' curved strips, the wing-corner dashes;
-    #          0.40..0.50 from u 0.5: the nose outline, the round dots); Emissive 1 the V-shaped triangles there,
-    #          u 0.34..0.50; else the engine glow (the nozzles and the rear ring);
-    #   red: unlit at v 0.50..0.56 (the panels on the wings' rear faces); Emissive 2 in the other middle rows,
-    #        v 0.25..0.60 (the long line across the wing top, the V around the blades'
-    #        crescent lights, the inner cylinders' rings), else Emissive 1 (v < 0.25: the wing-tip grilles; above 0.60: the
-    #        outer cylinders' rings);
-    #   green: the hot discs (NozzleCore).
-    #   cyan: Emissive 2 (the missile pod's frame).
-    if 'COLOR_0' not in p['attributes'] or 'indices' not in p: return None
+    # M_Vehicles_Floaters_Emissive, as its compiled pixel shader computes it (research/floater_emissive.md):
+    #   the UV quadrant picks the slot: u < 0.5, v < 0.5 Emissive 1 (EmissiveIntensityHigh 20 x EmissiveColor1, always on),
+    #   u >= 0.5, v < 0.5 Emissive 2 (EmissiveIntensityLow 2 x EmissiveColor2, always on), u < 0.5, v >= 0.5 the engine
+    #   (EngineGlowIntensity x EngineColor x the thrust), u >= 0.5, v >= 0.5 the booster (BoosterGlowIntensity x
+    #   BoostColor x the boost, or CruiseMode);
+    #   the mask is T_Vehicles_Floaters_Emissive_M's red x green at twice the UV (each quadrant shows the whole atlas:
+    #   floater_e.png, a 2 x 2 tiling of it);
+    #   x the vertex colour's red channel: black, green and cyan faces (red 0) stay dark (NozzleOff); a dimmer red dims it
+    #   (the "_R33" / "_R67" materials, their masks at a third / two thirds).
+    # The rules matched by eye before (vertex colours and atlas rows) mostly fell out of the quadrants; where they didn't
+    # (black faces in Emissive 2, green "hot discs", white nozzle faces in the engine colour) the shader wins.
+    if 'COLOR_0' not in p['attributes'] or 'indices' not in p or 'TEXCOORD_0' not in p['attributes']: return None
     col, _ = glbtool.read(g, binary, p['attributes']['COLOR_0'])
     col = col[:, :3].astype(np.float32)
     if col.max() > 1.5: col /= 255.0
     tri = glbtool.read(g, binary, p['indices'])[0].reshape(-1, 3).astype(np.int64)
-    c = (col[tri[:, 0]] + col[tri[:, 1]] + col[tri[:, 2]]) / 3 > 0.5
-    r, gr, b = c[:, 0], c[:, 1], c[:, 2]
-    core, black = ~r & gr & ~b, ~r & ~gr & ~b
-    red, white = r & ~gr & ~b, r & gr & b
-    cyan = ~r & gr & b
-    u = np.zeros(len(tri), np.float32); v = np.zeros(len(tri), np.float32)
-    if 'TEXCOORD_0' in p['attributes']:
-        uv = glbtool.read(g, binary, p['attributes']['TEXCOORD_0'])[0].astype(np.float32)
-        u = np.mod(uv[tri, 0].mean(axis=1), 1.0); v = np.mod(uv[tri, 1].mean(axis=1), 1.0)
-    # The glow atlas' V-shaped triangles in the 0.40..0.50 row (u 0.34..0.50): Emissive 1 (engine glow before), by the
-    # user's ES2 shots of a Nemesis-B9-1 I (body B's keel lamp pairs: the forward lamp Emissive 1, the rear one, the row
-    # of round dots, Emissive 2) and a Raptor D1-1 I+ (body D's nose frame Emissive 2 along the row from u 0.53, the
-    # small lamps beside it, u 0.43..0.48, Emissive 1).
-    v_cells = white & (v > 0.44) & (v < 0.515) & (u >= 0.34) & (u < 0.50)
-    strip_white = white & (((v < 0.25) & (u >= 0.5)) | ((v > 0.40) & (v < 0.50) & (u >= 0.5)))
-    dots_white = white & (v < 0.25) & (u >= 0.4) & (u < 0.5)
-    red_off = red & (v > 0.50) & (v < 0.56)
-    # the small dots beside the headlights (red and green, u 0.42..0.50 at v 0.43..0.46): Emissive 1
-    head_dots = (red | core) & (u >= 0.42) & (u < 0.50) & (v > 0.43) & (v < 0.46)
-    # the exhaust grilles: the red strip faces (v < 0.25) in the part's rear half, and the rear ring's red pieces (v > 0.60,
-    # u >= 0.5) burn in the engine colour, not Emissive 1 (the grilles share their UVs with the blades' crescent lights,
-    # so the part's own length tells them apart)
-    pos = glbtool.read(g, binary, p['attributes']['POSITION'])[0].astype(np.float32)
-    cx = pos[tri, 0].mean(axis=1)
-    mid = (pos[:, 0].min() + pos[:, 0].max()) / 2
-    # the rings on the rear cylinders against the body: red in the strip rows from u 0.8 (Emissive 2)
-    rear_rings = red & (v < 0.25) & (u >= 0.8)
-    exhaust = red & ~rear_rings & (((v < 0.25) & (cx < mid)) | ((v > 0.60) & (u < 0.5)))   # (and the big wing-tip exhaust grilles)
-    # the boost vents (the panels beside the wings' boost slots, the rear ring's pieces above and below the main nozzle):
-    # dark, glowing in the boost colour only while boosting, with the boost flames
-    vents = red_off | (red & (v > 0.60) & (u >= 0.5))
-    red_e2 = red & (v > 0.25) & (v < 0.60) & ~red_off & ~head_dots
-    # cyan: Emissive 2 (the missile pod's frame around its bay, SM_SecondaryWeapon_Pod_001)
-    e2 = black | strip_white | red_e2 | rear_rings | cyan
-    e1 = (red & ~red_e2 & ~rear_rings & ~vents & ~exhaust) | dots_white | head_dots | v_cells
-    core = core & ~head_dots
-    glow = ~core & ~e1 & ~e2 & ~vents
-    groups = {'NozzleGlow': glow, 'Ring1': e1, 'Ring2': e2, 'NozzleCore': core, 'BoostVent': vents}
-    if SHIMMER: groups['NozzleShimmer'] = glow   # (the glow's faces again: the additive shimmer over them)
-    return [(name, tri[m].reshape(-1)) for name, m in groups.items()]
+    red = col[tri, 0].mean(axis=1)
+    uv = glbtool.read(g, binary, p['attributes']['TEXCOORD_0'])[0].astype(np.float32)
+    u = np.mod(uv[tri, 0].mean(axis=1), 1.0); v = np.mod(uv[tri, 1].mean(axis=1), 1.0)
+    quad = np.where(v < 0.5, np.where(u < 0.5, 0, 1), np.where(u < 0.5, 2, 3))
+    level = np.where(red < 0.1, -1, np.where(red < 0.5, 1, np.where(red < 0.85, 2, 3)))   # off, 1/3, 2/3, full
+    out = [('NozzleOff', tri[level < 0].reshape(-1))]
+    for q, name in enumerate(('Ring1', 'Ring2', 'NozzleGlow', 'BoostVent')):
+        for lv, suffix in ((3, ''), (2, '_R67'), (1, '_R33')):
+            m = (quad == q) & (level == lv)
+            if m.any(): out.append((name + suffix, tri[m].reshape(-1)))
+    if SHIMMER:   # (the engine glow's faces again: the additive shimmer over them)
+        out.append(('NozzleShimmer', tri[(quad == 2) & (level > 0)].reshape(-1)))
+    return out
 
 def holo_rings(g, binary, p):
     # The hologram's stacked rings carry their animation in their vertex colours (M_ShipModules_Holograms): red the spin
@@ -395,16 +383,12 @@ def textures():
         c = load(src + ('_C_A.png' if 'Floaters' in src else '_C_AO.png'))
         if 'Floaters' in src:
             save(c.copy(), dst + '_ca.png', size)   # (with the detail cards' cut-out alpha)
-            # The cybernetic glow's mask: the middle of each strip (the strip texture in the top left corner, all but its softened edges
-            # across it, inside its alpha), so a wide strip glows in a line down its middle and a narrow one almost whole.
-            h, w = c.shape[:2]
-            inside = (c[..., 3] > 128); inside[int(0.15 * h):, :] = False; inside[:, int(0.25 * w):] = False
-            m = np.zeros((h, w), np.float32)
-            for x in np.nonzero(inside.any(axis=0))[0]:
-                ys = np.nonzero(inside[:, x])[0]
-                mid, half = (ys.min() + ys.max()) / 2, (ys.max() - ys.min()) / 2 + 0.5
-                m[:, x] = np.clip((1.0 - np.abs(np.arange(h) - mid) / half) / 0.2, 0, 1) * inside[:, x]
-            save(np.repeat((m * 255).astype(np.uint8)[..., None], 3, axis=2).copy(), 'cyberstrip_e.png', size)
+            # The cybernetic glow's mask (R_MT_E's alpha) and the always-on glow (the colour x R_MT_E's blue), as
+            # M_ShipModules_Floaters_Parent computes them.
+            rmte = load(src + '_R_MT_E.png')
+            save(np.repeat(rmte[..., 3:4], 3, axis=2).copy(), 'cyberstrip_e.png', size)
+            glow = (c[..., :3].astype(np.float32) * (rmte[..., 2:3].astype(np.float32) / 255.0)).round().astype(np.uint8)
+            save(glow, 'floaters1_glow_e.png', size)
         if dst == 'hull':
             # The hull's colour map is a flat grey (0.686, linear 0.43) with a few percent of variation: ES2 paints the hull
             # in its colour set's colours as they are (its white burns white), so the map is scaled to average white, or
@@ -427,9 +411,8 @@ def textures():
         save(e, dst + '_e.png', size)
     save(np.zeros((4, 4, 4), np.uint8), 'clear.png')   # the decals, cut away (they need ES2's decal atlas and projections)
     # The engine flames' noise (M_Vehicle_EngineExhaust's T_Noise_018_M, tiling grey noise; optional: flat flames without it).
-    # The nozzles' glow (M_Vehicles_Floaters_Emissive's mask T_Vehicles_Floaters_Emissive_M): green is the glowing surface,
-    # white but for a dotted band (Rear_009's ring dots), red the rings and grilles; the brighter of the two (optional: the
-    # whole surfaces glow without it).
+    # The floater glow's mask (M_Vehicles_Floaters_Emissive's T_Vehicles_Floaters_Emissive_M; optional: the whole faces
+    # glow without it).
     global FLAME_NOISE, NOZZLE_MASK, HOLO_MASK
     holo = os.path.join(SRC, 'Assets/Vehicles/Shared/Textures/T_ShipModules_FX_001_M_A.png')
     HOLO_MASK = os.path.exists(holo)
@@ -439,9 +422,20 @@ def textures():
     mask = os.path.join(SRC, 'Assets/Vehicles/Shared/Textures/T_Vehicles_Floaters_Emissive_M.png')
     NOZZLE_MASK = os.path.exists(mask)
     if NOZZLE_MASK:
+        # As M_Vehicles_Floaters_Emissive samples it: red x green at twice the UV, so each UV quadrant (glow_split's
+        # slots) shows the whole atlas; floater_e.png tiles it 2 x 2 for the plain UV. The lights' quadrants (top) light
+        # wherever red x green > 0 (the shader divides by zero there: no gradient); the engine and boost quadrants
+        # (bottom) reveal the gradient with the thrust, smoothstep((m - (1 - 2a)) / ...): baked at 3/4 thrust, 2m
+        # (the remake's engine glow fades the whole of it with the thrust). Red's slow horizontal scroll (the band rows,
+        # ScrollSpeed) is left out: its bands run along the scroll. Also at 2/3 and 1/3 for the dimmer vertex reds.
         m = np.array(Image.open(mask).convert('RGBA')).astype(np.float32) / 255.0
-        v = (np.clip(np.maximum(m[..., 0], m[..., 1]), 0, 1) * 255).astype(np.uint8)
-        save(np.repeat(v[..., None], 3, axis=2).copy(), 'nozzle_e.png', 1024)
+        rg = m[..., 0] * m[..., 1]
+        lit = (rg > 0).astype(np.float32)
+        t = np.clip(2 * rg, 0, 1); t = t * t * (3 - 2 * t)
+        tiles = np.vstack([np.hstack([lit, lit]), np.hstack([t, t])])
+        for scale, name, size in ((1.0, 'floater_e.png', 2048), (2 / 3, 'floater_e67.png', 1024), (1 / 3, 'floater_e33.png', 1024)):
+            v = (tiles * scale * 255).round().astype(np.uint8)
+            save(np.repeat(v[..., None], 3, axis=2).copy(), name, size)
     # Battle damage embers (the hull materials' DamageAmount / Ember* in ES2): burn patches from T_Vehicles_Damage_C_R_M_H's
     # height (A, blurred: the hearts of the burn blobs) with glowing cracks from its colour (R); optional.
     global EMBERS
@@ -499,18 +493,25 @@ def holograms():
     return h
 
 def nozzles():
-    # ES2's nozzle glow, split by glow_split: the glow through the mask and the hot discs whole, both in the engine colour
-    # and dark while the engines are off (parked in a hangar); the unlit part dark.
+    # M_Vehicles_Floaters_Emissive's four slots, split by glow_split: the lights (Ring1 / Ring2) always on, the engine
+    # glow (NozzleGlow) dark while the engines are off (parked in a hangar), the booster's (BoostVent) only while boosting;
+    # each through floater_e.png (its "_R67" / "_R33" copies through the dimmer masks); the faces without vertex red dark.
+    # The dimmer copies come first: the remake takes the first material whose name the model's contains.
     dark = [0.03, 0.03, 0.035]
-    ring = {'material': 'NozzleGlow', 'color': dark, 'emissionColor': [1.0, 0.2875, 0.05], 'engine': True}
-    if NOZZLE_MASK: ring.update({'emission': 'maps/nozzle_e.png', 'emissionIntensity': glow_intensity()})
-    else: ring['emissionIntensity'] = NOZZLE_INTENSITY / 2
-    core = {'material': 'NozzleCore', 'color': dark, 'emissionColor': [1.0, 0.45, 0.12], 'emissionIntensity': CORE_INTENSITY, 'engine': True}
-    lights = [{'material': f'Ring{n}', 'color': dark, 'emissionColor': [1, 1, 1], 'emissionIntensity': 1} for n in (1, 2)]
-    vent = {'material': 'BoostVent', 'color': dark, 'emissionColor': [0.05, 0.525, 1.0], 'emissionIntensity': FLAME_INTENSITY, 'boost': True}
-    out = [ring, *lights, core, vent, {'material': 'NozzleOff', 'color': dark}]
-    if SHIMMER:   # the shimmer: noise scrolling over the glow (ES2's ScrollSpeed 0.3), in the engine colour
-        out.append({'material': 'NozzleShimmer', 'shimmer': True, 'engine': True, 'emission': 'maps/nozzle_e.png',
+    def slot(name, extra, intensity):
+        out = []
+        for suffix, mask in (('_R33', 'floater_e33'), ('_R67', 'floater_e67'), ('', 'floater_e')):
+            e = {'material': name + suffix, 'color': dark, **extra}
+            if NOZZLE_MASK: e.update({'emission': f'maps/{mask}.png', 'emissionIntensity': intensity})
+            else: e['emissionIntensity'] = intensity * {'_R33': 1 / 3, '_R67': 2 / 3, '': 1}[suffix] / 2
+            out.append(e)
+        return out
+    out = [*slot('NozzleGlow', {'emissionColor': [1.0, 0.2875, 0.05], 'engine': True}, glow_intensity()),
+           *slot('Ring1', {'emissionColor': [1, 1, 1]}, 1), *slot('Ring2', {'emissionColor': [1, 1, 1]}, 1),
+           *slot('BoostVent', {'emissionColor': [0.05, 0.525, 1.0], 'boost': True}, FLAME_INTENSITY),
+           {'material': 'NozzleOff', 'color': dark}]
+    if SHIMMER:   # the shimmer: noise scrolling over the engine glow (ES2's ScrollSpeed 0.3), in the engine colour
+        out.append({'material': 'NozzleShimmer', 'shimmer': True, 'engine': True, 'emission': 'maps/floater_e.png',
                     'flameNoise': 'maps/shimmer_noise.png', 'emissionColor': [1.0, 0.2875, 0.05], 'emissionIntensity': SHIMMER_INTENSITY})
     return out
 
@@ -518,7 +519,6 @@ def glow_intensity():
     # (with the shimmer, the steady glow gives part of its brightness to the moving layer)
     return NOZZLE_INTENSITY * (0.6 if SHIMMER else 1.0)
 
-CORE_INTENSITY = 5
 LIGHT_INTENSITY = 5   # ES2's lights (Emissive 1 / 2) burn vividly even in dark colours (its EmissiveIntensityHigh 20)
 NOZZLE_INTENSITY = 1.6
 SHIMMER_INTENSITY = 1.3
@@ -548,8 +548,10 @@ def materials():
         *[{'material': f'Lamp{n}_S{k}', **tech(f'tech{n}')} for n in (2, 1) for k in (4, 5, 6, 7)],
         {'material': 'TechDetails_002', **unlit('tech2')},
         {'material': 'TechDetails', **unlit('tech1')},
-        # (the floaters: alpha-cut detail cards; their strips, CyberStrip, glow in the cybernetic glow's colour)
-        {'material': 'ShipModules_Floaters', **unlit('floaters1'), 'diffuse': 'maps/floaters1_ca.png', 'alphaClip': 0.5},
+        # (the floaters: alpha-cut detail cards with a few always-glowing vents; their strips, CyberStrip, glow in the
+        # cybernetic glow's colour)
+        {'material': 'ShipModules_Floaters', **unlit('floaters1'), 'diffuse': 'maps/floaters1_ca.png', 'alphaClip': 0.5,
+         'emission': 'maps/floaters1_glow_e.png', 'emissionColor': [1, 1, 1], 'emissionIntensity': 30 * LIGHT_INTENSITY / 20},
         {'material': 'CyberStrip', **unlit('floaters1'), 'diffuse': 'maps/floaters1_ca.png', 'alphaClip': 0.5, 'color': [0.15, 0.15, 0.15],
          'emission': 'maps/cyberstrip_e.png', 'emissionColor': [0, 0, 0], 'emissionIntensity': 1},
         {'material': 'Glass_Lines', 'color': [0.1, 0.2, 0.25], 'emissionColor': [0.4, 0.85, 1.0], 'emissionIntensity': 1.5},
@@ -592,7 +594,6 @@ def colors():
          'targets': [{'material': 'EngineExhaust', 'property': 'emission', 'intensity': FLAME_INTENSITY},
                      {'material': 'NozzleGlow', 'property': 'emission', 'intensity': glow_intensity() if NOZZLE_MASK else NOZZLE_INTENSITY / 2},
                      *([{'material': 'NozzleShimmer', 'property': 'emission', 'intensity': SHIMMER_INTENSITY}] if SHIMMER else []),
-                     {'material': 'NozzleCore', 'property': 'emission', 'intensity': CORE_INTENSITY},
                      {'property': 'engine'}]},
         # ES2's booster and lateral thruster colours (TrailColorBoost / TrailColorLateral): the flames' boost cards and the
         # manoeuvring jets (LateralThrusters' "lateral thruster" material).
@@ -818,33 +819,13 @@ def has_okkar():
 OKKAR_PLATES = ['#827E75', '#AAA492', '#808182', '#FFECE2']
 OKKAR_RESIDUE = (0x7B / 255, 0x5F / 255, 0x3F / 255)   # CavityResidueColor, in the crevices (the Masks' alpha)
 
-def okkar_engine(g):
-    """The Okkar hull's engine socket (SKT_Engine_001) in the mesh's frame (its rest pose), None without one."""
-    world = skeleton_world(g)
-    for i, n in enumerate(g['nodes']):
-        if 'SKT_Engine' in n.get('name', ''): return world(i)[:3, 3].astype(np.float32)
-    return None
-
 def okkar_split(g, binary, p):
     name = g['materials'][p['material']].get('name', '') if 'material' in p else ''
     if 'Floaters_Emissive' in name:
-        # The Okkar hull's glow faces are all white-coloured, so glow_split's rules (made on the ship modules) take its
-        # small lights for engine glow. In EVERSPACE 2 only the faces at the engine burn in the engine colour; the other
-        # lights (the blades' and wing tips' lights, the dots along the nose) are Emissive 1 (checked against the game's
-        # photo mode with Emissive 1 blue and 2 red: the spine's ribs in Emissive 2, as glow_split has them).
-        groups = glow_split(g, binary, p)
-        engine = okkar_engine(g)
-        if groups is None or engine is None: return groups
-        pos = glbtool.read(g, binary, p['attributes']['POSITION'])[0].astype(np.float32)
-        out, moved = [], np.zeros(0, np.int64)
-        for gname, idx in groups:
-            if gname in ('NozzleGlow', 'NozzleShimmer'):
-                tri = idx.reshape(-1, 3)
-                far = np.linalg.norm(pos[tri].mean(axis=1) - engine, axis=1) > 1.5
-                if gname == 'NozzleGlow': moved = tri[far].reshape(-1)
-                idx = tri[~far].reshape(-1)
-            out.append((gname, idx))
-        return [(n, np.concatenate([i, moved]) if n == 'Ring1' else i) for n, i in out]
+        # (the Okkar hull's glow faces by the floater shader's rules like every module's: the lights that looked like
+        # Emissive 1 on the blades and wing tips are in its boost quadrant, lit in the boost colour while boosting, which
+        # ES2's Engine Colors page does; the boost and Emissive 1 defaults are both light blue)
+        return glow_split(g, binary, p)
     if 'Okkar_TechDetail' not in name: return hull_split(g, binary, p)
     if 'COLOR_0' not in p['attributes'] or 'indices' not in p: return None
     col = glbtool.read(g, binary, p['attributes']['COLOR_0'])[0][:, :3].astype(np.float32)
