@@ -59,6 +59,37 @@ FREIGHTERS = [
     ('es2_flying_trader', 'Flying Trader', 'A travelling trader\'s ship.', 2, None, ['Transporters/Meshes/SM_Transporter_006'], None),
     ('es2_tareen_trader', 'Tareen Trader', 'A Tareen trader with its tarps and neon signs.', 3, None, ['Transporters/Meshes/SM_Trader_001'], None),
 ]
+# EVERSPACE 2's civilian traffic (BP_SplineTraffic*: the ships that fly its space lanes, low-poly background models) and its
+# mining ships, as freighters: (id, name, description, races, weight, blueprint or None, mesh). No turrets; several races
+# each where ES2's own traffic is everyone's, a low weight so they come now and then among the warships' freighters. The
+# smallest (SM_Traffic_004, Okkar_003, Okkar_006_B: under 50 m in the game) are left out: shuttles, not freighters.
+CIVIL, SETTLER = [0, 2], [0, 2, 3]
+TRAFFIC = 'Traffic/Meshes/'
+CIVILIANS = [
+    ('es2_courier', 'Courier', 'A small civilian courier of EVERSPACE 2\'s space lanes.', CIVIL, 0.3, None, TRAFFIC + 'SM_Traffic_001'),
+    ('es2_container_hauler', 'Container Hauler', 'A civilian hauler carrying a stack of cargo containers.', CIVIL, 0.3, None, TRAFFIC + 'SM_Traffic_002'),
+    ('es2_light_transport', 'Light Transport', 'A light civilian transport.', CIVIL, 0.3, None, TRAFFIC + 'SM_Traffic_003'),
+    ('es2_passenger_shuttle', 'Passenger Shuttle', 'A long-haul passenger shuttle.', CIVIL, 0.3, None, TRAFFIC + 'SM_Traffic_005'),
+    ('es2_private_yacht', 'Private Yacht', 'Somebody\'s private yacht.', CIVIL, 0.2, None, TRAFFIC + 'SM_Traffic_006'),
+    ('es2_cargo_tug', 'Cargo Tug', 'A twin-engined tug hauling a cargo frame.', CIVIL, 0.3, None, TRAFFIC + 'SM_Traffic_007'),
+    ('es2_ore_hauler', 'Ore Hauler', 'A tug hauling a frame full of ore.', [2, 3], 0.3, None, TRAFFIC + 'SM_Traffic_008'),
+    ('es2_utility_tug', 'Utility Tug', 'A small utility tug.', CIVIL, 0.2, None, TRAFFIC + 'SM_Traffic_009'),
+    ('es2_settler_transport', 'Settler Transport', 'A settler family\'s transport.', SETTLER, 0.3, None, TRAFFIC + 'SM_Traffic_010'),
+    ('es2_settler_skiff', 'Settler Skiff', 'A settler\'s skiff.', SETTLER, 0.2, None, TRAFFIC + 'SM_Traffic_011'),
+    ('es2_tanker', 'Tanker', 'A settlers\' fuel tanker.', SETTLER, 0.3, None, TRAFFIC + 'SM_Traffic_012'),
+    ('es2_supply_truck', 'Supply Truck', 'A settlers\' supply truck.', SETTLER, 0.3, None, TRAFFIC + 'SM_Traffic_013'),
+    ('es2_settler_freighter', 'Settler Freighter', 'A settlers\' long freighter.', SETTLER, 0.3, None, TRAFFIC + 'SM_Traffic_014'),
+    ('es2_okkar_transport', 'Okkar Transport', 'A civilian Okkar transport.', [1], 0.4, None, TRAFFIC + 'SM_Traffic_Okkar_001'),
+    ('es2_okkar_engineer', 'Okkar Engineer', 'An Okkar engineering ship.', [1], 0.4, 'BP_Okkar_Engineer', TRAFFIC + 'SM_Traffic_Okkar_001_B'),
+    ('es2_okkar_shuttle', 'Okkar Shuttle', 'An Okkar shuttle.', [1], 0.4, None, TRAFFIC + 'SM_Traffic_Okkar_002'),
+    ('es2_okkar_bulk_carrier', 'Okkar Bulk Carrier', 'An Okkar bulk carrier with its twin cargo drums.', [1], 0.4, None, TRAFFIC + 'SM_Traffic_Okkar_004'),
+    ('es2_okkar_courier', 'Okkar Courier', 'A small Okkar courier.', [1], 0.3, None, TRAFFIC + 'SM_Traffic_Okkar_005'),
+    ('es2_okkar_liner', 'Okkar Liner', 'An Okkar passenger liner.', [1], 0.3, None, TRAFFIC + 'SM_Traffic_Okkar_006'),
+    ('es2_okkar_yacht', 'Okkar Yacht', 'An Okkar noble\'s yacht.', [1], 0.2, None, TRAFFIC + 'SM_Traffic_Okkar_006_C'),
+    ('es2_gb_mining_ship', 'G&B Mining Ship', 'A Grady & Brunt mining ship.', [3], 0.6, 'BP_GB_MiningVessel', 'Miningships/Meshes/SM_Miningship_001'),
+    ('es2_gb_mining_barge', 'G&B Viridium Mining Barge', 'A Grady & Brunt barge, nearly a kilometre long, that mines Viridium.', [3], 0.3,
+     'BP_GB_Viridium_MiningShip', 'Miningships/Meshes/SM_Miningship_Barge_001'),
+]
 # The blueprints of the ships built without one (no turrets or parts to read), for their engine effects (engine_effects).
 ENGINE_BP = {'es2_flying_trader': 'BP_Ship_Traveling_Trader', 'es2_tareen_trader': 'BP_Ship_Tareen'}
 # The fighters a hangar launches by faction: the mod's kit ships (random builds).
@@ -296,6 +327,15 @@ def material_entries(prefix, mats_used):
         m = es2mat.resolve(src)
         kind = es2mat.classify(m)
         e = {'material': new}
+        if isinstance(ti, tuple) and ti[0] == 'light':
+            # M_Fx_Lights_Parent (its compiled shader): unlit, additive, the light atlas x the card's vertex colour (x (N.V)^2,
+            # fading edge-on, left out). Drawn additively: no base colour (alpha 0), the atlas as the emission.
+            em = tex('emit', LIGHT_ATLAS, 0)
+            e.update({'diffuse': 'warships/maps/clear.png', 'opacity': 0.999, 'color': [0.0, 0.0, 0.0], 'metallic': 0.0,
+                      'smoothness': 0.0, 'doubleSided': True, 'emissionColor': list(ti[1:]), 'emissionIntensity': 2.0})
+            if em: e['emission'] = em
+            out.append(e)
+            continue
         if 'StructuresStrips' in m['root'] or 'StructuresStrips' in m['name']:
             d = strips_map(m)
             if d:
@@ -362,6 +402,14 @@ def material_entries(prefix, mats_used):
     return out
 
 
+LIGHT_ATLAS = 'T_Structures_FX_Lights_001'
+
+
+def is_light(m):
+    """ES2's light cards (M_Fx_Lights_Parent): the traffic ships', some fighters' and drones' running lights."""
+    return any('fx_lights' in n.lower() for n in m['chain'])
+
+
 def split_prims(prefix, prims, mats_used, layered=False):
     """Renames every primitive's material "<prefix><n>|" (a vertex-colour-masked one into a material per tint) and returns
     the Writer's primitives."""
@@ -371,7 +419,13 @@ def split_prims(prefix, prims, mats_used, layered=False):
         m = es2mat.resolve(mname)
         kind = es2mat.classify(m)
         vt = (kind == 'pbr' and es2mat.plan(m).get('tints')) or (kind == 'glow' and es2mat.vertex_tints(m))
-        if band_glow(m) and 'COLOR_0' in attrs and 'TEXCOORD_0' in attrs:
+        if is_light(m) and 'COLOR_0' in attrs:
+            # a material per light colour (the cards' vertex colour, material_entries' 'light')
+            col = attrs['COLOR_0'][:, :3]
+            c = np.round((col[tri[:, 0]] + col[tri[:, 1]] + col[tri[:, 2]]) / 3 * 20) / 20
+            keys = [tuple(round(float(v), 2) for v in k) for k in c]
+            groups = [(('light',) + k, tri[[j for j, x in enumerate(keys) if x == k]]) for k in sorted(set(keys))]
+        elif band_glow(m) and 'COLOR_0' in attrs and 'TEXCOORD_0' in attrs:
             # the colour by the mask's band under the face (u), the vertex alpha into v (material_entries: ti 10 + band)
             uv = np.array(attrs['TEXCOORD_0'], np.float32)
             al = np.clip(attrs['COLOR_0'][:, 3], 0.0, 1.0)
@@ -556,7 +610,7 @@ def rear_engines(prims, f, n=4):
 
 # ---- one ship -----------------------------------------------------------------------------------------------------------
 
-def build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar, extra_parts=None, traffic=True):
+def build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar, extra_parts=None, traffic=True, traffic_extra=None):
     prims = []
     for m in meshes:
         p = os.path.join(SRC, 'Assets/Vehicles', m + '.glb')
@@ -618,7 +672,7 @@ def build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar,
             'slots': {'primary': 0, 'secondary': 0, 'turret': 0, 'equipment': 0},
             'model': rel, 'modelLength': round(length), 'modelYaw': 90, 'engineStyle': 'es2',
             'mounts': mounts, 'materials': materials, 'subsystems': subs,
-            'traffic': {'capital': kind, **({} if traffic else {'weight': 0})},
+            'traffic': {'capital': kind, **({} if traffic else {'weight': 0}), **(traffic_extra or {})},
             'explosionScale': round(min(20.0, max(4.0, float(size.max()) * f / 250.0)), 1)}
     ebp = bp or ENGINE_BP.get(sid)
     effects = engine_effects(ebp) if ebp else None
@@ -638,6 +692,8 @@ def build(log=print):
     # every warship and freighter on the workers (jobs.run), their lines printed in the table's order
     todo = list(WARSHIPS) + [(sid, name, desc, race, 'freighter', bp, meshes, turret, None, None)
                                               for sid, name, desc, race, bp, meshes, turret in FREIGHTERS]
+    todo += [(sid, name, desc + ' EVERSPACE 2\'s civilian traffic.', races[0], 'freighter', bp, [mesh], None, None, None, None, True,
+              {'races': races, 'weight': w}) for sid, name, desc, races, w, bp, mesh in CIVILIANS]
     for (sid, *_), (r, lines) in zip(todo, jobs.run(lambda w: logged(build_ship, *w), todo)):
         for l in lines: LOG(l)
         if not r: continue

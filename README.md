@@ -57,6 +57,8 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Blueprints/Pawns`, `ES2/Content/Blueprints/Equipment`, `ES2/Content/Blueprints/Missions` | Properties (.json) (optional: the warships' layouts, the weapons' stats and fire sounds, the Dreadnought) |
    | `ES2/Content/Assets/Vehicles/Warships`, `ES2/Content/Assets/Vehicles/Transporters` | Properties (.json), Models (optional: the warships, freighters and the Dreadnought) |
    | `ES2/Content/Assets/Vehicles/Fighters`, `ES2/Content/Assets/Vehicles/Drones` | Properties (.json), Models (optional: EVERSPACE 2's enemy fighters and drones as traffic) |
+   | `ES2/Content/Assets/Vehicles/Traffic`, `ES2/Content/Assets/Vehicles/Miningships` | Properties (.json), Models (optional: EVERSPACE 2's civilian traffic and mining ships as freighters) |
+   | `ES2/Content/Dev/Alex/Environments/Structures/Textures` | Textures (optional: only `T_Structures_FX_Lights_001` is used, the light cards of the traffic, some fighters and drones; without it they are left out) |
    | `ES2/Content/Assets/Turrets/Meshes` | Models (all of them: the warships' turrets) |
    | `ES2/Content/Assets/Vehicles/Shared`, `ES2/Content/Assets/Environment/Structures`, `ES2/Content/Assets/Effects/Materials`, `ES2/Content/Assets/Blockouts/Materials` | Properties (.json), Textures (the warships' materials) |
    | `ES2/Content/Maps/POIs/POI_HomebaseCarrier_001` | Properties (.json) (optional: the Mobile Homebase's own hangar and casino; then also run `tools/shaders`' `export` on `tools/homebase_assets.txt` with `all`, for the props and the hall's materials FModel's export lacks) |
@@ -88,6 +90,11 @@ and the Ancients' swarmers as the Void, Grady & Brunt as Midorians, the Coalitio
 each with its own name on the lock plate, ES2's exhaust flames and engine trails. They fly as their race's traffic (Options
 > Gameplay "Mod ships in traffic"), the warships' hangars launch them, and the Okkar Prime Claw is a pirate boss's hull. They
 are never sold.
+
+With `Traffic` and `Miningships`, 22 of EVERSPACE 2's civilian ships join the freighters: the haulers, tugs, tankers and
+settler ships of its space lanes (Terran, Nivelian and Midorian), the Okkar's transports, liners and their engineer (Vossk),
+and Grady & Brunt's mining ship and kilometre-long Viridium mining barge (Midorian). Their running lights are ES2's own
+light cards, drawn additively in each light's colour.
 
 Always: EVERSPACE 2's devices and consumables in the shops (`tools/devices.py`), each on the Galaxy on Fire 2 equipment or
 secondary that does most nearly what it does in EVERSPACE 2 (the Scout's Shadow Strike and Vanish as cloaks, Spectral Form

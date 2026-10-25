@@ -42,6 +42,22 @@ def setup(mat, specs):
     for l in list(nt.links):
         if l.to_node == bsdf: nt.links.remove(l)
     tiling = spec.get("tiling", 1)
+    if spec.get("opacity") and spec.get("diffuse", "").endswith("clear.png"):
+        # additive (the light cards, the band glows): the emission over what is behind, nothing of its own
+        out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+        add = nt.nodes.new("ShaderNodeAddShader"); tr = nt.nodes.new("ShaderNodeBsdfTransparent"); em = nt.nodes.new("ShaderNodeEmission")
+        e = spec.get("emissionColor", [1, 1, 1]); em.inputs["Strength"].default_value = spec.get("emissionIntensity", 1) * 4
+        t = tex_node(nt, spec["emission"], tiling) if spec.get("emission") else None
+        if t is not None:
+            mul = nt.nodes.new("ShaderNodeMix"); mul.data_type = "RGBA"; mul.blend_type = "MULTIPLY"; mul.inputs["Factor"].default_value = 1.0
+            nt.links.new(t.outputs["Color"], mul.inputs[6]); mul.inputs[7].default_value = (*e[:3], 1)
+            nt.links.new(mul.outputs[2], em.inputs["Color"])
+        else:
+            em.inputs["Color"].default_value = (*e[:3], 1)
+        nt.links.new(tr.outputs[0], add.inputs[0]); nt.links.new(em.outputs[0], add.inputs[1])
+        nt.links.new(add.outputs[0], out.inputs["Surface"])
+        if hasattr(mat, "surface_render_method"): mat.surface_render_method = "BLENDED"
+        return
     col = list(spec.get("color", [1, 1, 1]))[:3]
     d = tex_node(nt, spec["diffuse"], tiling) if spec.get("diffuse") else None
     if d is not None:
