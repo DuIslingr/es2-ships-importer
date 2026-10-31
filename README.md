@@ -278,10 +278,10 @@ precision and output quality are unchanged.
 
 ## In the game
 
-- The `drives` part brings two cruise drives. The **Khador Slipstream** is sold in shops (tech level 7): hold the
-  fast-forward button to cruise an orbit at x4 for energy cells. Its successor, the **Slipstream II**, is made from a
+- The `drives` part brings two cruise drives. The **Slipstream** is sold in shops (tech level 7): hold the
+  fast-forward button to cruise an orbit at x4 for energy cells. Its successor, the **Khador Slipstream**, is made from a
   blueprint and sold nowhere: find it in a wreck to hack at the GB Mining Grounds, or buy it from a bar visitor now and then
-  (400,000), from story step 34 on or at once in free play. The recipe takes a Khador Slipstream, EVERSPACE 2's Glacit,
+  (400,000), from story step 34 on or at once in free play. The recipe takes a Slipstream, EVERSPACE 2's Glacit,
   Coruscate, Baromite, Clygon, Phazium and Mallemite and the Khador Drive's goods, and can't be autocompleted. Mounted, its
   quick menu entry leaves the system for the space between the stars, where the systems on your star map can be flown to
   through EVERSPACE 2's warp tunnel, about an energy cell per gate hop.

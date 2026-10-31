@@ -20,6 +20,7 @@ from PIL import Image, ImageEnhance, ImageFilter
 W, H = 178, 86                      # the picture inside the 180 x 88 icon
 ICONS = None                        # the folder of ES2's item icon PNGs
 REMAKE_ATLAS = None
+REMAKE = None   # the remake's checkout, when given: some icons start from its own
 _frames = {}
 
 # The plates in gof2_interface2_ipad_large.png (Reference/research/item_icons.json, the frame_* entries) and the colour each
@@ -33,9 +34,10 @@ TINTS = {'primary': (1.0, 0.26, 0.26), 'secondary': (1.0, 0.63, 0.16), 'turret':
 def configure(icons, remake=None):
     """icons: the folder of ES2's item icons (FModel's export of UI/Images/Items as PNG); remake: a checkout of the remake
     (or its gof2_interface2_ipad_large.png) for the game's own plates."""
-    global ICONS, REMAKE_ATLAS
+    global ICONS, REMAKE_ATLAS, REMAKE
     ICONS = icons if icons and os.path.isdir(icons) else None
     REMAKE_ATLAS = None
+    REMAKE = remake
     if remake:
         p = os.path.expanduser(remake)
         if os.path.isdir(p): p = os.path.join(p, 'Assets', 'Textures', 'textures', 'gof2_interface2_ipad_large.png')

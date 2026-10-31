@@ -65,6 +65,25 @@ class Drives(unittest.TestCase):
         self.assertIn('warp/', build.MULTIPLAYER_IGNORE)
 
 
+class Names(unittest.TestCase):
+    def test_the_khador_slipstream_is_the_successor_and_its_icon_the_khador_drives(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as d:
+            drives.configure(d, d)
+            out = drives.items()
+            self.assertEqual([i['name'] for i in out], ['Slipstream', 'Khador Slipstream'])
+            self.assertEqual(out[1]['stats']['interstellar'], 1)
+            self.assertNotIn('interstellar', out[0]['stats'])
+        plate = Image.new('RGBA', (4, 1), (0, 200, 220, 255))
+        plate.putpixel((1, 0), (120, 120, 120, 255))
+        plate.putpixel((2, 0), (40, 90, 40, 255))
+        new = drives.violet_core(plate)
+        r, g, b, _ = new.getpixel((0, 0))
+        self.assertGreater(b, g, 'the cyan core turned violet')
+        self.assertGreater(r, g)
+        self.assertEqual(new.getpixel((1, 0)), (120, 120, 120, 255), 'the metal stays')
+
+
 class Warp(unittest.TestCase):
     def test_layers_become_one_channel_and_missing_ones_are_left_out(self):
         from PIL import Image

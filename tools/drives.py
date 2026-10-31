@@ -1,7 +1,7 @@
-"""The cruise drives (items.json), the Slipstream II's blueprint (blueprints.json) and the warp flight's look and sound
+"""The cruise drives (items.json), the Khador Slipstream's blueprint (blueprints.json) and the warp flight's look and sound
 (warp.json, warp/): the remake's rules ("Cruise drives" in its Modding/README.md) on EVERSPACE 2's travel mode.
 
-The Khador Slipstream cruises inside an orbit and is sold in shops. Its successor, the Slipstream II, is only made from a
+The Slipstream cruises inside an orbit and is sold in shops. Its successor, the Khador Slipstream, is only made from a
 blueprint (never stocked, like the Khador Drive): mounted, it also flies the space between the systems. Its recipe takes
 the first drive and ES2's rarest resources (sectors.RESOURCES: mined in the sectors, so the part needs them) with the
 Khador Drive's goods, and costs more than a Khador Drive to make in both of the remake's economies (tests/test_drives.py).
@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 
+import numpy as np
 from PIL import Image
 
 import icons
@@ -31,6 +32,8 @@ TINT = '#8cd0ff'
 KHADOR, ENERGY_CELLS, VOID_CRYSTALS, HYPANIUM, ELECTRONICS, MICROCHIPS, OPTICS = 85, 122, 164, 163, 118, 127, 129
 FIRST, SECOND = 'es2_slipstream', 'es2_slipstream_ii'
 ICON, SECOND_ICON = 'icon_perk_engineer_mentor_cruisedrive_62x62_2x', 'icon_device_energized_boost_86x86_2x'
+KHADOR_ICON = 'Assets/Resources/GoF2Icons/item_085.png'   # the successor's starts from the Khador Drive's own (in the remake)
+CORE_HUES, CORE_HUE = (0.42, 0.62), 0.76   # its cyan core (HSV hue) turns violet, the plate and metal staying as they are
 
 # (ES2 resource, amount): the superior and rare ores and crystals, sectors.RESOURCES' ids
 ORES = [('glacit', 60), ('coruscate', 60), ('baromite', 120), ('clygon', 120), ('phazium', 100), ('mallemite', 150)]
@@ -52,7 +55,7 @@ def configure(src, mod):
 def items():
     """items.json's two drives (their icons made), each based on the Khador Drive."""
     out = [
-        {'id': FIRST, 'base': KHADOR, 'name': 'Khador Slipstream',
+        {'id': FIRST, 'base': KHADOR, 'name': 'Slipstream',
          'description': 'A cut-down Void crystal array on the Khador Drive\'s pattern. Too weak to fold space between the '
                         'stars, it folds it a little: the ship slips through the orbit at several times its speed as long '
                         'as the pilot holds the charge, paying in energy cells. Anything solid ahead, a locked destination '
@@ -60,7 +63,7 @@ def items():
          'techLevel': 7, 'occurrence': 25, 'price': [148000, 162800],
          'stats': {'cruiseSpeed': 400, 'cruiseRange': 60000, 'cruiseChargeMs': 2000, 'energyCells': 1},
          '_icon': ICON, '_frame': 'equipment'},
-        {'id': SECOND, 'base': KHADOR, 'name': 'Slipstream II',
+        {'id': SECOND, 'base': KHADOR, 'name': 'Khador Slipstream',
          'description': 'The Slipstream rebuilt around crystals no shop sells. It holds the fold open: the charge carries the '
                         'ship out of the system into the dark between the stars, where every system on the map can be flown '
                         'to, an energy cell for each gate hop of the way. Inside an orbit it is simply a faster Slipstream.',
@@ -69,13 +72,36 @@ def items():
          '_icon': SECOND_ICON, '_frame': 'equipment'},
     ]
     icons.apply(out, MOD)
+    khador_icon(out[1])
     for it in out:
         for k in [k for k in it if k.startswith('_')]: del it[k]
     return out
 
 
+def violet_core(img):
+    """An icon with its cyan glow turned violet: the same art, a sibling of the original."""
+    rgba = np.asarray(img.convert('RGBA'))
+    hsv = np.asarray(Image.fromarray(rgba[..., :3], 'RGB').convert('HSV')).astype(np.float32) / 255.0
+    core = (hsv[..., 0] >= CORE_HUES[0]) & (hsv[..., 0] <= CORE_HUES[1]) & (hsv[..., 1] > 0.3)
+    hsv[..., 0][core] = CORE_HUE
+    rgb = np.asarray(Image.fromarray((hsv * 255.0).astype(np.uint8), 'HSV').convert('RGB'))
+    return Image.fromarray(np.dstack([rgb, rgba[..., 3]]), 'RGBA')
+
+
+def khador_icon(item):
+    """The successor's icon: a variant of the Khador Drive's (with no remake given it keeps its ES2 one)."""
+    src = os.path.join(icons.REMAKE, KHADOR_ICON) if icons.REMAKE else None
+    if not src or not os.path.exists(src):
+        LOG('  no --remake: the second drive keeps an EVERSPACE 2 icon, not its variant of the Khador Drive\'s')
+        return
+    rel = f"icons/items/{item['id']}.png"
+    os.makedirs(os.path.dirname(os.path.join(MOD, rel)), exist_ok=True)
+    violet_core(Image.open(src)).save(os.path.join(MOD, rel), optimize=True)
+    item['icon'] = rel
+
+
 def blueprints():
-    """blueprints.json: the Slipstream II's. No autocomplete: the ores have to be fetched."""
+    """blueprints.json: the Khador Slipstream's. No autocomplete: the ores have to be fetched."""
     ingredients = [{'item': f'es2_ships:{FIRST}', 'amount': 1}]
     ingredients += [{'item': f'es2_ships:es2_{key}', 'amount': n} for key, n in ORES]
     ingredients += [{'item': item, 'amount': n} for item, n in GOODS]
@@ -117,5 +143,5 @@ def build(log=print):
     known = {key for key, *_ in sectors.RESOURCES}
     for key, _ in ORES:
         if key not in known: raise ValueError(f'the recipe names {key}, not one of sectors.RESOURCES')
-    LOG(f'  drives: {len(out)} items, the Slipstream II\'s blueprint, warp: {", ".join(k for k in look if k != "tint") or "no art"}')
+    LOG(f'  drives: {len(out)} items, the Khador Slipstream\'s blueprint, warp: {", ".join(k for k in look if k != "tint") or "no art"}')
     return out
