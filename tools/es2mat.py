@@ -24,6 +24,8 @@ def configure(src):
     global ROOT
     ROOT = src
     _index.cache_clear()
+    resolve.cache_clear()
+    _load_name.cache_clear()
 
 
 @functools.lru_cache(None)
@@ -47,9 +49,16 @@ def texture_file(name):
 
 
 def _load(name):
-    f = _index()[0].get(_name(name))
+    return _load_name(_name(name))
+
+
+@functools.lru_cache(maxsize=256)
+def _load_name(name):
+    # Parent materials are shared by many instances; parsed source dictionaries are read-only here.
+    f = _index()[0].get(name)
     if not f: return None
-    try: return json.load(open(f, encoding='utf-8-sig'))
+    try:
+        with open(f, encoding='utf-8-sig') as stream: return json.load(stream)
     except Exception: return None
 
 

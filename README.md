@@ -68,7 +68,8 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Maps/Locations` | Properties (.json) (optional: the sectors' stations as ES2 builds them, with their docked views as hangars; then also run `tools/shaders`' `export` on `tools/station_assets.txt` with `all`, the structure pieces FModel's export lacks) |
    | `ES2/Content/Audio/MusikSets`, `ES2/Content/Audio/Music` | Properties (.json) and Audio (optional: the sector's music) |
    | `ES2/Content/Maps/POIs/POI_HomebaseCarrier_001` | Properties (.json) (optional: the Mobile Homebase as ES2's carrier with its hall, docked inside; then also run `tools/shaders`' `export` on `tools/homebase_assets.txt` with `all`, for the props and the hall's materials FModel's export lacks) |
-   | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
+   | `ES2/Content/Assets/TravelMode`, `ES2/Content/Assets/Environment/Structures/Effects`, `ES2/Content/Assets/Vehicles/Effects`, `ES2/Content/Assets/Environment/Effects`, `ES2/Content/Assets/Effects/Materials`, `ES2/Content/Blueprints/Effects/CameraShakes` | Properties (.json), Textures, Models (optional: EVERSPACE 2's warp effects for the remake's warp flight, `research/warp_effects.md`: the travel mode's warp tunnel, speed particles and post-process, the jump gate's tunnel, the cruise mode's friction sphere, the jump drive's charge, the teleport and portal effects, with their camera shakes; then also run `tools/shaders`' `export` on `tools/warp_assets.txt` with `all`, the tunnel meshes, the shared noise textures and the resolved materials FModel's folder export lacks) |
+   | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds, and for the warp effects `SFX/Ship/Cruise_Mode`, `SFX/HUD/TransitionToHyperspace` and `SFX/Environment/JumpGate`). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
    | `ES2/Content/Assets/Vehicles/Shared/Textures` | Textures (optional: `T_Vehicles_Floaters_Emissive_M`, the glow pattern of the engine nozzles, `T_ShipModules_FX_001_M_A`, the pattern of the wings' hologram discs, the damage maps and `T_Vehicles_Okkar_Techdetail_001_*`, the Wraith's plating) |
    | `ES2/Content/UI/Images/Items` | Textures (optional: EVERSPACE 2's item icons, from which the weapons', devices' and consumables' shop icons are made in Galaxy on Fire 2's style) |
    | `ES2/Content/DataFiles` | ES2's tables, which FModel doesn't export (optional: `factions.csv` and `faction_relations.csv`, who fights whom; `dockables.csv`, the sectors' stations and their factions). Extract them with `tools/shaders`' `pak` mode: `... dotnet run -c Release -- pak pakchunk0-Windows.pak "DataFiles/.*\.csv" <FModel's Output/Exports folder>`. Without them the factions are made without ES2's relations |
@@ -227,6 +228,48 @@ It checks the export first and lists anything missing, then writes the mod to `e
 - `--jobs 4`: how many things the build does at once (default: half your processor's cores, fewer when memory is short).
   The build also runs at a lower priority, so the computer stays usable meanwhile.
 
+## Rebuilds and build records
+
+The importer keeps verified snapshots in `<out>_work` by default. `--work <folder>` chooses another cache location;
+`--fresh` rebuilds the stages in an existing importer-owned cache. These options also work in config.json. Keep the
+work folder separate from your export, item-icon/remake inputs, and output folders. A nonempty unrelated work folder
+is rejected, and only one importer can use a work folder at a time.
+
+Each run hashes the export and external inputs with SHA-256, including file names and directory additions/removals.
+A same-size edit is detected. Stage fingerprints also include converter/helper code, runtime/package versions, relevant
+options and external tool identities. The stages are content conversion, ship icons, preview, mobile conversion, and
+zip packaging. Content conversion remains one stage because its kits, weapons and world tables share data; changing a
+material converter rebuilds that stage, while changing only the mobile ratio or decimator preserves the desktop stages.
+
+Unchanged stages are restored from snapshots after their cached files are checked. Snapshots are separate copies, so
+editing a built mod cannot change its cached inputs. The first build populates the cache. Hashing large exports still
+requires reading their files on every run, and keeping desktop and mobile snapshots requires additional disk space.
+Incomplete requested content and reported render failures are retried; skipped/missing-content diagnostics are saved.
+
+Successful builds write `<out>.build-manifest.json` beside the desktop mod, a second copy in the work folder, and
+`<out>_phone.build-manifest.json` when making a phone build. They record importer revision and source-code hashes, input
+hashes, runtime/tool identities, resolved options, stage fingerprints and cache reuse, missing parts and diagnostics.
+These records stay outside mod folders and zip archives to preserve the game's save and multiplayer hashes.
+Zip entries use stable ordering and timestamps so equivalent files produce equivalent archives.
+
+Run the cache tests without game files or Blender:
+
+```
+python3 -m unittest discover -s tests -v
+```
+
+The tests use deterministic conversion fixtures and cover clean/resumed output equivalence, same-size source edits,
+selective invalidation, failed-stage retries, snapshot integrity, phone options, and repeatable packaging. They do not
+verify the visual correctness of ship conversion or Blender renders.
+
+## Performance without changing asset quality
+
+A stage whose recipe changed discards its old snapshot without hashing that obsolete payload first. A matching recipe
+still verifies every cached output byte. Desktop zip and mobile stages share one inventory of their unchanged desktop
+input. Material parent JSON is parsed through a bounded 256-entry cache; configuring a source clears parsed and resolved
+material caches so changing exports cannot reuse old material values. Shader math, texture sizes, filtering, mesh
+precision and output quality are unchanged.
+
 ## Installing
 
 - **PC**: copy the `es2_ships` folder (or `es2_ships.zip`) into the game's Mods folder (the main menu's Mods screen has
@@ -235,6 +278,13 @@ It checks the export first and lists anything missing, then writes the mod to `e
 
 ## In the game
 
+- The `drives` part brings two cruise drives. The **Khador Slipstream** is sold in shops (tech level 7): hold the
+  fast-forward button to cruise an orbit at x4 for energy cells. Its successor, the **Slipstream II**, is made from a
+  blueprint and sold nowhere: find it in a wreck to hack at the GB Mining Grounds, or buy it from a bar visitor now and then
+  (400,000), from story step 34 on or at once in free play. The recipe takes a Khador Slipstream, EVERSPACE 2's Glacit,
+  Coruscate, Baromite, Clygon, Phazium and Mallemite and the Khador Drive's goods, and can't be autocompleted. Mounted, its
+  quick menu entry leaves the system for the space between the stars, where the systems on your star map can be flown to
+  through EVERSPACE 2's warp tunnel, about an energy cell per gate hop.
 - The ships are sold by dealers at stations of tech level 5 and above (any race), now and then.
 - NPC pilots of every race (Terran, Vossk, Nivelian, Midorian, pirates, the Void) fly them too, each in a random build
   (parts, tier, colour scheme, sometimes a skin), with the game's Gameplay option "Mod ships in traffic" (default 25 %).

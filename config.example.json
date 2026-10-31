@@ -3,6 +3,8 @@
  "export": "C:/Tools/FModel/Output/Exports",
  "parts": ["all"],
  "out": "es2_ships",
+ "work": null,
+ "fresh": false,
  "zip": false,
  "mobile": false,
  "ratio": 0.25,

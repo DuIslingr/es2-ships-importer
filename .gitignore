@@ -7,3 +7,7 @@ es2_ships_phone/
 __pycache__/
 # Your own settings (paths on your computer)
 config.json
+
+# Persistent conversion snapshots and build records
+es2_ships_work/
+*.build-manifest.json

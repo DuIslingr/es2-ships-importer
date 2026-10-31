@@ -44,6 +44,11 @@ OPTIONAL = [
     ('Audio/BP/DT_WeaponSounds.json', 'the sounds (Audio: properties as JSON and the audio, with FModel\'s "Convert audio on bulk export" on)'),
     ('Assets/Vehicles/ShipModules/Okkar/Meshes/SK_ShipOkkar_C_001.glb', 'the Wraith (Assets/Vehicles/ShipModules/Okkar/Meshes: models and JSON)'),
     ('Assets/Vehicles/Shared/Textures/T_Vehicles_Okkar_Techdetail_001_C_R_E_AO.png', 'the Wraith\'s plating (Assets/Vehicles/Shared/Textures/T_Vehicles_Okkar_Techdetail_001_*, as PNG)'),
+    # The warp effects (research/warp_effects.md; the remake's warp flight: the 'drives' part): FModel's export of their folders
+    # and tools/shaders' export of tools/warp_assets.txt.
+    ('Assets/TravelMode/Effects/Materials/M_TravelMode_WarpTunnel.json', 'the warp effects (Assets/TravelMode, .../Structures/Effects, .../Vehicles/Effects: JSON)'),
+    ('Assets/Shared/Meshes/SM_Sphere_XAligned_001.glb', 'the warp tunnel mesh (tools/shaders export tools/warp_assets.txt)'),
+    ('Audio/SFX/Ship/Cruise_Mode/S_Cruise_Mode_Charging_004.json', 'the cruise charge sounds (Audio/SFX/Ship/Cruise_Mode)'),
 ]
 
 
@@ -62,7 +67,9 @@ def find_content(path):
     fail(f'no EVERSPACE 2 export found at {path}\n  Give FModel\'s Output/Exports folder, or the ES2/Content folder inside it.')
 
 
-OPTIONAL_PART = {'Audio/BP/DT_WeaponSounds.json': 'sounds'}   # (the rest are the player ships')
+OPTIONAL_PART = {'Audio/BP/DT_WeaponSounds.json': 'sounds',
+                 'Assets/TravelMode/Effects/Materials/M_TravelMode_WarpTunnel.json': 'drives', 'Assets/Shared/Meshes/SM_Sphere_XAligned_001.glb': 'drives',
+                 'Audio/SFX/Ship/Cruise_Mode/S_Cruise_Mode_Charging_004.json': 'drives'}   # (the rest are the player ships')
 
 
 def check_export(content, parts):
@@ -98,7 +105,7 @@ def prepare_out(out):
     if os.path.exists(out):
         info = os.path.join(out, 'mod.json')
         try:
-            ours = json.load(open(info, encoding='utf-8-sig')).get('id') == MOD_ID
+            with open(info, encoding='utf-8-sig') as f: ours = json.load(f).get('id') == MOD_ID
         except Exception:
             ours = False
         if not ours and os.listdir(out):
@@ -117,6 +124,8 @@ def remove_tree(path):
         try:
             if sys.version_info >= (3, 12): shutil.rmtree(path, onexc=clear_readonly)   # (onerror is deprecated there)
             else: shutil.rmtree(path, onerror=clear_readonly)
+            return
+        except FileNotFoundError:
             return
         except OSError as e:
             if attempt == 4:
@@ -252,11 +261,16 @@ def zip_folder(folder, zip_path):
     if os.path.exists(zip_path): os.remove(zip_path)
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for base, dirs, files in os.walk(folder):
-            dirs[:] = [d for d in dirs if d not in SKIP_IN_ZIP and not d.startswith('.')]
-            for f in files:
+            dirs[:] = sorted(d for d in dirs if d not in SKIP_IN_ZIP and not d.startswith('.'))
+            for f in sorted(files):
                 if f in SKIP_IN_ZIP or f.startswith('._'): continue   # (macOS / Windows litter)
                 full = os.path.join(base, f)
-                zf.write(full, os.path.relpath(full, folder).replace(os.sep, '/'))
+                info = zipfile.ZipInfo(os.path.relpath(full, folder).replace(os.sep, '/'), (1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.create_system = 3
+                info.external_attr = 0o100644 << 16
+                with open(full, 'rb') as src, zf.open(info, 'w', force_zip64=True) as dst:
+                    shutil.copyfileobj(src, dst)
     return zip_path
 
 
@@ -337,6 +351,8 @@ def main():
     ap.add_argument('--list-parts', action='store_true', help='list the parts and shortcuts, and stop')
     ap.add_argument('--config', help='a settings file (default: config.json next to this script, when there is one)')
     ap.add_argument('--out', default=os.path.join(HERE, MOD_ID), help='where the mod goes (default: es2_ships next to this script)')
+    ap.add_argument('--work', help='persistent cache folder (default: <out>_work)')
+    ap.add_argument('--fresh', action='store_true', help='rebuild stages in an owned work folder')
     ap.add_argument('--mobile', action='store_true', help='also make a lighter version for phones (needs Blender)')
     ap.add_argument('--ratio', type=float, default=0.25, help='the phone version keeps this share of the triangles (default 0.25)')
     ap.add_argument('--blender', help='the Blender executable (or Blender.app on a Mac), if it isn\'t found by itself')
@@ -375,37 +391,11 @@ def main():
     check_export(content, parts)
     blender = find_blender(a.blender) if a.mobile else None
     out = os.path.abspath(os.path.expanduser(a.out))
-    prepare_out(out)
-
-    jobs = importlib.import_module('jobs')
-    jobs.JOBS = a.jobs
-    jobs.lower_priority()   # (the desktop stays usable while every worker runs)
-    print(f'  {jobs.workers()} workers')
-    audio = importlib.import_module('audio')
-    audio.options(vgmstream=a.vgmstream, enabled='sounds' in parts)
-    build.configure(content, out)
-    icons = importlib.import_module('icons')
-    icons.configure(os.path.expanduser(a.item_icons) if a.item_icons else os.path.join(content, 'UI', 'Images', 'Items'), a.remake)
-    print(f'Building the mod into {out} ...')
-    made = build.main(VERSION, parts)
-    if 'ships' in made and not a.no_icons:
-        print('Making the ships\' shop icons ...')
-        print(f'  icons: {make_icons(out, find_blender(a.blender, required=False))}')
-    print('Making the preview image ...')
-    print(f'  preview.png: {make_preview(out, None if a.no_preview else find_blender(a.blender, required=False), a.remake)}')
-
-    left = [p for p in parts if p not in made]
-    done = [f'  the mod:           {out}', f'  holds:             {", ".join(made) or "nothing"}']
-    if left: done.append(f'  not built:         {", ".join(left)} (the export lacks their files: see the notes above)')
-    if a.zip: done.append(f'  the mod as a zip:  {zip_folder(out, out + ".zip")}')
-    if a.mobile:
-        print('Making the phone version ...')
-        phone = make_mobile(out, out + '_phone', a.ratio, blender)
-        done.append(f'  the phone version: {zip_folder(phone, phone + ".zip")}')
-    print('\nDone:\n' + '\n'.join(done))
-    print('\nInstall: copy the es2_ships folder (or a zip) into the game\'s Mods folder and turn it on in the main menu\'s Mods screen.'
-          '\nOn a phone: Mods > Import mod, and pick the _phone.zip.'
-          '\nThe mod holds EVERSPACE 2\'s models and textures from your own copy of the game: keep it to yourself.')
+    import import_pipeline
+    try:
+        import_pipeline.main(sys.modules[__name__], a, parts, content, out, blender)
+    except ValueError as e:
+        fail(str(e))
 
 
 if __name__ == '__main__':

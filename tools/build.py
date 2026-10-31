@@ -1118,7 +1118,7 @@ def exhaust_styles(palettes):
 
 # (audio/: the sounds are encoded by whatever this computer has, ffmpeg's version or none, so the files differ between
 # players' builds; the names ships.json gives them don't.)
-MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'liveries/', 'decals/', 'trails/', 'stations/']
+MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'liveries/', 'decals/', 'trails/', 'stations/', 'warp/']
 
 # What the mod can hold, built together ("all") or picked (import.py --parts / config.json "parts"). Each part names what
 # it needs: a part pulls those in by itself (warships launch the player ships and fighters from their hangars and carry
@@ -1132,11 +1132,12 @@ PARTS = {
     'warships': ('warships, freighters and the Dreadnought', 'capital ships in the orbits\' traffic, the Dreadnought raiding convoys now and then'),
     'homebase': ('the Mobile Homebase', 'a station roaming the sectors (or every system without them), docked inside'),
     'sectors':  ('the ten sectors', 'star systems past the edge of the star map: stations, their hangars, ES2\'s resources to mine'),
+    'drives':   ('the slipstream drives', 'the Khador Slipstream, the Slipstream II\'s blueprint (ES2\'s ores in its recipe) and the warp flight between the systems'),
     'sounds':   ('sounds', 'the ships\' engines, boosts and weapons (needs vgmstream or FModel\'s converted audio)'),
 }
-NEEDS = {'warships': ['ships', 'weapons', 'fighters'], 'sectors': ['fighters']}
+NEEDS = {'warships': ['ships', 'weapons', 'fighters'], 'sectors': ['fighters'], 'drives': ['sectors']}
 WITH = {'ships': ['sounds']}   # (comes along unless --no-sounds)
-ALIASES = {'all': list(PARTS), 'systems': ['sectors'], 'items': ['weapons', 'devices'], 'traffic': ['fighters', 'warships'],
+ALIASES = {'all': list(PARTS), 'systems': ['sectors'], 'items': ['weapons', 'devices', 'drives'], 'traffic': ['fighters', 'warships'],
            'world': ['sectors', 'homebase']}
 
 
@@ -1253,7 +1254,7 @@ def main(version, parts=None):
         print('  no sounds: ' + audio.unavailable_reason())
     # EVERSPACE 2's weapons (items.json), warships and freighters (ships.json: "traffic": { "capital" }, their subsystems), the
     # Dreadnought and its raids (events/).
-    import weapons, warships, encounter, homebase_hangar, devices, fighters, sectors, factions
+    import weapons, warships, encounter, homebase_hangar, devices, fighters, sectors, factions, drives
     # EVERSPACE 2's factions (factions.py): its ships fly for them and its sectors belong to them, never GoF2's races
     if parts & {'fighters', 'warships', 'homebase', 'sectors'}:
         print('Adding the factions ...')
@@ -1342,6 +1343,14 @@ def main(version, parts=None):
         print('  no sectors: the travel maps (Maps/TravelMode) or the sky and planet textures (tools/sector_assets.txt) are missing')
     if world_stations:
         json.dump(world_stations, open(os.path.join(MOD, 'stations.json'), 'w', encoding='utf-8'), indent=1)
+    # (after the sectors: the Slipstream II's recipe takes their resources)
+    if 'drives' in parts and 'sectors' in made:
+        print('Adding the slipstream drives ...')
+        drives.configure(SRC, MOD)
+        items += drives.build()
+        made.add('drives')
+    elif 'drives' in parts:
+        print('  no sectors, so no slipstream drives: the Slipstream II\'s recipe takes their resources')
     if items: json.dump(items, open(os.path.join(MOD, 'items.json'), 'w', encoding='utf-8'), indent=1)
     if kits:
         json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)

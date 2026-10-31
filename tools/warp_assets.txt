@@ -1,0 +1,96 @@
+# What the warp effects need beyond a plain FModel export (research/warp_effects.md: the travel-mode warp tunnel, speed
+# particles and post-process, the jump gate's tunnel, the cruise mode's friction sphere, the jump drive's charge, the
+# teleport and portal effects): the tunnel and effect meshes, the shared noise textures their materials sample, and the
+# materials themselves resolved through their parent chains. tools/shaders: export <this file> <Exports> all
+# (the particle systems, NS_* / P_*, come from FModel's own Properties export of their folders)
+
+# meshes
+/Game/Assets/Environment/Structures/Meshes/SM_JumpGate_Merged_001
+/Game/Assets/Shared/Meshes/SM_Plane_Offset_001
+/Game/Assets/Shared/Meshes/SM_Sphere_XAligned_001
+/Game/Assets/TravelMode/Effects/Meshes/SM_TravelMode_PlanetProximityEffectSphere
+
+# textures
+/Game/Assets/Environment/Skybox/Textures/T_Skybox_Nebula_001_M
+/Game/Assets/Environment/Structures/Textures/T_Fences_001_C_R_M
+/Game/Assets/Environment/Structures/Textures/T_Fences_001_N
+/Game/Assets/Environment/Structures/Textures/T_Research_001_C_R_E_MT
+/Game/Assets/Environment/Structures/Textures/T_Research_001_N
+/Game/Assets/Environment/Structures/Textures/T_Structures_Damage_C_R_MT_H
+/Game/Assets/Environment/Structures/Textures/T_Structures_Damage_N
+/Game/Assets/Environment/Structures/Textures/T_Structures_Detail_001_C_AO
+/Game/Assets/Environment/Structures/Textures/T_Structures_Detail_001_N
+/Game/Assets/Environment/Structures/Textures/T_Structures_Detail_001_R_E_A
+/Game/Assets/Environment/Structures/Textures/T_Structures_HullPlating_001_C_R_E
+/Game/Assets/Environment/Structures/Textures/T_Structures_HullPlating_001_H
+/Game/Assets/Environment/Structures/Textures/T_Structures_HullPlating_001_N
+/Game/Assets/Environment/Structures/Textures/T_Structures_HullPlating_002_C_R_E
+/Game/Assets/Environment/Structures/Textures/T_Structures_HullPlating_002_N
+/Game/Assets/Environment/Structures/Textures/T_Structures_Pipes_001_C_R_E
+/Game/Assets/Environment/Structures/Textures/T_Structures_Pipes_001_H
+/Game/Assets/Environment/Structures/Textures/T_Structures_Pipes_001_N
+/Game/Assets/Environment/Structures/Textures/T_Structures_Strips_M
+/Game/Assets/Environment/Structures/Textures/T_Structures_Strips_N
+/Game/Assets/Shared/Textures/Effects/T_Gaussian_N
+/Game/Assets/Shared/Textures/Effects/T_Noise_001_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_001_N
+/Game/Assets/Shared/Textures/Effects/T_Noise_002_N
+/Game/Assets/Shared/Textures/Effects/T_Noise_004_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_005_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_007_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_009_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_010_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_012_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_013_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_014_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_015_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_017_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_018_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_019_M
+/Game/Assets/Shared/Textures/Effects/T_Noise_020_M
+/Game/Assets/Shared/Textures/Effects/T_Pattern_Barcode_001
+/Game/Assets/Shared/Textures/Effects/T_Pattern_Blocks_001
+/Game/Assets/Shared/Textures/Effects/T_Pattern_MotionBlurSparks_001
+/Game/Assets/Shared/Textures/Effects/T_Singularity_001_N
+/Game/Assets/Shared/Textures/Effects/T_Sphere_001_N
+/Game/Assets/Shared/Textures/Grunge/T_Grunge_Map_002_M
+/Game/Assets/Shared/Textures/Grunge/T_Grunge_Map_003_M
+/Game/Assets/Shared/Textures/Placeholders/T_Black_C
+
+# materials and instances
+/Game/Assets/Blockouts/Materials/MI_Blockout_Glow_Orange
+/Game/Assets/Effects/Materials/MI_PostProcess_LensFlare_TravelMode
+/Game/Assets/Effects/Materials/MI_SpeedParticles_Near
+/Game/Assets/Effects/Materials/MI_SpeedParticles_TravelMode
+/Game/Assets/Effects/Materials/MI_SpeedParticles_TravelMode_Slow
+/Game/Assets/Effects/Materials/M_PostProcess_LensFlare
+/Game/Assets/Effects/Materials/M_SpeedParticles_Parent
+/Game/Assets/Environment/Effects/Materials/M_TravelPortal_Base
+/Game/Assets/Environment/Effects/Materials/M_TravelPortal_DarkSwirls
+/Game/Assets/Environment/Structures/Effects/Materials/M_JumpGate_WarpTunnel
+/Game/Assets/Environment/Structures/Effects/Materials/M_JumpGate_WarpTunnel_Aperture
+/Game/Assets/Environment/Structures/Materials/MI_StructuresStrips_002
+/Game/Assets/Environment/Structures/Materials/MI_Structures_Colonial_Blue
+/Game/Assets/Environment/Structures/Materials/MI_Structures_Fences_001
+/Game/Assets/Environment/Structures/Materials/MI_Structures_HullPlatings_001
+/Game/Assets/Environment/Structures/Materials/MI_Structures_Outlaw_Metal
+/Game/Assets/Environment/Structures/Materials/MI_Structures_Pipes_001
+/Game/Assets/Environment/Structures/Materials/M_Structures_Floaters_Parent
+/Game/Assets/Shared/Materials/M_Invisible
+/Game/Assets/Shared/Materials/M_Particle_Electricity_002
+/Game/Assets/Shared/Materials/M_Particle_Glow_Unlit_001
+/Game/Assets/Shared/Materials/M_Particle_Lightning
+/Game/Assets/Shared/Materials/M_Particle_Singularity_001
+/Game/Assets/Shared/Materials/M_Particle_Spark_002
+/Game/Assets/Shared/Materials/M_Particle_StarFlash_002
+/Game/Assets/TravelMode/Effects/Materials/MI_TravelMode_WarpTunnel_Jump
+/Game/Assets/TravelMode/Effects/Materials/M_TravelMode_PlanetProximityEffect
+/Game/Assets/TravelMode/Effects/Materials/M_TravelMode_PostProcess
+/Game/Assets/TravelMode/Effects/Materials/M_TravelMode_SpeedParticles_Clouds
+/Game/Assets/TravelMode/Effects/Materials/M_TravelMode_SpeedParticles_Debris
+/Game/Assets/TravelMode/Effects/Materials/M_TravelMode_WarpTunnel
+/Game/Assets/Vehicles/Effects/Materials/M_CruiseMode_Friction
+/Game/Assets/Vehicles/Effects/Materials/M_FastTravel_Teleport_Glow
+/Game/Assets/Vehicles/Effects/Materials/M_FastTravel_Teleport_Trail
+/Game/Assets/Vehicles/Effects/Materials/M_JumpDrive_Charge_Front
+/Game/Assets/Vehicles/Effects/Materials/M_NPCJump_Trail
