@@ -1015,7 +1015,7 @@ def convert_rigid(src, out):
 
 def okkar_mounts(src):
     # The hull's sockets: SKT_PWSlot_left / right the guns, SKT_SWSlot_center the launcher, SKT_Engine_001 the exhaust, any
-    # SKT_Booster the booster points,
+    # SKT_Booster the booster points, SKT_Contrail the contrail points, SKT_HeadLight the headlight fixtures (shining along +X),
     # SKT_LateralThruster_* the manoeuvring jets, each blowing along its socket's local +X (top ones up, front ones forward).
     g, _ = glbtool.load(src)
     world = skeleton_world(g)
@@ -1139,7 +1139,7 @@ PARTS = {
                  'the nine ES2 hulls and the Okkar Wraith: parts, colours, liveries, decals, engine trails, weapon and turret models, exhaust styles'),
     'weapons':  ('weapons', 'EVERSPACE 2\'s weapons as shop items'),
     'devices':  ('devices and consumables', 'EVERSPACE 2\'s devices and consumables in the shops'),
-    'fighters': ('enemy fighters and drones', 'in the traffic of their factions'),
+    'fighters': ('enemy fighters and drones', 'in the traffic of their factions, and EVERSPACE 2\'s encounters on the cruise drive'),
     'warships': ('warships, freighters and the Dreadnought', 'capital ships in the orbits\' traffic, the Dreadnought raiding convoys now and then'),
     'homebase': ('the Mobile Homebase', 'a station roaming the sectors (or every system without them), docked inside'),
     'sectors':  ('the ten sectors', 'star systems past the edge of the star map: stations, their hangars, ES2\'s resources to mine'),
@@ -1299,6 +1299,11 @@ def main(version, parts=None):
         warships.configure(SRC, MOD)
         os.makedirs(os.path.join(MOD, 'warships', 'maps'), exist_ok=True)   # (the Homebase alone needs its clear map too)
         Image.fromarray(np.zeros((4, 4, 4), np.uint8)).save(os.path.join(MOD, 'warships', 'maps', 'clear.png'))
+        # EVERSPACE 2's encounters on the cruise drive (the remake's battle / trap / stash / depot / highrisk kinds)
+        import encounters
+        enc = encounters.build()
+        json.dump(enc, open(os.path.join(MOD, 'encounters.json'), 'w', encoding='utf-8'), indent=1)
+        print(f'  {len(enc)} EVERSPACE 2 encounters on the cruise drive')
     if 'warships' in parts and warships_there:
         print('Adding the warships and freighters ...')
         ships += warships.build()
