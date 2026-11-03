@@ -411,13 +411,24 @@ HAZARD_CLEAR = 10000    # game units (500 m) a volume's edge stays from the orbi
 MAX_HAZARDS = 12
 
 
+_levels = {}
+def _level(es2_id):
+    """An ES2 location's actors (Maps/Locations/<id>.json; tens of MB: the last few kept), [] when it has none."""
+    key = (SRC, es2_id)
+    with jobs.once(('level',) + key):
+        if key not in _levels:
+            path = os.path.join(SRC, 'Maps', 'Locations', es2_id + '.json')
+            if len(_levels) >= 2: _levels.pop(next(iter(_levels)))
+            _levels[key] = json.load(open(path, encoding='utf-8-sig')) if os.path.exists(path) else []
+    return _levels[key]
+
+
 def level_hazards(es2_id):
     """An ES2 location's heat volumes and radiation fields (Maps/Locations/<id>.json) as the remake's orbit "hazards":
     their place (ES2 cm -> game units, 1 m = 20) and sphere radius x scale, the nearest MAX_HAZARDS whose edge stays
     HAZARD_CLEAR from the orbit's centre."""
-    path = os.path.join(SRC, 'Maps', 'Locations', es2_id + '.json')
-    if not os.path.exists(path): return []
-    d = json.load(open(path, encoding='utf-8-sig'))
+    d = _level(es2_id)
+    if not d: return []
     def at(ref):
         m = re.search(r'\.(\d+)$', (ref or {}).get('ObjectPath', ''))
         i = int(m.group(1)) if m else -1
@@ -440,6 +451,37 @@ def level_hazards(es2_id):
         out.append(h)
     out.sort(key=lambda h: np.linalg.norm(h['centre']))
     return out[:MAX_HAZARDS]
+
+
+# ES2's item containers (Blueprints/Pickups/BP_ItemContainer*): opened by a hit, unless bulletproof (its ContainerType
+# OpenOnInteract) or armoured (OpenOnUnlocked, the conductor puzzle: the remake's bulletproof, opened with the action key).
+CONTAINER_CLASSES = {'BP_ItemContainer_C': False, 'BP_ItemContainer_Okkar_C': False,
+                     'BP_ItemContainer_Armored_C': True, 'BP_ItemContainer_Armored_Okkar_C': True}
+MAX_CONTAINERS = 40
+
+
+def level_containers(es2_id):
+    """An ES2 location's item containers as the remake's orbit "containers": how many (at most MAX_CONTAINERS), their
+    mean place (ES2 cm -> game units), the field's spread (twice the farthest from it, 5000..400000) and the bulletproof
+    share; None without any."""
+    d = _level(es2_id)
+    def at(ref):
+        m = re.search(r'\.(\d+)$', (ref or {}).get('ObjectPath', ''))
+        i = int(m.group(1)) if m else -1
+        return d[i].get('Properties', {}) if 0 <= i < len(d) else {}
+    places, proof = [], 0
+    for o in d:
+        armoured = CONTAINER_CLASSES.get(o.get('Type'))
+        if armoured is None: continue
+        p = o.get('Properties', {})
+        places.append(to_game(_vec(at(p.get('RootComponent')).get('RelativeLocation'))) * 0.2)
+        if armoured or p.get('ContainerType') in ('EContainerType::OpenOnInteract', 'EContainerType::OpenOnUnlocked'): proof += 1
+    if not places: return None
+    pts = np.array(places)
+    centre = pts.mean(axis=0)
+    spread = float(np.clip(2 * np.abs(pts - centre).max(), 5000, 400000))
+    return {'count': min(len(places), MAX_CONTAINERS), 'centre': [round(float(x)) for x in centre], 'spread': round(spread),
+            'bulletproof': round(proof / len(places), 2)}
 
 
 def to_game(v):
@@ -728,6 +770,8 @@ def build_sector(key):
         hz = level_hazards(es2_id)   # ES2's heat volumes and radiation fields at their places
         if hz: orbit['hazards'] = hz
         if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
+        ct = level_containers(es2_id)   # ES2's item containers there
+        if ct: orbit['containers'] = ct
         st['orbit'] = orbit
         m = L['map']
         st['mapPlace'] = {'angle': round(math.degrees(math.atan2(m[1], m[0])) % 360, 1),
