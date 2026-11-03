@@ -484,6 +484,53 @@ def level_containers(es2_id):
             'bulletproof': round(proof / len(places), 2)}
 
 
+# ES2's spline traffic (Blueprints/Environment/BP_SplineTraffic*): its ships' lanes; the worker drones' small loops around
+# station parts and the industrial ground vehicles are left out. Their class defaults (BP_SplineTraffic: Count 10, BaseSpeed
+# 8000 cm/s, ClosedLoop, TwoLanes; the Industrial one open), an actor's own values winning.
+LANE_CLASSES = {'BP_SplineTraffic_C': True, 'BP_SplineTraffic_Okkar_C': True, 'BP_SplineTraffic_Settler_C': True}
+MAX_LANES = 12
+
+
+def _rotator(r):
+    """An Unreal FRotator (degrees) as a 3x3 matrix acting on (X, Y, Z) column vectors (FRotationMatrix)."""
+    p, y, rl = (math.radians((r or {}).get(k, 0.0)) for k in ('Pitch', 'Yaw', 'Roll'))
+    sp, cp, sy, cy, sr, cr = math.sin(p), math.cos(p), math.sin(y), math.cos(y), math.sin(rl), math.cos(rl)
+    x = [cp * cy, cp * sy, sp]
+    yv = [sr * sp * cy - cr * sy, sr * sp * sy + cr * cy, -sr * cp]
+    z = [-(cr * sp * cy + sr * sy), cy * sr - cr * sp * sy, cr * cp]
+    return np.array([x, yv, z], np.float64).T
+
+
+def level_lanes(es2_id):
+    """An ES2 location's ship traffic lanes as the remake's orbit "lanes": each spline's points placed by its actor (ES2 cm
+    -> game units), its unit count, speed (m/s) and loop; at most MAX_LANES, the nearest first."""
+    d = _level(es2_id)
+    def at(ref):
+        m = re.search(r'\.(\d+)$', (ref or {}).get('ObjectPath', ''))
+        i = int(m.group(1)) if m else -1
+        return d[i].get('Properties', {}) if 0 <= i < len(d) else {}
+    out = []
+    for o in d:
+        if not LANE_CLASSES.get(o.get('Type')): continue
+        p = o.get('Properties', {})
+        root, spl = at(p.get('RootComponent')), at(p.get('Spline'))
+        pts = (((spl.get('SplineCurves') or {}).get('position') or {}).get('Points')) or []
+        if len(pts) < 2: continue
+        sc = root.get('RelativeScale3D') or {}
+        scale = np.array([sc.get('X', 1.0), sc.get('Y', 1.0), sc.get('Z', 1.0)], np.float64)
+        rot, loc = _rotator(root.get('RelativeRotation')), _vec(root.get('RelativeLocation'))
+        world = [loc + rot @ (scale * _vec(q.get('OutVal'))) for q in pts]
+        n = p.get('OverrideCount', -1)
+        lane = {'points': [[round(float(x)) for x in to_game(w) * 0.2] for w in world],
+                'count': int(max(1, min(40, n if isinstance(n, int) and n >= 0 else p.get('Count', 10)))),
+                'speed': round(8000.0 * float(p.get('SpeedFactor', 1.0)) / 100.0, 1)}
+        if p.get('ClosedLoop', True) is False or len(pts) < 3: lane['loop'] = False
+        if p.get('TwoLanes', True) is False: lane['twoLanes'] = False
+        out.append(lane)
+    out.sort(key=lambda l: float(np.linalg.norm(np.mean(l['points'], axis=0))))
+    return out[:MAX_LANES]
+
+
 def to_game(v):
     """ES2 (X forward, Y right, Z up) -> GoF2's game frame (x left, y up, z ahead)."""
     return np.array([-v[1], v[2], v[0]], np.float64)
@@ -772,6 +819,8 @@ def build_sector(key):
         if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
         ct = level_containers(es2_id)   # ES2's item containers there
         if ct: orbit['containers'] = ct
+        ln = level_lanes(es2_id)   # ... and its ships' traffic lanes
+        if ln: orbit['lanes'] = ln
         st['orbit'] = orbit
         m = L['map']
         st['mapPlace'] = {'angle': round(math.degrees(math.atan2(m[1], m[0])) % 360, 1),

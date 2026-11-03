@@ -67,5 +67,35 @@ class ContainerTests(unittest.TestCase):
         self.assertIsNone(none)
 
 
+class LaneTests(unittest.TestCase):
+    def test_rotator(self):
+        import numpy as np
+        r = sectors._rotator({'Yaw': 90})
+        np.testing.assert_allclose(r @ np.array([1.0, 0, 0]), [0, 1, 0], atol=1e-9, err_msg='yaw 90 turns X to Y')
+
+    def test_level_lanes(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            def obj(i, t, **props): return {'Type': t, 'Name': f'o{i}', 'Properties': props}
+            ref = lambda i: {'ObjectPath': f'/Game/Maps/Locations/L.{i}'}
+            pt = lambda x, y, z: {'OutVal': {'X': x, 'Y': y, 'Z': z}}
+            level = [
+                obj(0, 'BP_SplineTraffic_C', RootComponent=ref(1), Spline=ref(2), SpeedFactor=1.5, OverrideCount=4, ClosedLoop=False),
+                obj(1, 'SceneComponent', RelativeLocation={'X': 100000, 'Y': 0, 'Z': 0}, RelativeRotation={'Yaw': 90}),
+                obj(2, 'SplineComponent', SplineCurves={'position': {'Points': [pt(0, 0, 0), pt(10000, 0, 0), pt(10000, 10000, 0)]}}),
+                obj(3, 'BP_SplineTraffic_WorkerDrones_C', RootComponent=ref(1), Spline=ref(2)),
+            ]
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'L.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: lanes = sectors.level_lanes('L')
+            finally: sectors.SRC = old
+        self.assertEqual(1, len(lanes), 'the worker drones left out')
+        l = lanes[0]
+        # 1 km ahead; the spline turned 90 deg: its +X runs along ES2's +Y (the game's -x, 1 m = 20 units)
+        self.assertEqual([[0, 0, 20000], [-2000, 0, 20000], [-2000, 0, 18000]], l['points'])
+        self.assertEqual((4, 120.0, False), (l['count'], l['speed'], l['loop']))
+
+
 if __name__ == '__main__':
     unittest.main()
