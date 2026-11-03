@@ -120,18 +120,34 @@ CONSUMABLES = [
     ('sticky_turret', 'icon_consumable_sticky_turret_86x86_2x', 'secondary', 211, 'Sticky Turret', 6, 25, 500,
      {'damage': 7, 'reloadMs': 500},
      'A small turret that you drop in space, where it fights for you.'),
+    # The remake's consumable devices (2026-11-02; Flight.Device 8-12, "deviceConsumable": one use per unit, stacked like
+    # missiles): what each EVERSPACE 2 consumable does in its blueprint, with numbers of the mod's own (ES2's item tables
+    # aren't in the export).
+    ('smoke_bomb', 'smoke_bomb', 'equipment', 91, 'Smoke Bomb', 5, 30, 400,
+     {'cabinSize': 0, 'device': 8, 'deviceConsumable': 1, 'deviceRadius': 16000, 'deviceGrowMs': 2000, 'deviceDurationMs': 20000},
+     'Drops a sensor cloud 800 m across that grows in two seconds and lasts 20: while you fly inside it the enemies lose you, hold '
+     'their fire and their missiles lose their lock. One use.'),
+    ('nano_injector', 'art_board19_Nano-Injector', 'equipment', 91, 'Nano Injector', 5, 30, 600,
+     {'cabinSize': 0, 'device': 9, 'deviceConsumable': 1, 'deviceDamagePercent': 35},
+     'A shot of nanites that rebuilds 35 % of the hull at once. One use.'),
+    ('armor_repair', 'armor_repair', 'equipment', 91, 'Armor Repair', 5, 30, 500,
+     {'cabinSize': 0, 'device': 10, 'deviceConsumable': 1, 'deviceDamagePercent': 100},
+     'Restores the armour to full at once. One use.'),
+    ('secondaries_restock', 'secondaries_restock', 'equipment', 91, 'Secondaries Restock', 6, 25, 900,
+     {'cabinSize': 0, 'device': 11, 'deviceConsumable': 1, 'deviceAmmo': 10},
+     'Ten rounds more for the selected secondary weapon, wherever you are. One use.'),
+    ('device_charger', 'icon_consumable_device_charger_86x86_2x', 'equipment', 91, 'Device Charger', 7, 20, 1200,
+     {'cabinSize': 0, 'device': 12, 'deviceConsumable': 1},
+     'Ends the cooldown of every other device at once. One use.'),
 ]
 
 # EVERSPACE 2's devices and consumables with no GoF2 mechanic to stand on (what they need).
 SKIPPED = {
     'quantum_tether': 'damage shared between linked enemies', 'quantum_entangler': 'damage passed on to a target',
     'teleporter': 'a teleport', 'spectral_shift': 'a teleport', 'fusion_hook': 'a grappling hook',
-'corrosion_injector': 'damage over time',
-    'annihilator_virus': 'a spreading infection', 'resurgence': 'Echo Fragments', 'nano_injector': 'an instant repair',
+    'corrosion_injector': 'damage over time', 'annihilator_virus': 'a spreading infection', 'resurgence': 'Echo Fragments',
     'nanobots_medium': 'nothing between the two repair bots', 'nano_repair_kit': 'equipment damage',
-    'device_charger': 'device cooldowns', 'ult_recharge': 'ULT charge', 'system_recovery_routine': 'debuffs',
-    'pheromone_ejector': 'creatures', 'secondaries_restock': 'refilling a secondary in flight',
-    'armor_repair': 'an instant repair', 'smoke_bomb': 'a sensor cloud',
+    'ult_recharge': 'ULT charge', 'system_recovery_routine': 'debuffs', 'pheromone_ejector': 'creatures',
 }
 
 
