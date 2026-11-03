@@ -103,6 +103,13 @@ FACTION_LOOK = {'gb': ([20, 22, 23, 24, 21], 3), 'freelancer': ([0, 1, 3, 2, 4, 
 # Places whose names say the asteroids are the point of them, and places hostile factions hold (seen, not docked at)
 MINING_WORDS = ('asteroid', 'belt', 'mining', 'field', 'deposit', 'ridge', 'cluster', 'fault', 'rift', 'shelf')
 HOSTILE_WORDS = ('outlaw', 'stronghold', 'smugglers', 'immaculate', 'ascension')
+# Places of war wrecks: the remake's orbit "wrecks" (a field of wreck containers to salvage, World.WreckField)
+WRECK_WORDS = ('wreck', 'remains', 'ghost fleet', 'scrapyard', 'derelict', 'graveyard', 'torn station', 'station debris')
+
+def is_wreck_place(L):
+    """A place of war wrecks, by its name or subtitle (ES2's Wreck Field, Ghost Fleet, Warship Remains, ...)."""
+    text = ((L.get('name') or '') + ' ' + (L.get('subtitle') or '')).lower()
+    return any(w in text for w in WRECK_WORDS)
 # The ores of a sector by its locations' ES2 level: low, middle, high
 ORES = {
     'low': [{'item': ORE_IRON, 'chance': 2}, R('copper', 3), R('aetheum', 2), R('insidium', 1)],
@@ -660,6 +667,9 @@ def build_sector(key):
             model, *flags = look.split()
             st['model'] = model; st['modelSize'] = 30000
             if 'nodock' in flags: orbit['station'] = 'nodock'
+            # an outlaw stronghold: held by pirates on every visit, outposts and guards (the remake's pirateHeld), not at the gate
+            if 'nodock' in flags and model == 'gof2:station_pirates' and not (spec['gates'] and gid == spec['gateStation']):
+                orbit['pirateHeld'] = True
         sun = next((o for o in L['objects'] if o['type'] == 1), None)
         if sun is not None: orbit['sun'] = list(yaw_pitch(to_game(sun['rel'])))
         # the orbit's planet: its own; its direction and size by how near it is
@@ -677,6 +687,7 @@ def build_sector(key):
         if asteroids is False: orbit['asteroids'] = False
         elif asteroids: orbit['asteroids'] = dict(asteroids)
         if not (spec['gates'] and gid == spec['gateStation']): orbit['jumpgate'] = False   # (the gate only where ES2's is)
+        if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
         st['orbit'] = orbit
         m = L['map']
         st['mapPlace'] = {'angle': round(math.degrees(math.atan2(m[1], m[0])) % 360, 1),
