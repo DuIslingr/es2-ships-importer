@@ -24,6 +24,7 @@ the kept locations) with a fixed rotation, so every orbit's sun direction matche
 Those textures are not in a plain FModel export: tools/shaders' export with tools/sector_assets.txt fetches them.
 
 Coordinates: ES2 (X forward, Y right, Z up) -> GoF2 game (x left, y up, z ahead) = (-Y, Z, X); Unity = (x, y, -z)."""
+import re
 import json, math, os
 import numpy as np
 from PIL import Image
@@ -404,6 +405,43 @@ def read(sector):
     return out
 
 
+HAZARD_CLASSES = {'BP_HeatDamageVolume_C': 'heat', 'BP_RadiationField_C': 'radiation'}
+HEAT_DPS = 8            # the remake's damage a second at a heat volume's centre (ES2's 200 is on its own hit point scale)
+HAZARD_CLEAR = 10000    # game units (500 m) a volume's edge stays from the orbit's centre, where the station and arrivals are
+MAX_HAZARDS = 12
+
+
+def level_hazards(es2_id):
+    """An ES2 location's heat volumes and radiation fields (Maps/Locations/<id>.json) as the remake's orbit "hazards":
+    their place (ES2 cm -> game units, 1 m = 20) and sphere radius x scale, the nearest MAX_HAZARDS whose edge stays
+    HAZARD_CLEAR from the orbit's centre."""
+    path = os.path.join(SRC, 'Maps', 'Locations', es2_id + '.json')
+    if not os.path.exists(path): return []
+    d = json.load(open(path, encoding='utf-8-sig'))
+    def at(ref):
+        m = re.search(r'\.(\d+)$', (ref or {}).get('ObjectPath', ''))
+        i = int(m.group(1)) if m else -1
+        return d[i].get('Properties', {}) if 0 <= i < len(d) else {}
+    out = []
+    for o in d:
+        kind = HAZARD_CLASSES.get(o.get('Type'))
+        if not kind: continue
+        p = o.get('Properties', {})
+        root, sph = at(p.get('RootComponent')), at(p.get('Sphere'))
+        loc = _vec(root.get('RelativeLocation'))
+        sc = root.get('RelativeScale3D') or {}
+        scale = max(abs(sc.get('X', 1.0)), abs(sc.get('Y', 1.0)), abs(sc.get('Z', 1.0))) if sc else 1.0
+        radius = float(sph.get('SphereRadius', 15000.0 if kind == 'radiation' else 10000.0)) * scale * 0.2
+        g = to_game(loc) * 0.2
+        radius = max(1000.0, radius)
+        if np.linalg.norm(g) - radius < HAZARD_CLEAR: continue
+        h = {'kind': kind, 'centre': [round(float(x)) for x in g], 'radius': round(radius)}
+        if kind == 'heat': h['dps'] = HEAT_DPS
+        out.append(h)
+    out.sort(key=lambda h: np.linalg.norm(h['centre']))
+    return out[:MAX_HAZARDS]
+
+
 def to_game(v):
     """ES2 (X forward, Y right, Z up) -> GoF2's game frame (x left, y up, z ahead)."""
     return np.array([-v[1], v[2], v[0]], np.float64)
@@ -687,6 +725,8 @@ def build_sector(key):
         if asteroids is False: orbit['asteroids'] = False
         elif asteroids: orbit['asteroids'] = dict(asteroids)
         if not (spec['gates'] and gid == spec['gateStation']): orbit['jumpgate'] = False   # (the gate only where ES2's is)
+        hz = level_hazards(es2_id)   # ES2's heat volumes and radiation fields at their places
+        if hz: orbit['hazards'] = hz
         if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
         st['orbit'] = orbit
         m = L['map']
