@@ -22,6 +22,13 @@ SCALE = 3.6
 LOG = print
 
 # (id, blueprint, race, weight, description); the name is the blueprint's screen name. A drone's weight is half a fighter's.
+# A drone's role in a fight (the remake's traffic "role", Flight.NpcRoles) from its blueprint's name, after ES2's EDroneType.
+ROLES = [('FrostShieldDrone', None), ('SniperDrone', 'sniper'), ('DetonatorDrone', 'detonator'), ('WebberDrone', 'webber'), ('ShieldChargeDrone', 'shieldCharger'),
+         ('ShieldDrone', 'shieldCharger'), ('LinkDrone', 'armorLink'), ('AntiMissileDrone', 'antiMissile'), ('JumpSuppressorDrone', 'jumpSuppressor')]
+
+def role_of(bp):
+    return next((r for key, r in ROLES if key in bp), None)   # (the frost shield drone: no role of the remake's)
+
 FIGHTERS = [
     # Outlaws
     ('es2_outlaw_raider', 'BP_Outlaw_Raider', 8, 1.0, 'The Outlaws\' workhorse: an armoured raider with twin guns.'),
@@ -263,7 +270,7 @@ def build_one(sid, bp, race, weight, desc):
             'model': rel_out, 'modelLength': round(length), 'modelYaw': 90, 'engineStyle': 'es2',
             'hangarHeight': round(max(0.0, -float(mn[1])) * f / 0.05 + 20),
             'mounts': mounts, 'materials': warships.material_entries(sid, mats_used),
-            'traffic': {'races': [fac], 'weight': weight, **({'boss': True} if boss else {})},
+            'traffic': {'races': [fac], 'weight': weight, **({'boss': True} if boss else {}), **({'role': role_of(bp)} if role_of(bp) else {})},
             'explosionScale': round(min(3.0, max(0.6, float(size.max()) * f / 50.0)), 2)}
     effects = warships.engine_effects(bp)
     if effects: ship['es2Engine'] = effects
