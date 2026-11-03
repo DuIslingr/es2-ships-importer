@@ -139,13 +139,30 @@ CONSUMABLES = [
     ('device_charger', 'icon_consumable_device_charger_86x86_2x', 'equipment', 91, 'Device Charger', 7, 20, 1200,
      {'cabinSize': 0, 'device': 12, 'deviceConsumable': 1},
      'Ends the cooldown of every other device at once. One use.'),
+    # The remake's cooldown devices 13-18 (2026-11-02), after the blueprints; the numbers are the mod's own.
+    ('corrosion_injector', 'icon_device_corrosion_injector_86x86_2x', 'equipment', 91, 'Corrosion Injector', 7, 12, 150000,
+     {'cabinSize': 0, 'device': 13, 'deviceCooldownMs': 45000, 'deviceDurationMs': 12000, 'deviceRadius': 60000, 'damage': 6},
+     'Injects the locked ship with a corrosive agent: for 12 seconds it takes damage every second, straight past its shield. Recharges in 45 seconds.'),
+    ('teleporter', 'icon_device_teleporter_86x86_2x', 'equipment', 91, 'Teleporter', 8, 10, 190000,
+     {'cabinSize': 0, 'device': 14, 'deviceCooldownMs': 30000, 'deviceRadius': 40000},
+     'A blink two kilometres straight ahead, short of anything in the way. Recharges in 30 seconds.'),
+    ('spectral_shift', 'icon_device_spectral_shift_86x86_2x', 'equipment', 91, 'Spectral Shift', 9, 6, 320000,
+     {'cabinSize': 0, 'device': 15, 'deviceCooldownMs': 40000, 'deviceRadius': 30000, 'deviceRange2': 6000, 'damage': 40},
+     'Phases the ship 1.5 kilometres ahead, tearing through every enemy within 300 m of the way. Recharges in 40 seconds.'),
+    ('fusion_hook', 'icon_device_fusion_hook_86x86_2x', 'equipment', 91, 'Fusion Hook', 7, 12, 120000,
+     {'cabinSize': 0, 'device': 16, 'deviceCooldownMs': 25000, 'deviceDurationMs': 6000, 'deviceRadius': 40000},
+     'Grapples the enemy in your sights within two kilometres and reels you together, up to 800 m/s, until you are 200 m apart. Recharges in 25 seconds.'),
+    ('quantum_tether', 'icon_device_quantum_entangler_86x86_2x', 'equipment', 91, 'Quantum Tether', 8, 8, 240000,
+     {'cabinSize': 0, 'device': 17, 'deviceCooldownMs': 50000, 'deviceDurationMs': 10000, 'deviceRadius': 16000},
+     'Tethers the locked ship for 10 seconds: whatever it takes, every enemy within 800 m of it takes too; when it dies the tether jumps on. Recharges in 50 seconds.'),
+    ('quantum_entangler', 'icon_device_quantum_entangler_86x86_2x', 'equipment', 91, 'Quantum Entangler', 8, 8, 260000,
+     {'cabinSize': 0, 'device': 18, 'deviceCooldownMs': 50000, 'deviceDurationMs': 8000, 'deviceRadius': 40000, 'deviceDamagePercent': 150},
+     'Entangles the locked ship with yours for 8 seconds: all the damage you take meanwhile hits it at the end, one and a half times over. Recharges in 50 seconds.'),
 ]
 
 # EVERSPACE 2's devices and consumables with no GoF2 mechanic to stand on (what they need).
 SKIPPED = {
-    'quantum_tether': 'damage shared between linked enemies', 'quantum_entangler': 'damage passed on to a target',
-    'teleporter': 'a teleport', 'spectral_shift': 'a teleport', 'fusion_hook': 'a grappling hook',
-    'corrosion_injector': 'damage over time', 'annihilator_virus': 'a spreading infection', 'resurgence': 'Echo Fragments',
+    'annihilator_virus': 'a spreading infection', 'resurgence': 'Echo Fragments',
     'nanobots_medium': 'nothing between the two repair bots', 'nano_repair_kit': 'equipment damage',
     'ult_recharge': 'ULT charge', 'system_recovery_routine': 'debuffs', 'pheromone_ejector': 'creatures',
 }
