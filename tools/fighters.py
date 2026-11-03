@@ -247,6 +247,8 @@ def build_one(sid, bp, race, weight, desc):
         if re.match(r'SKT_PW', s, re.I): mounts.append({'slotType': 0, 'position_engine': warships.ue_to_game(loc, f)})
         elif re.match(r'SKT_Engine', s, re.I): mounts.append({'slotType': 3, 'position_engine': warships.ue_to_game(loc, f), 'socketScale': round(k * f / SCALE, 3)})
         elif re.match(r'SKT_Booster', s, re.I): mounts.append({'slotType': 5, 'position_engine': warships.ue_to_game(loc, f), 'socketScale': round(k * f / SCALE, 3)})
+        elif re.match(r'SKT_Contrail', s, re.I): mounts.append({'slotType': 6, 'position_engine': warships.ue_to_game(loc, f), 'socketScale': round(k * f / SCALE, 3)})
+        elif re.match(r'SKT_HeadLight', s, re.I): mounts.append({'slotType': 7, 'position_engine': warships.ue_to_game(loc, f)})
     if not any(m['slotType'] == 3 for m in mounts):
         for pos, r in warships.rear_engines(prims, f, n=2):
             mounts.append({'slotType': 3, 'position_engine': pos, 'socketScale': round(r * f / SCALE, 3)})

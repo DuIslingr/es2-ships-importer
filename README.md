@@ -304,6 +304,7 @@ precision and output quality are unchanged.
   glow (Emissive 3, with its intensity row) lights the thin strips along the panels.
 - Each body carries its canopy and cockpit at its own socket, as in EVERSPACE 2, the wings' hologram projectors turn, the nozzle glow shimmers, and a damaged hull chars and then glows with embers.
 - The small manoeuvring jets fire when you strafe, rise, sink or reverse, from each part's own thruster sockets.
+- The wing tips trail contrails while you boost (the parts' contrail sockets), and the headlight fixtures carry their lens flares and light up with the remake's headlights (the L key).
 - The Customize screen's Livery, Decal, Engine trail and Booster trail rows pick EVERSPACE 2's liveries, decals and trails
   (the trails run on the turntable while the engines run there, the booster trail while its row is selected); only your own
   ship shows its trails, as in EVERSPACE 2.

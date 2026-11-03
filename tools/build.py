@@ -235,15 +235,18 @@ bounds = {}   # out file -> (min, max) in ES2 metres, glTF axes (+X nose, +Y up,
 
 # ES2's mesh sockets (the meshes' property JSON): SKT_PWSlot primary weapons, SKT_SWSlot secondaries, SKT_Turret turrets,
 # SKT_Engine exhausts, SKT_Booster booster points (the remake's slotType 5: where EVERSPACE 2 puts a booster's engine trail and
-# light, Modding.Es2EngineVfx). Unreal centimetres, X forward, Y side, Z up -> the export's glTF metres (X, Z, Y).
+# light, Modding.Es2EngineVfx), SKT_Contrail the wing-tip contrail points (slotType 6: P_Vehicle_Contrail while boosting,
+# Modding.Es2Contrails; the socket's scale sizes the ribbon) and SKT_HeadLight the headlight fixtures (slotType 7: a lens
+# flare each and the "Headlight" material's glow with the headlights, Modding.Es2Headlights; 'direction' the way it shines).
+# Unreal centimetres, X forward, Y side, Z up -> the export's glTF metres (X, Z, Y).
 SOCKETS = [(re.compile(r'^SKT_PWSlot'), 0), (re.compile(r'^SKT_SWSlot'), 1), (re.compile(r'^SKT_Turret'), 2), (re.compile(r'^SKT_Engine'), 3),
-           (re.compile(r'^SKT_Booster'), 5)]
+           (re.compile(r'^SKT_Booster'), 5), (re.compile(r'^SKT_Contrail'), 6), (re.compile(r'^SKT_HeadLight'), 7)]
 MAX_EXHAUSTS = 4   # per part: some rears have a dozen nozzles, and each exhaust is a particle system (phones)
 
 def socket_counts(glb_path):
     """How many sockets of each mount type a part's mesh has (before the exhaust cap)."""
     jpath = glb_path[:-4] + '.json'
-    c = {0: 0, 1: 0, 2: 0, 3: 0, 5: 0}
+    c = {0: 0, 1: 0, 2: 0, 3: 0, 5: 0, 6: 0, 7: 0}
     if not os.path.exists(jpath): return c
     for o in json.load(open(jpath, encoding='utf-8-sig')):
         if o.get('Type') == 'StaticMeshSocket':
@@ -291,9 +294,10 @@ def part_mounts(glb_path):
         # the socket's scale (its largest axis): EVERSPACE 2 sizes the engine lights, trails and glow there by it
         sc = pr.get('RelativeScale') or {}
         scale = max(abs(sc.get('X', 1.0)), abs(sc.get('Y', 1.0)), abs(sc.get('Z', 1.0))) if sc else 1.0
-        found.append((slot, num, l.get('X', 0) / 100, l.get('Z', 0) / 100, l.get('Y', 0) / 100, roll, scale))
+        fwd = unreal_forward(pr.get('RelativeRotation') or {})
+        found.append((slot, num, l.get('X', 0) / 100, l.get('Z', 0) / 100, l.get('Y', 0) / 100, roll, scale, fwd))
     out = []
-    for slot in (0, 1, 2, 3, 5):
+    for slot in (0, 1, 2, 3, 5, 6, 7):
         group = sorted((f for f in found if f[0] == slot), key=lambda f: f[1])
         if slot == 3 and len(group) > MAX_EXHAUSTS:   # keep an even spread across the side
             group = sorted(group, key=lambda f: f[4])
@@ -306,8 +310,10 @@ def part_mounts(glb_path):
             if slot == 3:
                 size = 40 if len(group) <= 2 else 28
                 extra = {'turretAngles': [0.6, 0.6, 0.6], 'glowSize': [size, size, size * 2.2]}
-            if slot in (3, 5) and abs(f[6] - 1.0) > 1e-3:
+            if slot in (3, 5, 6) and abs(f[6] - 1.0) > 1e-3:
                 extra = dict(extra or {}, socketScale=round(f[6], 3))
+            if slot == 7:   # the way the fixture shines: the socket's forward, position_engine's axes (-Y, Z, X)
+                extra = {'direction': [round(float(-f[7][1]), 3), round(float(f[7][2]), 3), round(float(f[7][0]), 3)]}
             out.append(mount(f[2], f[3], f[4], slot, extra))
     return out + thruster_mounts(glb_path)
 
@@ -1025,6 +1031,11 @@ def okkar_mounts(src):
         elif 'SWSlot' in name: out.append(mount(x, y, z, 1))
         elif 'Engine' in name: out.append(mount(x, y, z, 3, dict({'turretAngles': [0.7, 0.7, 0.7], 'glowSize': [40, 40, 90]}, **scale)))
         elif 'Booster' in name: out.append(mount(x, y, z, 5, scale or None))
+        elif 'Contrail' in name: out.append(mount(x, y, z, 6, scale or None))
+        elif 'HeadLight' in name:
+            f = W[:3, 0] / (np.linalg.norm(W[:3, 0]) or 1)
+            m = mount(x, y, z, 7); m['direction'] = [round(float(-f[2]), 3), round(float(f[1]), 3), round(float(f[0]), 3)]
+            out.append(m)
         elif 'LateralThruster' in name:
             f = W[:3, 0] / (np.linalg.norm(W[:3, 0]) or 1)
             m = mount(x, y, z, 4); m['direction'] = [round(float(-f[2]), 3), round(float(f[1]), 3), round(float(f[0]), 3)]
