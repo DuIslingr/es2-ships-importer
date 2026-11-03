@@ -23,7 +23,9 @@ LOG = print
 
 # (id, blueprint, race, weight, description); the name is the blueprint's screen name. A drone's weight is half a fighter's.
 # A drone's role in a fight (the remake's traffic "role", Flight.NpcRoles) from its blueprint's name, after ES2's EDroneType.
-ROLES = [('FrostShieldDrone', None), ('SniperDrone', 'sniper'), ('DetonatorDrone', 'detonator'), ('WebberDrone', 'webber'), ('ShieldChargeDrone', 'shieldCharger'),
+# BP_LootDrone (and its children) is the Cargo Drone that runs with its loot; the Outlaw Cargo Drone (BP_Outlaw_LootDrone) is a
+# plain drone of its own (BP_DroneBase's), a job's.
+ROLES = [('BP_LootDrone', 'lootDrone'), ('FrostShieldDrone', None), ('SniperDrone', 'sniper'), ('DetonatorDrone', 'detonator'), ('WebberDrone', 'webber'), ('ShieldChargeDrone', 'shieldCharger'),
          ('ShieldDrone', 'shieldCharger'), ('LinkDrone', 'armorLink'), ('AntiMissileDrone', 'antiMissile'), ('JumpSuppressorDrone', 'jumpSuppressor')]
 
 def role_of(bp):
@@ -115,6 +117,8 @@ FIGHTERS = [
     ('es2_coalition_guard', 'BP_Freighter_Guard_Ship', 0, 0.6, 'A Coalition fighter guarding the freighters.'),
     ('es2_freelancer', 'BP_Freelancer', 2, 1.0, 'A freelance pilot\'s fighter.'),
     ('es2_freelancer_escort', 'BP_Freelancer_Escort', 2, 0.8, 'A freelance escort fighter.'),
+    # The loot drone: never in traffic, the cruise drive's "lootdrone" encounter flies it (the remake's ModTraffic.PickLootDrone)
+    ('es2_cargo_drone', 'BP_LootDrone', 2, 1.0, 'A cargo drone hauling loot: once found it runs, shedding a piece now and then as it is hit, and jumps away with the rest.'),
 ]
 # What the warships' hangars launch, by faction (warships.HANGAR_SHIPS).
 HANGARS = {'outlaw': ['es2_outlaw_drone', 'es2_outlaw_missile_drone', 'es2_outlaw_raider', 'es2_outlaw_madcap'],
