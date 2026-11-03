@@ -6,8 +6,11 @@ missile, cluster, mine), keeping what makes the ES2 weapon itself:
     salvo (the coil gun's scatter, parallel and burst variants), its burst fire (salvoCount / salvoGapMs);
   - its hull / shield split (HullDamage : ShieldDamage) as the remake's "shieldDamage": the blaster and the pulse laser
     strip shields, the autocannon and the scatter gun are hull breakers;
-  - its effect as the nearest GoF2 mechanic: cryo (frost) and lightning as EMP damage, shield breakers / destabilizers as
-    shield damage, the flak's and the mines' blasts, the legendary homing barrages as cluster missiles;
+  - its effect as the nearest GoF2 mechanic: cryo (frost) and lightning as EMP damage, shield breakers as shield damage,
+    the flak's and the mines' blasts, the legendary homing barrages as cluster missiles; the debuff missiles as the remake's
+    weapon debuffs (2026-11-02, after their ApplyConditionClass): cryo freezes (slowFreeze), web slows, corrosion eats past
+    the shield over time (dotDamage: most of the hit moved into it, as ES2's deals no direct damage), the destabilizer
+    raises the damage the target takes (vulnerablePercent, ES2's +20 % a hit);
   - its own look (the base's projectile, muzzle flash and impact recoloured in its ES2 colour), its own fire sound (its
     FireSounds / FireSound cue), its own ES2 weapon model on the ships' hardpoints (build.HARDPOINTS rules by item).
 Damage is set on GoF2's own ladder by tech level (DPS), times the family's ES2 character, so they fit the game's balance.
@@ -81,15 +84,15 @@ SECONDARY = {
     'RocketLauncher':              (32, 'rocket',  '#ffb070', 4, 1.00, {}),
     'CruiseMissileLauncher':       (38, 'missile', '#ffa060', 7, 2.20, {'reloadMs': 4000}),
     'EMPMissileLauncher':          (39, 'missile', '#7fc8ff', 6, 0.20, {'empDamage': 110}),
-    'CryoMissileLauncher':         (40, 'missile', '#a8ecff', 7, 0.70, {'empDamage': 70}),
-    'CorrosionMissileLauncher':    (37, 'missile', '#9cff5a', 6, 1.30, {'shieldDamage': 40}),
+    'CryoMissileLauncher':         (40, 'missile', '#a8ecff', 7, 0.70, {'slowMs': 2500, 'slowPercent': 0, 'slowFreeze': 1}),
+    'CorrosionMissileLauncher':    (37, 'missile', '#9cff5a', 6, 1.30, {'dotShare': 0.8, 'dotMs': 8000}),
     'ShieldBreakerMissileLauncher': (37, 'missile', '#5ad8ff', 6, 0.90, {'shieldDamage': 400}),
     'ArmorBreakerMissileLauncher': (37, 'missile', '#ff7a4a', 6, 1.40, {'shieldDamage': 25}),
-    'DestabilizerMissileLauncher': (37, 'missile', '#d070ff', 7, 0.90, {'shieldDamage': 220, 'empDamage': 30}),
+    'DestabilizerMissileLauncher': (37, 'missile', '#d070ff', 7, 0.50, {'vulnerablePercent': 20, 'vulnerableMs': 8000}),
     'ExorciserMissileLauncher':    (37, 'missile', '#fff09a', 8, 1.25, {}),
     'ParasiticMissileLauncher':    (37, 'missile', '#c0ff60', 8, 1.10, {'empDamage': 30}),
     'SporeMissileLauncher':        (214, 'cluster', '#a0ff80', 8, 0.80, {}),
-    'WebMissileLauncher':          (39, 'missile', '#e0e0ff', 7, 0.30, {'empDamage': 140}),
+    'WebMissileLauncher':          (39, 'missile', '#e0e0ff', 7, 0.30, {'slowMs': 6000, 'slowPercent': 35}),
     'ThermalMissileLauncher':      (37, 'missile', '#ff8030', 7, 0.55, {'salvoShots': 3}),
     'TetherMissileLauncher':       (40, 'missile', '#ff60a0', 10, 1.60, {'empDamage': 60}),
     'SwarmMissileLauncher':        (216, 'cluster', '#ffc060', 10, 1.20, {}),
@@ -322,8 +325,15 @@ def make_item(bp):
         hd, sd = cfg.get('HullDamage'), cfg.get('ShieldDamage')
         if hd and sd and hd > 0:
             stats['shieldDamage'] = int(np.clip(100.0 * sd / hd, 40, 300))
+    # (a damage over time: 'dotShare' of the hit moved into ticks of 0.95 s over 'dotMs', as the remake deals them)
+    share = stats_extra.pop('dotShare', 0)
+    if share and stats_extra.get('dotMs'):
+        ticks = max(1, int(stats_extra['dotMs'] // 950))
+        stats_extra['dotDamage'] = max(1, int(round(stats['damage'] * share / ticks)))
+        stats['damage'] = max(1, int(round(stats['damage'] * (1 - share))))
     for k, v in stats_extra.items():
-        if k in ('empDamage', 'shieldDamage', 'salvoShots', 'salvoCount', 'salvoGapMs'): stats[k] = int(v)
+        if k in ('empDamage', 'shieldDamage', 'salvoShots', 'salvoCount', 'salvoGapMs', 'slowMs', 'slowPercent', 'slowFreeze',
+                 'dotDamage', 'dotMs', 'vulnerablePercent', 'vulnerableMs'): stats[k] = int(v)
     occurrence = 3 if legendary else 25 if tl <= 6 else 15 if tl <= 8 else 8
     out = {
         'id': bp[len('BP_Weapon_'):].lower(), 'base': spec[0], 'name': name,
@@ -372,15 +382,15 @@ FAMILY_TEXT = {
     'RocketLauncher': 'Unguided rockets: fast and hard-hitting if you aim well.',
     'CruiseMissileLauncher': 'A slow, heavy cruise missile with a devastating warhead.',
     'EMPMissileLauncher': 'EMP missiles that knock out a ship\'s systems.',
-    'CryoMissileLauncher': 'Cryo missiles that freeze their target\'s systems.',
-    'CorrosionMissileLauncher': 'Corrosive warheads that eat through armour and hull.',
+    'CryoMissileLauncher': 'Cryo missiles that freeze their target: it can neither fly nor turn for a moment.',
+    'CorrosionMissileLauncher': 'Corrosive warheads that keep eating through armour and hull, past the shield, for seconds after the hit.',
     'ShieldBreakerMissileLauncher': 'Shield breakers: missiles made to collapse shields.',
     'ArmorBreakerMissileLauncher': 'Armour breakers: armour-piercing warheads.',
-    'DestabilizerMissileLauncher': 'Destabilizers that unsettle shields and systems.',
+    'DestabilizerMissileLauncher': 'Destabilizers: for a while every hit on the target does a fifth more, more with each one.',
     'ExorciserMissileLauncher': 'Exorcisers, made against the Ancients\' creations.',
     'ParasiticMissileLauncher': 'Parasitic warheads that drain their target.',
     'SporeMissileLauncher': 'Spore missiles that split into a cloud of seekers.',
-    'WebMissileLauncher': 'Web missiles that tangle a ship\'s systems.',
+    'WebMissileLauncher': 'Web missiles that tangle their target and slow it down.',
     'ThermalMissileLauncher': 'Thermal missiles fired three at a time.',
     'TetherMissileLauncher': 'A tether missile that chains its target.',
     'SwarmMissileLauncher': 'A swarm of missiles from one launch.',
