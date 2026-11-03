@@ -255,7 +255,9 @@ def build(ships, hardpoints):
             'engine': (es2 and table_cue('DT_PlayerShip_EngineSounds', es2)) or engine_default,
             'charger': (es2 and table_cue('DT_PlayerShip_BoostChargerSounds', es2)) or 'S_SC_Boost_Charger_002',
         }
-    boost = {'boostStart': 'S_SC_Booster_Init', 'boostLoop': 'S_SC_Boost_004', 'boostStop': 'S_SC_Booster_Stop'}
+    boost = {'boostStart': 'S_SC_Booster_Init', 'boostLoop': 'S_SC_Boost_004', 'boostStop': 'S_SC_Booster_Stop',
+             # the HUD's empty-tank sound the movement component plays when a boost runs dry (the remake's "boostDepleted")
+             'boostDepleted': 'S_SC_TryToBoostWithEnergyDepletedSound'}
     weapon_cues = {}
     for r in hardpoints['weapons']:
         m = re.search(r'weapon_(\d+)\.glb', r.get('model') or '')
@@ -298,6 +300,8 @@ def build(ships, hardpoints):
             if b: snd['boostLoop'] = sound(b, True, [0.5 * b['volume'] * GAIN_BOOST, b['volume'] * GAIN_BOOST], [1.0, 1.5])   # BoostVolume / PitchMin..Max
             b = cues.get(boost['boostStop'])
             if b: snd['boostStop'] = sound(b, False, b['volume'] * GAIN_BOOST, pitch_range(b))
+            b = cues.get(boost['boostDepleted'])
+            if b: snd['boostDepleted'] = sound(b, False, b['volume'] * GAIN_BOOST, pitch_range(b))
             c = cues.get(sc['charger'])
             # BoostChargerVolumeMin..Max 0.2 .. 1.5, PitchMin..Max 0.5 .. 2 (BP_Ship_Player); at half the boost's gain: at its
             # top it hissed over the engine.
