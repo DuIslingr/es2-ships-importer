@@ -1049,6 +1049,16 @@ def okkar_mounts(src):
 # 3 Midorian, 8 pirates and the minor races, 9 Void), each in a random build of its kit (parts, tier, colour scheme, skin).
 TRAFFIC = {'races': [0, 1, 2, 3, 8, 9], 'randomBuild': True}
 
+
+def es2_flight():
+    """The ships' "flight" bonuses from ES2's tables: the full-stop weapon damage every ES2 booster gives (items.CSV
+    thrusters' full_stop, 0.20: "weapon damage increases by 20% when standing still"; every ES2 ship mounts a booster). The
+    Gunship's low-speed resistance (attributes.CSV gunship_low_speed) is a perk with no value on any item in ES2's tables, so
+    the ships don't get one."""
+    import es2data
+    v = es2data.attr('thrusters', 'full_stop') if es2data.available() else None
+    return {'fullStopDamage': int(round((v if v and v > 0 else 0.2) * 100))}
+
 def build_okkar(palettes, slots, presets, hardpoints):
     okkar_textures()
     hull = convert_rigid(os.path.join(okkar_dir(), 'SK_ShipOkkar_C_001.glb'), 'parts/sk_shipokkar_c_001.glb')
@@ -1073,7 +1083,7 @@ def build_okkar(palettes, slots, presets, hardpoints):
             'slots': {'primary': 2, 'secondary': 2, 'turret': 0, 'equipment': 11},
             'kit': 'okkar', 'kitType': 'wraith', 'build': build, 'hangarHeight': int(round(-mn[1] * GAME + 20)),
             'engineGlowColor': [0.45, 0.8, 1.0], 'mounts': [dict(m) for m in mounts],
-            'dealer': {'chance': 2, 'systemRace': -1, 'minTechLevel': 6}, 'traffic': dict(TRAFFIC)}
+            'dealer': {'chance': 2, 'systemRace': -1, 'minTechLevel': 6}, 'traffic': dict(TRAFFIC), 'flight': es2_flight()}
     print(f"Okkar: Wraith, {len(mounts)} mounts, {np.round(mx - mn, 1).tolist()} m (ES2)")
     return kit, ship
 
@@ -1251,7 +1261,7 @@ def main(version, parts=None):
                               'slots': {'primary': sl[0], 'secondary': sl[1], 'turret': sl[2], 'equipment': sl[3]},
                               'kit': kid, 'kitType': tid, 'build': build, 'hangarHeight': int(round(-mn[1] * GAME + 20)),
                               'engineGlowColor': [0.45, 0.8, 1.0], 'mounts': mounts, 'dealer': {'chance': 3, 'systemRace': -1, 'minTechLevel': 5},
-                              'traffic': dict(TRAFFIC)})
+                              'traffic': dict(TRAFFIC), 'flight': es2_flight()})
                 print(f"  {tname}: {build.get('wings')} / {build.get('body')} / tier {build['tier']}, hangar height {ships[-1]['hangarHeight']}")
         if has_okkar():
             kit, ship = build_okkar(palettes, slots, presets, HARDPOINTS)
