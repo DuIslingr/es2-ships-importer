@@ -16,6 +16,30 @@ ENCOUNTERS = [
 ]
 
 
+# ES2's rift bosses (BP_Encounter_Rift's GetBossClassAndLevel: RandomIntegerInRange(0, 7) over this list, so the doubled ones
+# twice as often) as the mod's warships (warships.py)
+RIFT_BOSSES = [('BP_Cultist_Battleship', 'es2_cultist_battleship'), ('BP_Cultist_Battleship', 'es2_cultist_battleship'),
+               ('BP_Okkar_Corvette', 'es2_okkar_corvette'), ('BP_Okkar_Corvette', 'es2_okkar_corvette'),
+               ('BP_Outlaw_DroneCarrier_Retaliators', 'es2_retaliator_drone_carrier'), ('BP_Outlaw_DroneCarrier', 'es2_drone_carrier'),
+               ('BP_Outlaw_Destroyer_Zurilia', 'es2_zurilia_destroyer'), ('BP_Outlaw_Destroyer_Zurilia', 'es2_zurilia_destroyer')]
+ES2_RAIDER_HP = 310.0   # the Outlaw raider's hull 200 + armour 50 + shield 60 (npc_leveling.csv): the remake's "raiders"
+
+
+def rift_bosses():
+    """The rift's "bosses": each ES2 boss's hull + armour + shield (npc_leveling.csv) over the raider's; [] without the table."""
+    import es2data
+    hp = {}
+    for r in es2data.rows('npc_leveling.CSV'):
+        if len(r) > 7 and r[0].strip():
+            vals = [es2data.number(r[i]) or 0.0 for i in (5, 6, 7)]
+            hp[r[0].strip()] = sum(vals)
+    return [{'ship': f'es2_ships:{sid}', 'raiders': round(hp[bp] / ES2_RAIDER_HP, 2)} for bp, sid in RIFT_BOSSES if hp.get(bp)]
+
+
 def build():
     """encounters.json's entries."""
-    return [dict(e) for e in ENCOUNTERS]
+    out = [dict(e) for e in ENCOUNTERS]
+    bosses = rift_bosses()
+    for e in out:
+        if e['kind'] == 'rift' and bosses: e['bosses'] = bosses
+    return out

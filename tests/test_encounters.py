@@ -22,5 +22,19 @@ class EncounterTests(unittest.TestCase):
         self.assertNotIn('name', next(e for e in enc if e['kind'] == 'trap'), 'a trap passes for an unknown signal')
 
 
+class RiftBossTests(unittest.TestCase):
+    def test_rift_bosses(self):
+        import os, tempfile, es2data
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'DataFiles'))
+            open(os.path.join(d, 'DataFiles', 'npc_leveling.CSV'), 'w').write(
+                'Factor|~0.004\nBP_Okkar_Corvette|~25|~28|~0|~0|~2000|~0|~300|~80\nBP_Outlaw_DroneCarrier|~0|~0|~0|~0|~700|~0|~0|~70\n')
+            es2data.configure(d)
+            try: b = encounters.rift_bosses()
+            finally: es2data.configure(None)
+        self.assertEqual([{'ship': 'es2_ships:es2_okkar_corvette', 'raiders': 7.42}] * 2 + [{'ship': 'es2_ships:es2_drone_carrier', 'raiders': 2.26}], b,
+                         "its hull + armour + shield over the raider's 310; the corvette twice, as ES2 picks it")
+
+
 if __name__ == '__main__':
     unittest.main()
