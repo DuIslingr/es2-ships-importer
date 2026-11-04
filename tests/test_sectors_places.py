@@ -39,6 +39,22 @@ class HazardTests(unittest.TestCase):
             finally: sectors.SRC = old
         self.assertEqual([{'kind': 'radiation', 'centre': [0, 0, 100000], 'radius': 3000}], h, '5 km ahead, 150 m across; the one at the station left out')
 
+    def test_heat_as_raiders_fire(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            def obj(i, t, **props): return {'Type': t, 'Name': f'o{i}', 'Properties': props}
+            ref = lambda i: {'ObjectPath': f'/Game/Maps/Locations/H.{i}'}
+            level = [obj(0, 'BP_HeatDamageVolume_C', RootComponent=ref(1), Sphere=ref(2), DamagePerSecondMax=110.0),
+                     obj(1, 'SceneComponent', RelativeLocation={'X': 500000, 'Y': 0, 'Z': 0}), obj(2, 'SphereComponent', SphereRadius=10000.0),
+                     obj(3, 'BP_HeatDamageVolume_C', RootComponent=ref(4), Sphere=ref(2)),
+                     obj(4, 'SceneComponent', RelativeLocation={'X': 600000, 'Y': 0, 'Z': 0})]
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'H.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: h = sectors.level_hazards('H')
+            finally: sectors.SRC = old
+        self.assertEqual([2.0, 3.64], [x['raiderDps'] for x in h], "its own 110, else ES2's 200, over the raider's 55")
+
 
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):

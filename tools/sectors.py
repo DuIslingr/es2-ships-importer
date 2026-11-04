@@ -431,7 +431,8 @@ def read(sector):
 
 
 HAZARD_CLASSES = {'BP_HeatDamageVolume_C': 'heat', 'BP_RadiationField_C': 'radiation'}
-HEAT_DPS = 8            # the remake's damage a second at a heat volume's centre (ES2's 200 is on its own hit point scale)
+HEAT_DPS = 200.0        # BP_HeatDamageVolume's DamagePerSecondMax (an actor may set its own): GetScaledDamage by level, as
+ES2_RAIDER_DPS = 55.0   # its NPCs' DPS are: the Outlaw raider's 31 + 24 (npc_leveling.csv); the remake's "raiderDps"
 HAZARD_CLEAR = 10000    # game units (500 m) a volume's edge stays from the orbit's centre, where the station and arrivals are
 MAX_HAZARDS = 12
 
@@ -472,7 +473,7 @@ def level_hazards(es2_id):
         radius = max(1000.0, radius)
         if np.linalg.norm(g) - radius < HAZARD_CLEAR: continue
         h = {'kind': kind, 'centre': [round(float(x)) for x in g], 'radius': round(radius)}
-        if kind == 'heat': h['dps'] = HEAT_DPS
+        if kind == 'heat': h['raiderDps'] = round(float(p.get('DamagePerSecondMax', HEAT_DPS)) / ES2_RAIDER_DPS, 2)
         out.append(h)
     out.sort(key=lambda h: np.linalg.norm(h['centre']))
     return out[:MAX_HAZARDS]
