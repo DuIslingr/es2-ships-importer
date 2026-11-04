@@ -52,7 +52,31 @@ RESOURCES = [
     ('culver', 'Culver', 'crystal', 'uncommon', 'item_resource_crystal_culver'),
     ('mallemite', 'Mallemite', 'crystal', 'uncommon', 'item_resource_crystal_mallemite'),
     ('phazium', 'Phazium', 'crystal', 'rare', 'item_resource_crystal_phazium'),
+    # (only in Okkar space: ES2's ore_okkar1 and crystal_okkar1, its loot_mining.csv)
+    ('khaitium', 'Khaïtium', 'ore', 'uncommon', 'khaitium'),
+    ('cymalite', 'Cymalite', 'crystal', 'uncommon', 'cymalite'),
 ]
+# ES2's resources that its NPCs drop (its loot_npcs.csv: the Ancient Wardens' and the Redeemers' dark energy, dark matter and
+# solar particles, the Okkar's nanospheres, Viridian Energy, components and Eshahar Fragments; fighters.py puts them in
+# their "traffic.loot"), and biomass, which in ES2 only the Leviathans' pearls drop (left out): here a trade good the
+# stations stock. (ES2 id, its icon, occurrence: 0 = only dropped)
+DROPS = [('dark_energy', 'item_dark_energy_86x86_2x', 0), ('dark_matter', 'item_exotic_1_86x86_2x', 0),
+         ('solar_particles', 'item_solar_particles_86x86_2x', 0), ('resources_okkar', 'item_okkar_nanospheres_86x86_2x', 0),
+         ('resources_okkar_special', 'item_viridian_energy_86x86_2x', 0), ('okkar_component_1', 'TR_hyper_filament_86x86_2x', 0),
+         ('okkar_component_2', 'TR_spatial_regulator_86x86_2x', 0), ('eshahar_fragments', 'eshahar_fragments_86x86_2x', 0),
+         ('biomass', 'item_biomass_86x86_2x', 15)]
+DROP_PRICE_FACTOR = 0.25   # ES2's item_price against the mod's (crafting.PRICE_FACTOR)
+OKKAR_KEYS = {'ore_okkar1': 'khaitium', 'crystal_okkar1': 'cymalite', 'crystal_okkar': 'cymalite'}   # (Refined Cymalite too)
+
+
+def drop_ref(es2_id):
+    """The mod's item for an ES2 drop resource or a resource of RESOURCES ('ore_copper_common' -> its Copper), None if none."""
+    if any(es2_id == d[0] for d in DROPS): return f'es2_ships:es2_{es2_id}'
+    for kind in ('ore_', 'crystal_'):
+        if es2_id.startswith(kind):
+            key = OKKAR_KEYS.get(es2_id.rsplit('_', 1)[0], es2_id[len(kind):].rsplit('_', 1)[0])
+            if any(key == r[0] for r in RESOURCES): return f'es2_ships:es2_{key}'
+    return None
 RARITY_PRICE = {'common': 45, 'uncommon': 95, 'rare': 175, 'superior': 290}
 RARITY_OCCURRENCE = {'common': 30, 'uncommon': 20, 'rare': 10, 'superior': 5}
 ORE_BASE, CRYSTAL_BASE = 155, 160   # Titanium, Doxtrite: the look and kind they copy
@@ -225,6 +249,7 @@ def auto_spec(key):
 
     levels = [c['level'] or 10 for c in chosen]
     tier = 'low' if min(levels) < 12 else 'mid' if min(levels) < 22 else 'high'
+    ores = ORES[tier] + ([R('khaitium', 2), R('cymalite', 2)] if owner == 'okkar' else [])   # (Okkar space's own)
     used = {}
     locations = []
     for L in chosen:
@@ -240,15 +265,15 @@ def auto_spec(key):
                       key=lambda f: sum(d['faction'] == f for d in here))
             pool, interior = FACTION_LOOK.get(fac, FACTION_LOOK[owner])
             look = pool[used.get(fac, 0) % len(pool)]; used[fac] = used.get(fac, 0) + 1
-            asteroids = {'count': 40, 'type': kind, 'ores': ORES[tier]}
+            asteroids = {'count': 40, 'type': kind, 'ores': ores}
             tech = min(10, tech + 1)
         elif any(w in low(L) for w in HOSTILE_WORDS):
             look, interior, asteroids = 'gof2:station_pirates nodock', FACTION_LOOK[owner][1], False
         else:
             look, interior = None, FACTION_LOOK[owner][1]
             mining = any(w in low(L) for w in MINING_WORDS)
-            asteroids = ({'count': 200, 'type': kind, 'spread': 150000, 'ores': ORES[tier]} if mining
-                         else {'count': 60, 'type': kind, 'ores': ORES[tier]})
+            asteroids = ({'count': 200, 'type': kind, 'spread': 150000, 'ores': ores} if mining
+                         else {'count': 60, 'type': kind, 'ores': ores})
         locations.append((L['id'], 'es2_' + _slug(L['name']), look, interior, tech, pid, asteroids))
 
     songs = []
@@ -878,6 +903,15 @@ def resource_items(mod):
                     'techLevel': 1, 'occurrence': RARITY_OCCURRENCE[rarity], 'price': [p, int(round(p * 1.1))],
                     '_icon': icon + '_86x86_2x', '_frame': 'commodity'})
         if key in times: out[-1]['stats'] = {'miningTime': times[key]}
+    import es2data
+    for es2_id, icon, occ in DROPS:
+        e = es2data.items().get(es2_id) or {}
+        row = e.get('row') or []
+        p = int(round((es2data.attr(es2_id, 'item_price') or 400) * DROP_PRICE_FACTOR))
+        text = row[8].strip() if len(row) > 8 and row[8].strip() else 'An EVERSPACE 2 resource.'
+        out.append({'id': f'es2_{es2_id}', 'base': ORE_BASE, 'name': e.get('name') or es2_id.replace('_', ' ').title(),
+                    'description': text + (' Stations trade it.' if occ else ' Dropped by the ships that carry it in EVERSPACE 2.'),
+                    'techLevel': 1, 'occurrence': occ, 'price': [p, int(round(p * 1.1))], '_icon': icon, '_frame': 'commodity'})
     icons.apply(out, mod)
     for it in out:
         for k in [k for k in it if k.startswith('_')]: del it[k]

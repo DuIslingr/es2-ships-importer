@@ -6,10 +6,11 @@ own recipe grids (DataFiles: es2data.py):
     (devices.py; ES2's nanobots_small is the mod's "nanobots", its big_bang the Radial Repulsor);
   - ES2's crafting parts (Spare Parts, Circuitry, Power Coupling, Quantum Processor), which ES2 salvages by dismantling gear,
     become commodities of their own that the NPCs carry and the shops stock (their occurrence), since GoF2 has no dismantling.
-Ingredients: ES2's ores and crystals of every purity are the mod's one resource of that name (sectors.RESOURCES), its iron and
-titanium GoF2's (156, 155), its plasma GoF2's Green Plasma (201), its scrap metal GoF2's Space Waste (99). A recipe with an
-ingredient none of those cover (biomass, dark matter, the Okkar's and the Leviathan's) is left out, and so is a product
-the mod doesn't have. Every blueprint is known from the start (ES2's recipes need no finding). ES2's catalysts (affixes on
+Ingredients: ES2's ores and crystals of every purity are the mod's one resource of that name (sectors.RESOURCES, Khaïtium and
+Cymalite in Okkar space), the resources its NPCs drop and biomass the mod's goods of them (sectors.DROPS: fighters.py's
+"traffic.loot"), its iron and titanium GoF2's (156, 155), its plasma GoF2's Green Plasma (201), its scrap metal GoF2's
+Space Waste (99). A recipe with an ingredient none of those cover (the Leviathan's enzymes, peptides and musk: the
+Leviathans are left out) is left out, and so is a product the mod doesn't have. Every blueprint is known from the start (ES2's recipes need no finding). ES2's catalysts (affixes on
 gear) and crafted gear by rarity (crafting_data.csv) have no GoF2 counterpart.
 Prices: ES2's item_price x PRICE_FACTOR (its resources' prices against the mod's: copper 150 against 45, baromite 750
 against 175); the crafting parts, which have none, the mod's resource prices by rarity."""
@@ -30,20 +31,20 @@ PART_PRICE = {'common': 30, 'uncommon': 95, 'rare': 175}
 COMPONENT_BASE = 156   # (Iron: a commodity's look and kind)
 
 
-def resource(es2_id, resources):
-    """The mod item (or GoF2 item number) standing in for an ES2 ore, crystal or raw material; None when nothing does."""
+def resource(es2_id, products):
+    """The mod item (or GoF2 item number) standing in for an ES2 ore, crystal, raw material or dropped resource, when the mod
+    has it ('products': its item ids); None when nothing does."""
+    import sectors
     for prefix, n in GAME_ITEMS.items():
         if es2_id == prefix or es2_id.startswith(prefix + '_'): return n
-    for kind in ('ore_', 'crystal_'):
-        if es2_id.startswith(kind):
-            key = es2_id[len(kind):].rsplit('_', 1)[0]
-            if key in resources: return f'{MOD_ID}:es2_{key}'
-    return None
+    ref = sectors.drop_ref(es2_id)
+    return ref if ref and ref.split(':', 1)[1] in products else None
 
 
 def build(mod, resources, products):
     """(items, blueprints): the components' and parts' items.json entries and the recipes' blueprints.json entries.
-    'resources' the mod's ES2 resource keys (sectors.RESOURCES), 'products' the item ids the mod has (devices.py)."""
+    'products' the item ids the mod has (devices.py's, sectors.py's resources and drops); 'resources' (sectors.RESOURCES'
+    keys) is no longer needed: the resources are among the products."""
     if not es2data.available('crafting_tech.csv'): return [], []
     table = es2data.items()
     items, blueprints = [], []
@@ -65,7 +66,7 @@ def build(mod, resources, products):
     def ingredients(need):
         out = []
         for ing, amount in need.items():
-            ref = have.get(ing) or resource(ing, resources)
+            ref = have.get(ing) or resource(ing, products)
             if ref is None: return None
             out.append({'item': ref, 'amount': int(amount)})
         return out
@@ -75,7 +76,8 @@ def build(mod, resources, products):
         ing = ingredients(need)
         if ing is None: left.append(pid); continue
         price = int(round((es2data.attr(pid, 'item_price') or 200) * PRICE_FACTOR))
-        add_item(pid, price, 0, 'tech')   # (occurrence 0: only crafted)
+        if 'es2_' + pid in products: have[pid] = f'{MOD_ID}:es2_{pid}'   # (a dropped one already: the Okkar's components)
+        else: add_item(pid, price, 0, 'tech')   # (occurrence 0: only crafted)
         blueprints.append({'id': 'es2_craft_' + pid, 'item': have[pid], 'ingredients': ing, 'unlocked': True})
     made_consumables = 0
     for pid, need in es2data.recipes('crafting_consumables.csv').items():

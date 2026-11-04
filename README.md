@@ -130,8 +130,12 @@ tab, all known from the start, with ES2's own recipes: its tech components (Supr
 ores, crystals, plasma and scrap, and the consumables the mod has from crafting parts and components. ES2's ores of every
 purity are the mod's one resource of that name, its iron and titanium Galaxy on Fire 2's, plasma GoF2's Green Plasma and
 scrap metal its Space Waste. The crafting parts (Spare Parts, Circuitry, Power Coupling, Quantum Processor), which ES2
-salvages by dismantling gear, are goods of their own that NPCs carry and shops stock. Recipes needing what the mod has no
-stand-in for (biomass, dark matter, the Okkar's and the Leviathan's resources) are left out, and so are ES2's catalysts.
+salvages by dismantling gear, are goods of their own that NPCs carry and shops stock. The resources EVERSPACE 2's NPCs drop
+come from the same ships here (its `loot_npcs.csv` as the fighters' `traffic.loot`): dark energy, dark matter and solar
+particles from the Redeemers, the nanospheres, Viridian Energy, Hyperfilament, Spatial Regulators and Eshahar Fragments
+from the Okkar; Khaïtium and Cymalite are mined in Okkar space, and biomass, which only the Leviathans drop in EVERSPACE 2,
+is a good the stations trade. Recipes needing the Leviathans' enzymes, peptides or musk are left out (the Leviathans
+aren't in the mod), and so are ES2's catalysts.
 
 With the travel maps and the sky and planet textures, the mod brings **EVERSPACE 2's galaxy** (`tools/sectors.py`): its ten
 sectors (Ceto, Union, Zharkov, the Khaït Nebula, the Khaït Dominion, Drake, Khione, Aethon, Ushak and Rhak) as systems past

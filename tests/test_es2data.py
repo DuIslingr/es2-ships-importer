@@ -43,6 +43,8 @@ class TableTests(unittest.TestCase):
             '|~ore_copper_common|~plasma|~scrap_metal|~biomass\nsupra_gel|~3|~3|~4|~\nbio_processor|~|~2|~|~2\n')
         open(os.path.join(d, 'crafting_consumables.csv'), 'w').write(
             '|~crafting_resource_basic|~supra_gel\ndamage_booster|~4|~1\nnanobots_small|~2|~\nult_recharge|~1|~1\n')
+        open(os.path.join(d, 'loot_npcs.csv'), 'w').write(
+            'BP_Okkar_Fighter|~2|~resources_okkar|~0.2|~1|2|~plating_bloodstar|~0.1|~1|~ore_okkar1_uncommon|~0.5|~3\n')
         es2data.configure(self.dir.name)
 
     def tearDown(self):
@@ -86,7 +88,7 @@ class TableTests(unittest.TestCase):
     def test_crafting(self):
         import icons
         old = icons.available; icons.available = lambda: False
-        try: items, bps = crafting.build(self.dir.name, {'copper'}, {'damage_booster', 'nanobots'})
+        try: items, bps = crafting.build(self.dir.name, {'copper'}, {'damage_booster', 'nanobots', 'es2_copper'})
         finally: icons.available = old
         ids = {b['id']: b for b in bps}
         self.assertEqual([{'item': 'es2_ships:es2_copper', 'amount': 3}, {'item': 201, 'amount': 3}, {'item': 99, 'amount': 4}],
@@ -101,6 +103,19 @@ class TableTests(unittest.TestCase):
         self.assertEqual(0, gel['occurrence'], 'only crafted')
         parts = next(i for i in items if i['id'] == 'es2_crafting_resource_basic')
         self.assertGreater(parts['occurrence'], 0, 'the NPCs carry it, the shops stock it')
+
+    def test_drops_and_resources(self):
+        import sectors, fighters
+        self.assertEqual('es2_ships:es2_dark_matter', sectors.drop_ref('dark_matter'))
+        self.assertEqual('es2_ships:es2_copper', sectors.drop_ref('ore_copper_uncommon'), 'every purity: the one resource')
+        self.assertEqual('es2_ships:es2_khaitium', sectors.drop_ref('ore_okkar1_rare'))
+        self.assertEqual('es2_ships:es2_cymalite', sectors.drop_ref('crystal_okkar_refined'))
+        self.assertIsNone(sectors.drop_ref('ore_leviathan_uncommon'), 'the Leviathans are left out')
+        loot = fighters.loot_of('BP_Okkar_Fighter')
+        self.assertEqual(2, loot['lootDrops'])
+        self.assertEqual([{'item': 'es2_ships:es2_resources_okkar', 'chance': 0.2, 'min': 1, 'max': 2},
+                          {'item': 'es2_ships:es2_khaitium', 'chance': 0.5, 'min': 3, 'max': 3}], loot['loot'], 'the Bloodstar plating: no such item')
+        self.assertIsNone(fighters.loot_of('BP_Outlaw_Raider'))
 
     def test_write_merges(self):
         import json

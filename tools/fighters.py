@@ -15,7 +15,7 @@ the Ancients' swarmers the Void 9, Grady & Brunt Midorian 3, the Coalition Terra
 Scale: EVERSPACE 2's metres x 3.6 like the kit fighters (build.SCALE); ModTraffic takes hulls up to 150 m."""
 import json, os, re
 import numpy as np
-import warships, es2mat, jobs, factions
+import warships, es2mat, jobs, factions, es2data, sectors
 
 SRC = MOD = None
 SCALE = 3.6
@@ -27,6 +27,23 @@ LOG = print
 # plain drone of its own (BP_DroneBase's), a job's.
 ROLES = [('BP_LootDrone', 'lootDrone'), ('FrostShieldDrone', None), ('SniperDrone', 'sniper'), ('DetonatorDrone', 'detonator'), ('WebberDrone', 'webber'), ('ShieldChargeDrone', 'shieldCharger'),
          ('ShieldDrone', 'shieldCharger'), ('LinkDrone', 'armorLink'), ('AntiMissileDrone', 'antiMissile'), ('JumpSuppressorDrone', 'jumpSuppressor')]
+
+def loot_of(bp):
+    """A blueprint's own drops from ES2's loot_npcs.csv as the remake's "traffic.loot" (and "lootDrops"): its row's item /
+    chance / amount triples whose item the mod has (sectors.drop_ref: ES2's resources), its drop count. None without."""
+    for r in es2data.rows('loot_npcs.csv'):
+        if not r or r[0].strip() != bp: continue
+        loot = []
+        for j in range(2, len(r) - 2, 3):
+            ref = sectors.drop_ref(r[j].strip()) if r[j].strip() else None
+            chance = es2data.number(r[j + 1])
+            if not ref or not chance: continue
+            amounts = [int(round(float(a))) for a in (r[j + 2] or '1').split('|') if a.strip()] or [1]
+            loot.append({'item': ref, 'chance': round(min(1.0, chance), 3), 'min': min(amounts), 'max': max(amounts)})
+        drops = int(es2data.number(r[1]) or 0)
+        return {'loot': loot, 'lootDrops': drops} if loot else None
+    return None
+
 
 def role_of(bp):
     return next((r for key, r in ROLES if key in bp), None)   # (the frost shield drone: no role of the remake's)
@@ -274,7 +291,8 @@ def build_one(sid, bp, race, weight, desc):
             'model': rel_out, 'modelLength': round(length), 'modelYaw': 90, 'engineStyle': 'es2',
             'hangarHeight': round(max(0.0, -float(mn[1])) * f / 0.05 + 20),
             'mounts': mounts, 'materials': warships.material_entries(sid, mats_used),
-            'traffic': {'races': [fac], 'weight': weight, **({'boss': True} if boss else {}), **({'role': role_of(bp)} if role_of(bp) else {})},
+            'traffic': {'races': [fac], 'weight': weight, **({'boss': True} if boss else {}), **({'role': role_of(bp)} if role_of(bp) else {}),
+                        **(loot_of(bp) or {})},
             'explosionScale': round(min(3.0, max(0.6, float(size.max()) * f / 50.0)), 2)}
     effects = warships.engine_effects(bp)
     if effects: ship['es2Engine'] = effects
