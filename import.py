@@ -44,11 +44,6 @@ OPTIONAL = [
     ('Audio/BP/DT_WeaponSounds.json', 'the sounds (Audio: properties as JSON and the audio, with FModel\'s "Convert audio on bulk export" on)'),
     ('Assets/Vehicles/ShipModules/Okkar/Meshes/SK_ShipOkkar_C_001.glb', 'the Wraith (Assets/Vehicles/ShipModules/Okkar/Meshes: models and JSON)'),
     ('Assets/Vehicles/Shared/Textures/T_Vehicles_Okkar_Techdetail_001_C_R_E_AO.png', 'the Wraith\'s plating (Assets/Vehicles/Shared/Textures/T_Vehicles_Okkar_Techdetail_001_*, as PNG)'),
-    # The warp effects (research/warp_effects.md; the remake's warp flight: the 'drives' part): FModel's export of their folders
-    # and tools/shaders' export of tools/warp_assets.txt.
-    ('Assets/TravelMode/Effects/Materials/M_TravelMode_WarpTunnel.json', 'the warp effects (Assets/TravelMode, .../Structures/Effects, .../Vehicles/Effects: JSON)'),
-    ('Assets/Shared/Meshes/SM_Sphere_XAligned_001.glb', 'the warp tunnel mesh (tools/shaders export tools/warp_assets.txt)'),
-    ('Audio/SFX/Ship/Cruise_Mode/S_Cruise_Mode_Charging_004.json', 'the cruise charge sounds (Audio/SFX/Ship/Cruise_Mode)'),
 ]
 
 
@@ -67,9 +62,7 @@ def find_content(path):
     fail(f'no EVERSPACE 2 export found at {path}\n  Give FModel\'s Output/Exports folder, or the ES2/Content folder inside it.')
 
 
-OPTIONAL_PART = {'Audio/BP/DT_WeaponSounds.json': 'sounds',
-                 'Assets/TravelMode/Effects/Materials/M_TravelMode_WarpTunnel.json': 'drives', 'Assets/Shared/Meshes/SM_Sphere_XAligned_001.glb': 'drives',
-                 'Audio/SFX/Ship/Cruise_Mode/S_Cruise_Mode_Charging_004.json': 'drives'}   # (the rest are the player ships')
+OPTIONAL_PART = {'Audio/BP/DT_WeaponSounds.json': 'sounds'}   # (the rest are the player ships')
 
 
 def check_export(content, parts):

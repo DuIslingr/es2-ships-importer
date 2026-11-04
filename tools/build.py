@@ -2,7 +2,7 @@
 # ship module, weapon and turret meshes as glTF, their textures as PNG, the data tables and mesh properties as JSON). Run by
 # ../import.py; nothing of EVERSPACE 2 comes with this importer. The mod it writes holds ROCKFISH Games' copyrighted models,
 # textures and data: it is for the player's own use, built from their own copy of the game. Don't share the built mod.
-import json, os, re, sys
+import json, os, re, shutil, sys
 import numpy as np
 from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
@@ -1131,7 +1131,15 @@ def exhaust_styles(palettes):
 
 # (audio/: the sounds are encoded by whatever this computer has, ffmpeg's version or none, so the files differ between
 # players' builds; the names ships.json gives them don't.)
-MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'liveries/', 'decals/', 'trails/', 'stations/', 'warp/']
+def clear_old_drives(mod):
+    """What an older build's drives part left: the Khador Slipstream, its blueprint and the warp are the remake's own now."""
+    for name in ('warp.json', 'blueprints.json', 'icons/items/es2_slipstream.png', 'icons/items/es2_slipstream_ii.png'):
+        path = os.path.join(mod, name)
+        if os.path.exists(path): os.remove(path)
+    shutil.rmtree(os.path.join(mod, 'warp'), ignore_errors=True)
+
+
+MULTIPLAYER_IGNORE = ['parts/', 'maps/', 'icons/', 'preview.png', 'audio/', 'warships/', 'fighters/', 'sectors/', 'liveries/', 'decals/', 'trails/', 'stations/']
 
 # What the mod can hold, built together ("all") or picked (import.py --parts / config.json "parts"). Each part names what
 # it needs: a part pulls those in by itself (warships launch the player ships and fighters from their hangars and carry
@@ -1145,12 +1153,11 @@ PARTS = {
     'warships': ('warships, freighters and the Dreadnought', 'capital ships in the orbits\' traffic, the Dreadnought raiding convoys now and then'),
     'homebase': ('the Mobile Homebase', 'a station roaming the sectors (or every system without them), docked inside'),
     'sectors':  ('the ten sectors', 'star systems past the edge of the star map: stations, their hangars, ES2\'s resources to mine'),
-    'drives':   ('the slipstream drives', 'the Khador Slipstream, the Slipstream II\'s blueprint (ES2\'s ores in its recipe) and the warp flight between the systems'),
     'sounds':   ('sounds', 'the ships\' engines, boosts and weapons (needs vgmstream or FModel\'s converted audio)'),
 }
-NEEDS = {'warships': ['ships', 'weapons', 'fighters'], 'sectors': ['fighters'], 'drives': ['sectors']}
+NEEDS = {'warships': ['ships', 'weapons', 'fighters'], 'sectors': ['fighters']}
 WITH = {'ships': ['sounds']}   # (comes along unless --no-sounds)
-ALIASES = {'all': list(PARTS), 'systems': ['sectors'], 'items': ['weapons', 'devices', 'drives'], 'traffic': ['fighters', 'warships'],
+ALIASES = {'all': list(PARTS), 'systems': ['sectors'], 'items': ['weapons', 'devices'], 'traffic': ['fighters', 'warships'],
            'world': ['sectors', 'homebase']}
 
 
@@ -1267,7 +1274,7 @@ def main(version, parts=None):
         print('  no sounds: ' + audio.unavailable_reason())
     # EVERSPACE 2's weapons (items.json), warships and freighters (ships.json: "traffic": { "capital" }, their subsystems), the
     # Dreadnought and its raids (events/).
-    import weapons, warships, encounter, homebase_hangar, devices, fighters, sectors, factions, drives
+    import weapons, warships, encounter, homebase_hangar, devices, fighters, sectors, factions
     # EVERSPACE 2's factions (factions.py): its ships fly for them and its sectors belong to them, never GoF2's races
     if parts & {'fighters', 'warships', 'homebase', 'sectors'}:
         print('Adding the factions ...')
@@ -1294,6 +1301,11 @@ def main(version, parts=None):
         ships += enemies
         made.add('fighters')
         print(f'  {len(enemies)} fighters and drones as traffic of their faction\'s race')
+        # EVERSPACE 2's encounters on the cruise drive (the remake's battle / trap / stash / depot / highrisk kinds)
+        import encounters
+        enc = encounters.build()
+        json.dump(enc, open(os.path.join(MOD, 'encounters.json'), 'w', encoding='utf-8'), indent=1)
+        print(f'  {len(enc)} EVERSPACE 2 encounters on the cruise drive')
     elif 'fighters' in parts:
         print('  no fighters in the export (Assets/Vehicles/Fighters)')
     warships_there = os.path.isdir(os.path.join(SRC, 'Assets/Vehicles/Warships'))
@@ -1301,11 +1313,6 @@ def main(version, parts=None):
         warships.configure(SRC, MOD)
         os.makedirs(os.path.join(MOD, 'warships', 'maps'), exist_ok=True)   # (the Homebase alone needs its clear map too)
         Image.fromarray(np.zeros((4, 4, 4), np.uint8)).save(os.path.join(MOD, 'warships', 'maps', 'clear.png'))
-        # EVERSPACE 2's encounters on the cruise drive (the remake's battle / trap / stash / depot / highrisk kinds)
-        import encounters
-        enc = encounters.build()
-        json.dump(enc, open(os.path.join(MOD, 'encounters.json'), 'w', encoding='utf-8'), indent=1)
-        print(f'  {len(enc)} EVERSPACE 2 encounters on the cruise drive')
     if 'warships' in parts and warships_there:
         print('Adding the warships and freighters ...')
         ships += warships.build()
@@ -1362,13 +1369,7 @@ def main(version, parts=None):
     if world_stations:
         json.dump(world_stations, open(os.path.join(MOD, 'stations.json'), 'w', encoding='utf-8'), indent=1)
     # (after the sectors: the Slipstream II's recipe takes their resources)
-    if 'drives' in parts and 'sectors' in made:
-        print('Adding the slipstream drives ...')
-        drives.configure(SRC, MOD)
-        items += drives.build()
-        made.add('drives')
-    elif 'drives' in parts:
-        print('  no sectors, so no slipstream drives: the Slipstream II\'s recipe takes their resources')
+    clear_old_drives(MOD)
     # EVERSPACE 2's crafting (crafting.py: its recipe grids as blueprints; after the devices and the sectors, whose items they take)
     if 'devices' in made and 'sectors' in made:
         import crafting
