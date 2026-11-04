@@ -137,6 +137,14 @@ from the Okkar; Khaïtium and Cymalite are mined in Okkar space, and biomass, wh
 is a good the stations trade. Recipes needing the Leviathans' enzymes, peptides or musk are left out (the Leviathans
 aren't in the mod), and so are ES2's catalysts.
 
+With the fighters and the sectors: EVERSPACE 2's bosses on the **Most Wanted** boards (`tools/wanted.py`, the mod's
+`wanted.json`): the Okkar Prime Claw, the Trapper, the Bloodstar Chief, the Bloodstar Overseer and the Outlaw Leader, each in
+its own ship with ES2's gun, roaming the sectors its faction raids and listed on those sectors' stations' boards. The boards
+take fixed numbers on their own scale, so each is placed on the game's criminals' range (5000-10000 hit points, 50,000-140,000
+credits) by its hit points in ES2 (`npc_leveling.csv`: hull + armour + shield), weakest first; each comes after the one before
+it is dead, with up to four escorts of its faction. The Claw drops Okkar resources and the Overseer a Bloodstar Scattergun,
+as in ES2.
+
 With the travel maps and the sky and planet textures, the mod brings **EVERSPACE 2's galaxy** (`tools/sectors.py`): its ten
 sectors (Ceto, Union, Zharkov, the Khaït Nebula, the Khaït Dominion, Drake, Khione, Aethon, Ushak and Rhak) as systems past
 the edge of Galaxy on Fire 2's star map, laid out as ES2 lays out its galaxy. It is a galaxy of its own: no jumpgate links it
@@ -298,6 +306,8 @@ precision and output quality are unchanged.
 - With crafting built: the hangar's **Blueprints** tab has EVERSPACE 2's recipes, known from the start. Gather the ores
   (EVERSPACE 2's sectors), plasma and scrap, and the crafting parts from wrecks and shops, build the components, then the
   consumables from them.
+- The sectors' stations' Missions window, **Most Wanted** tab: EVERSPACE 2's bosses, one after another, in the sectors their
+  faction raids.
 - NPC pilots of every race (Terran, Vossk, Nivelian, Midorian, pirates, the Void) fly them too, each in a random build
   (parts, tier, colour scheme, sometimes a skin), with the game's Gameplay option "Mod ships in traffic" (default 25 %).
 - In the hangar, **Customize ship** (under Inspect ship) swaps the parts (body, rear, cockpit, wings), the wing extension

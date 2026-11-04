@@ -1376,6 +1376,17 @@ def main(version, parts=None):
         c_items, c_blueprints = crafting.build(MOD, {r[0] for r in sectors.RESOURCES}, {it['id'] for it in items})
         items += c_items
         crafting.write(MOD, c_blueprints)
+    # EVERSPACE 2's bosses on the Most Wanted boards of the sectors' stations (wanted.py; after the fighters and the sectors)
+    wanted_path = os.path.join(MOD, 'wanted.json')
+    if 'fighters' in made and 'sectors' in made:
+        import wanted
+        crooks = wanted.build(ships, systems, {it['id'] for it in items})
+        if crooks:
+            json.dump(crooks, open(wanted_path, 'w', encoding='utf-8'), indent=1)
+            made.add('wanted')
+            print(f'  {len(crooks)} EVERSPACE 2 bosses on the sectors\' Most Wanted boards')
+    elif os.path.exists(wanted_path) and {'fighters', 'sectors'} <= set(parts):
+        os.remove(wanted_path)
     if items: json.dump(items, open(os.path.join(MOD, 'items.json'), 'w', encoding='utf-8'), indent=1)
     if kits:
         json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)
@@ -1393,6 +1404,7 @@ def main(version, parts=None):
     if 'warships' in made: what.append('its warships and freighters in the orbits\' traffic; the Outlaw Dreadnought raiding convoys now and then')
     if 'homebase' in made: what.append('the Mobile Homebase, a station roaming the ' + ('sectors' if 'sectors' in made else 'galaxy'))
     if 'sectors' in made: what.append('EVERSPACE 2\'s ten sectors past the edge of the star map (a Khador Drive away, linked by their own jumpgates), with ES2\'s resources to mine')
+    if 'wanted' in made: what.append('its bosses on the sectors\' Most Wanted boards')
     json.dump({'id': 'es2_ships', 'name': 'EVERSPACE 2' + (' ships' if 'ships' in made else ''), 'version': version, 'author': 'built by es2_ships_importer',
                'description': '; '.join(what) + '. Built on this device from your own EVERSPACE 2 files.' +
                               (' Customize the ships in the hangar.' if 'ships' in made else ''),
