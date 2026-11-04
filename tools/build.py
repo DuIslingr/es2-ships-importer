@@ -17,6 +17,8 @@ def configure(src, out):
     TABLES = os.path.join(SRC, 'Blueprints/DataTables')
     WEAPONS = os.path.join(SRC, 'Assets/Equipment/Weapons')
     TURRET = os.path.join(SRC, 'Assets/Turrets/Meshes/SK_Turret_PlayerShip_001.glb')
+    import es2data   # (ES2's game tables, DataFiles/*.csv: devices.py's numbers, crafting.py's recipes)
+    es2data.configure(src)
 
 def has_weapons():
     return os.path.exists(os.path.join(WEAPONS, 'Meshes/SM_PrimaryWeapon_005.glb')) and os.path.isdir(os.path.join(WEAPONS, 'Textures'))
@@ -1367,6 +1369,12 @@ def main(version, parts=None):
         made.add('drives')
     elif 'drives' in parts:
         print('  no sectors, so no slipstream drives: the Slipstream II\'s recipe takes their resources')
+    # EVERSPACE 2's crafting (crafting.py: its recipe grids as blueprints; after the devices and the sectors, whose items they take)
+    if 'devices' in made and 'sectors' in made:
+        import crafting
+        c_items, c_blueprints = crafting.build(MOD, {r[0] for r in sectors.RESOURCES}, {it['id'] for it in items})
+        items += c_items
+        crafting.write(MOD, c_blueprints)
     if items: json.dump(items, open(os.path.join(MOD, 'items.json'), 'w', encoding='utf-8'), indent=1)
     if kits:
         json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)

@@ -15,8 +15,13 @@ neither as such, so:
   - the Missile Defense System uses the remake's "missileDefense" (its auto turrets shoot down incoming missiles), on a
     seatless cabin (any number can be mounted, nothing else changes; the game names it "Missile defense");
   - the rest has no GoF2 mechanic to stand on and is left out (SKIPPED).
-Names are EVERSPACE 2's; the descriptions say what the item does here. Icons: icons.py, from ES2's own item icons."""
-import icons
+Names are EVERSPACE 2's; the descriptions say what the item does here. Icons: icons.py, from ES2's own item icons.
+
+ES2's own numbers (2026-11-04, its items.CSV through es2data.py: TABLE) replace the mod's where the item does here what it
+does there: durations, cooldowns (its first level's), effect shares and reaches. A reach is ES2's metres x 3.6 (the size of
+its ships here) in game units (RANGE: cm x 0.72). Damage and prices stay on GoF2's scale. Without the tables in the export
+the numbers below stand."""
+import es2data, icons
 
 LOG = print
 
@@ -168,6 +173,83 @@ SKIPPED = {
 }
 
 
+RANGE = 0.72   # ES2 cm -> game units: m x 3.6 x 20
+
+
+def _sec(v): return int(round(v * 1000))
+def _pct(v): return int(round(v * 100))
+def _units(v): return int(round(v * RANGE))
+def _km(units): return f'{units / 20000:.1f}'.rstrip('0').rstrip('.')
+
+
+# id -> ([(stat, ES2 attribute, conversion)], description template over the new stats, None = keep the description)
+TABLE = {
+    'vanish': ([('cloakDurationMs', 'device_duration', _sec)],
+               'A quick-start cloak: the ship disappears almost at once, for {cloakDurationMs_s} seconds, for one energy cell.'),
+    'energized_boost': ([('boostDurationMs', 'device_duration', _sec), ('boostRechargeMs', 'device_cooldown', _sec)],
+                        'Catapults the ship forward: a short, very fast boost of {boostDurationMs_s} seconds, ready again after {boostRechargeMs_s}.'),
+    'entropy_anchor': ([('emergencyMs', 'device_duration', _sec)], None),
+    'magnetic_repulsor': ([('blastRadius', 'device_range', _units)], None),
+    'emp_generator': ([('blastRadius', 'device_range', _units)], None),
+    'missile_defense_system': ([('missileDefense', 'device_range', _units)],
+                               'Lets your auto turrets shoot down homing missiles flying at the ship within {missileDefense_km} km, before they turn to enemy ships. '
+                               'Needs an automatic turret.'),
+    'damage_booster': ([('damageFactor', 'consumable_effect', _pct)], 'The primary weapons hit {damageFactor} % harder.'),
+    'energy_shield': ([('emergencyMs', 'consumable_duration', _sec)],
+                      'Deploys a shield bubble when the hull gives out: {emergencyMs_s} seconds untouchable. Used up when it fires.'),
+    'cloak_field_generator': ([('cloakDurationMs', 'consumable_duration', _sec)], 'Hides the ship from the enemies for {cloakDurationMs_s} seconds.'),
+    'peacemaker': ([('blastRadius', 'consumable_range', _units)], None),
+    'smoke_bomb': ([('deviceRadius', 'consumable_range', _units), ('deviceDurationMs', 'consumable_duration', _sec)],
+                   'Drops a sensor cloud {deviceRadius_km} km in radius that grows in two seconds and lasts {deviceDurationMs_s}: while you fly inside it the '
+                   'enemies lose you, hold their fire and their missiles lose their lock. One use.'),
+    'nano_injector': ([('deviceDamagePercent', 'consumable_effect', _pct)], 'A shot of nanites that rebuilds {deviceDamagePercent} % of the hull at once. One use.'),
+    'corrosion_injector': ([('deviceCooldownMs', 'device_cooldown', _sec), ('deviceDurationMs', 'device_effect_duration', _sec), ('deviceRadius', 'device_range', _units)],
+                           'Injects the locked ship with a corrosive agent: for {deviceDurationMs_s} seconds it takes damage every second, straight past its shield. '
+                           'Recharges in {deviceCooldownMs_s} seconds.'),
+    'teleporter': ([('deviceCooldownMs', 'device_cooldown', _sec), ('deviceRadius', 'device_range', _units)],
+                   'A blink {deviceRadius_km} kilometres straight ahead, short of anything in the way. Recharges in {deviceCooldownMs_s} seconds.'),
+    'spectral_shift': ([('deviceCooldownMs', 'device_cooldown', _sec), ('deviceRadius', 'device_range', _units), ('deviceRange2', 'device_range_2', _units)],
+                       'Phases the ship {deviceRadius_km} kilometres ahead, tearing through every enemy within {deviceRange2_m} m of the way. Recharges in {deviceCooldownMs_s} seconds.'),
+    'fusion_hook': ([('deviceCooldownMs', 'device_cooldown', _sec), ('deviceRadius', 'device_range', _units)],
+                    'Grapples the enemy in your sights within {deviceRadius_km} kilometres and reels you together, up to 800 m/s, until you are 200 m apart. '
+                    'Recharges in {deviceCooldownMs_s} seconds.'),
+    # (its device_range is how far the target may be; the tether's own reach to the enemies around it stays the mod's)
+    'quantum_tether': ([('deviceDurationMs', 'device_duration', _sec)],
+                       'Tethers the locked ship for {deviceDurationMs_s} seconds: whatever it takes, every enemy within {deviceRadius_m} m of it takes too; when it dies '
+                       'the tether jumps on. Recharges in {deviceCooldownMs_s} seconds.'),
+    'quantum_entangler': ([('deviceCooldownMs', 'device_cooldown', _sec), ('deviceDurationMs', 'device_duration', _sec), ('deviceRadius', 'device_range', _units),
+                           ('deviceDamagePercent', 'device_effect', lambda v: 100 + _pct(v))],
+                          'Entangles the locked ship with yours for {deviceDurationMs_s} seconds: all the damage you take meanwhile hits it at the end, '
+                          '{deviceDamagePercent} % over. Recharges in {deviceCooldownMs_s} seconds.'),
+}
+
+
+def from_tables(it):
+    """An item with ES2's own numbers (TABLE) where its items.CSV has them."""
+    spec = TABLE.get(it['id'])
+    if not spec or not es2data.available(): return it
+    fields, template = spec
+    stats = dict(it.get('stats') or {})
+    changed = False
+    for stat, attr, conv in fields:
+        v = es2data.attr(it['id'], attr)
+        if v is None or v <= 0: continue
+        stats[stat] = conv(v)
+        changed = True
+    if not changed: return it
+    it['stats'] = stats
+    if template:
+        words = {}
+        for k, v in stats.items():
+            words[k] = v
+            if isinstance(v, (int, float)):
+                words[k + '_s'] = f'{v / 1000:g}'
+                words[k + '_km'] = _km(v)
+                words[k + '_m'] = str(int(round(v / 20 / 10) * 10))
+        it['description'] = template.format(**words)
+    return it
+
+
 def _item(row):
     iid, icon, frame, base, name, tl, occ, price, stats, desc = row
     it = {'id': iid, 'base': base, 'name': name, 'description': desc, 'techLevel': tl, 'occurrence': occ,
@@ -178,7 +260,7 @@ def _item(row):
 
 def build(mod):
     """The devices' and consumables' items.json entries (their icons made)."""
-    out = [_item(r) for r in DEVICES + CONSUMABLES]
+    out = [from_tables(_item(r)) for r in DEVICES + CONSUMABLES]
     made = icons.apply(out, mod)
     for it in out:
         for k in [k for k in it if k.startswith('_')]: del it[k]

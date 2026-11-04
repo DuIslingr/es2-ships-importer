@@ -49,8 +49,21 @@ def available():
     return ICONS is not None
 
 
+# ES2's other icon folders beside UI/Images/Items that items take icons from (the crafting parts': UI/Images/Icons/Crafting).
+MORE_ICONS = [os.path.join('..', 'Icons', 'Crafting')]
+
+
+def icon_path(name):
+    """An ES2 icon's PNG (UI/Images/Items, else MORE_ICONS), None when the export doesn't have it."""
+    if ICONS is None or name is None: return None
+    for d in [''] + MORE_ICONS:
+        p = os.path.normpath(os.path.join(ICONS, d, name + '.png'))
+        if os.path.exists(p): return p
+    return None
+
+
 def has(name):
-    return ICONS is not None and name is not None and os.path.exists(os.path.join(ICONS, name + '.png'))
+    return icon_path(name) is not None
 
 
 # ---- the plates --------------------------------------------------------------------------------------------------------
@@ -216,7 +229,7 @@ def recolour(im, colour):
 def make(name, kind, colour=None):
     """The 180 x 88 icon of ES2's icon 'name' on the 'kind' plate (its glow turned to 'colour' when given), or None."""
     if not has(name): return None
-    src = Image.open(os.path.join(ICONS, name + '.png')).convert('RGBA')
+    src = Image.open(icon_path(name)).convert('RGBA')
     icon = frame(kind)
     if is_symbol(src):
         im = _fit(_emblem(src, TINTS[kind]), W * 0.94, H * 0.96)

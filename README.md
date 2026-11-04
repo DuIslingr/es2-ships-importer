@@ -71,8 +71,8 @@ The importer runs on **Windows, macOS and Linux**.
    | `ES2/Content/Assets/TravelMode`, `ES2/Content/Assets/Environment/Structures/Effects`, `ES2/Content/Assets/Vehicles/Effects`, `ES2/Content/Assets/Environment/Effects`, `ES2/Content/Assets/Effects/Materials`, `ES2/Content/Blueprints/Effects/CameraShakes` | Properties (.json), Textures, Models (optional: EVERSPACE 2's warp effects for the remake's warp flight, `research/warp_effects.md`: the travel mode's warp tunnel, speed particles and post-process, the jump gate's tunnel, the cruise mode's friction sphere, the jump drive's charge, the teleport and portal effects, with their camera shakes; then also run `tools/shaders`' `export` on `tools/warp_assets.txt` with `all`, the tunnel meshes, the shared noise textures and the resolved materials FModel's folder export lacks) |
    | `ES2/Content/Audio` | Properties (.json) and Audio (optional: the engine, boost and weapon sounds, and for the warp effects `SFX/Ship/Cruise_Mode`, `SFX/HUD/TransitionToHyperspace` and `SFX/Environment/JumpGate`). Turn on Settings > **Convert audio on bulk export** first: the sounds then come out playable (`.ogg` / `.wav`) and the importer needs no other tool |
    | `ES2/Content/Assets/Vehicles/Shared/Textures` | Textures (optional: `T_Vehicles_Floaters_Emissive_M`, the glow pattern of the engine nozzles, `T_ShipModules_FX_001_M_A`, the pattern of the wings' hologram discs, the damage maps and `T_Vehicles_Okkar_Techdetail_001_*`, the Wraith's plating) |
-   | `ES2/Content/UI/Images/Items` | Textures (optional: EVERSPACE 2's item icons, from which the weapons', devices' and consumables' shop icons are made in Galaxy on Fire 2's style) |
-   | `ES2/Content/DataFiles` | ES2's tables, which FModel doesn't export (optional: `factions.csv` and `faction_relations.csv`, who fights whom; `dockables.csv`, the sectors' stations and their factions). Extract them with `tools/shaders`' `pak` mode: `... dotnet run -c Release -- pak pakchunk0-Windows.pak "DataFiles/.*\.csv" <FModel's Output/Exports folder>`. Without them the factions are made without ES2's relations |
+   | `ES2/Content/UI/Images/Items` | Textures (optional: EVERSPACE 2's item icons, from which the weapons', devices' and consumables' shop icons are made in Galaxy on Fire 2's style; the crafting parts' are in `ES2/Content/UI/Images/Icons/Crafting`) |
+   | `ES2/Content/DataFiles` | ES2's tables, which FModel doesn't export (optional: `factions.csv` and `faction_relations.csv`, who fights whom; `dockables.csv`, the sectors' stations and their factions; `items.CSV` and `attributes.CSV`, the devices', consumables' and debuff missiles' own numbers; `crafting_tech.csv` and `crafting_consumables.csv`, the recipes). Extract them with `tools/shaders`' `pak` mode: `... dotnet run -c Release -- pak pakchunk0-Windows.pak "DataFiles/" <FModel's Output/Exports folder>`. Without them the factions are made without ES2's relations, the items keep the importer's numbers and there is no crafting |
 
    The **Wraith** (the Okkar ship of the Wrath of the Ancients DLC) comes along when `ShipModules/Okkar` was exported with
    the rest (its hull `SK_ShipOkkar_C_001` and cockpit) and its plating textures above: one hull of its own (kit "okkar"),
@@ -113,13 +113,25 @@ as a phase cloak, Static Overload and the repulsors as shock blasts, ARC-9000 as
 Peacemaker as EMP bombs, the Missile Defense System letting your auto turrets shoot down incoming missiles (the remake's
 `missileDefense`), the Phalanx, the Turret and the Combat Drone as sentry guns, Void Swarm, Siphon Pulse and the Nano
 Transmitter as transfusion beams, nanobots as repair bots, Entropy Anchor and the Energy Shield as emergency systems, Time
-Extender, Energized Boost, Weapon Overdrive and the rest). Those with no GoF2 mechanic to stand on (teleports, grappling
-hooks, damage over time, ...) are left out. With the item icons exported, every weapon, device and
+Extender, Energized Boost, Weapon Overdrive and the rest); the Teleporter, Spectral Shift, the Fusion Hook, the Quantum
+Tether and Entangler, the Corrosion Injector and the one-use consumables (Smoke Bomb, Nano Injector, Armor Repair,
+Secondaries Restock, Device Charger) use the remake's devices. With ES2's tables exported (`DataFiles`), their durations,
+cooldowns, reaches and effect shares are EVERSPACE 2's own (its `items.CSV`; reaches at its ships' x3.6), and so are the
+debuff missiles' (the Destabilizer's +30 % for 6 s, the Web's 6 s, the Corrosion missile's whole hit over 8 s). Those with
+no GoF2 mechanic to stand on (spreading infections, Echo Fragments, ULT charge, ...) are left out. With the item icons exported, every weapon, device and
 consumable gets a shop icon made from EVERSPACE 2's own (`tools/icons.py`): cut out, laid like GoF2's guns, given GoF2's
 gloss and a shadow on the plate of its type (red primaries, orange secondaries, green equipment); the white device symbols
 become embossed steel emblems glowing in the plate's colour, and weapons sharing an icon get it in their own colour.
 (FModel's bulk export may leave `UI/Images/Items` as .json only; `tools/shaders`' `export` on `tools/item_icons.txt`
 fetches the images.)
+
+With ES2's tables and the sectors: EVERSPACE 2's crafting (`tools/crafting.py`) as blueprints in the hangar's Blueprints
+tab, all known from the start, with ES2's own recipes: its tech components (Supra Gel, Power Cell, Fusion Core, ...) from its
+ores, crystals, plasma and scrap, and the consumables the mod has from crafting parts and components. ES2's ores of every
+purity are the mod's one resource of that name, its iron and titanium Galaxy on Fire 2's, plasma GoF2's Green Plasma and
+scrap metal its Space Waste. The crafting parts (Spare Parts, Circuitry, Power Coupling, Quantum Processor), which ES2
+salvages by dismantling gear, are goods of their own that NPCs carry and shops stock. Recipes needing what the mod has no
+stand-in for (biomass, dark matter, the Okkar's and the Leviathan's resources) are left out, and so are ES2's catalysts.
 
 With the travel maps and the sky and planet textures, the mod brings **EVERSPACE 2's galaxy** (`tools/sectors.py`): its ten
 sectors (Ceto, Union, Zharkov, the Khaït Nebula, the Khaït Dominion, Drake, Khione, Aethon, Ushak and Rhak) as systems past
@@ -286,6 +298,9 @@ precision and output quality are unchanged.
   quick menu entry leaves the system for the space between the stars, where the systems on your star map can be flown to
   through EVERSPACE 2's warp tunnel, about an energy cell per gate hop.
 - The ships are sold by dealers at stations of tech level 5 and above (any race), now and then.
+- With crafting built: the hangar's **Blueprints** tab has EVERSPACE 2's recipes, known from the start. Gather the ores
+  (EVERSPACE 2's sectors), plasma and scrap, and the crafting parts from wrecks and shops, build the components, then the
+  consumables from them.
 - NPC pilots of every race (Terran, Vossk, Nivelian, Midorian, pirates, the Void) fly them too, each in a random build
   (parts, tier, colour scheme, sometimes a skin), with the game's Gameplay option "Mod ships in traffic" (default 25 %).
 - In the hangar, **Customize ship** (under Inspect ship) swaps the parts (body, rear, cockpit, wings), the wing extension

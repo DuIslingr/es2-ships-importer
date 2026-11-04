@@ -10,7 +10,7 @@ missile, cluster, mine), keeping what makes the ES2 weapon itself:
     the flak's and the mines' blasts, the legendary homing barrages as cluster missiles; the debuff missiles as the remake's
     weapon debuffs (2026-11-02, after their ApplyConditionClass): cryo freezes (slowFreeze), web slows, corrosion eats past
     the shield over time (dotDamage: most of the hit moved into it, as ES2's deals no direct damage), the destabilizer
-    raises the damage the target takes (vulnerablePercent, ES2's +20 % a hit);
+    raises the damage the target takes (vulnerablePercent); their numbers ES2's own from its items.CSV (DEBUFFS);
   - its own look (the base's projectile, muzzle flash and impact recoloured in its ES2 colour), its own fire sound (its
     FireSounds / FireSound cue), its own ES2 weapon model on the ships' hardpoints (build.HARDPOINTS rules by item).
 Damage is set on GoF2's own ladder by tech level (DPS), times the family's ES2 character, so they fit the game's balance.
@@ -22,7 +22,7 @@ split by bone like build.turret_model into base / pivot / gun with their texture
 import json, os, re, glob, struct, io
 import numpy as np
 from PIL import Image
-import glbtool, es2mat, icons
+import glbtool, es2mat, icons, es2data
 
 SRC = MOD = None
 LOG = print
@@ -78,6 +78,29 @@ PRIMARY = {
     'GooGun':       (21, 'blaster', '#8cff4a', 9, 1.00, 12),
     'PlasmaThrower': (193, 'thermo', '#ff58d0', 9, 1.05, 12),
 }
+# The debuff missiles' numbers from ES2's items.CSV (2026-11-04, es2data.py), over the extras below when the export has the
+# tables: family -> (ES2 item, [(extra stat, ES2 attribute, factor)]). ES2's "no_damage" missiles hit for nothing, so a
+# corrosion missile's whole hit goes into its damage over time (dotShare 1).
+DEBUFFS = {
+    'CorrosionMissileLauncher': ('corrosion_missile', [('dotMs', 'weapon_effect_duration', 1000)]),
+    'DestabilizerMissileLauncher': ('destabilizer_missile', [('vulnerablePercent', 'destabilizer_effect', 100), ('vulnerableMs', 'weapon_effect_duration_scaling', 1000)]),
+    'WebMissileLauncher': ('web_missile', [('slowMs', 'weapon_effect_duration_scaling', 1000)]),
+}
+
+
+def table_debuffs(fam, extra):
+    """A debuff missile's extras with ES2's own numbers (DEBUFFS) where its items.CSV has them."""
+    spec = DEBUFFS.get(fam)
+    if not spec or not es2data.available(): return extra
+    es2_id, fields = spec
+    out = dict(extra)
+    for stat, attr, k in fields:
+        v = es2data.attr(es2_id, attr)
+        if v and v > 0: out[stat] = int(round(v * k))
+    if es2data.attr(es2_id, 'no_damage') and 'dotShare' in out: out['dotShare'] = 1.0
+    return out
+
+
 # family -> (GoF2 base item, kind, colour, tech level, damage factor, extra stats)
 SECONDARY = {
     'HomingMissileLauncher':       (37, 'missile', '#ffd0a0', 5, 1.00, {}),
@@ -271,7 +294,7 @@ def make_item(bp):
     tl = spec[3]
     colour = spec[2]
     name = humanize(fam).replace(' Launcher', ' Launcher')
-    stats_extra = dict(spec[5]) if secondary else {}
+    stats_extra = table_debuffs(fam, spec[5]) if secondary else {}
     dps_f = 1.0 if secondary else spec[4]
     dmg_f = spec[4] if secondary else 1.0
     legendary = 'Legendary' in bp or any(VARIANT.get(r, (0, 0, 0, {}, 0, False))[5] for r in rest)
@@ -330,7 +353,7 @@ def make_item(bp):
     if share and stats_extra.get('dotMs'):
         ticks = max(1, int(stats_extra['dotMs'] // 950))
         stats_extra['dotDamage'] = max(1, int(round(stats['damage'] * share / ticks)))
-        stats['damage'] = max(1, int(round(stats['damage'] * (1 - share))))
+        stats['damage'] = max(1, int(round(stats['damage'] * (1 - share))))   # (ES2's whole hit over time: 1 on impact)
     for k, v in stats_extra.items():
         if k in ('empDamage', 'shieldDamage', 'salvoShots', 'salvoCount', 'salvoGapMs', 'slowMs', 'slowPercent', 'slowFreeze',
                  'dotDamage', 'dotMs', 'vulnerablePercent', 'vulnerableMs'): stats[k] = int(v)

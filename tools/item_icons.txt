@@ -603,3 +603,7 @@
 /Game/UI/Images/Items/voltaic_blaster_86x86_2x
 /Game/UI/Images/Items/wardens_embrace_86x86_2x
 /Game/UI/Images/Items/warriors_insight_86x86_2x
+/Game/UI/Images/Icons/Crafting/icon_crafting_resource_1_44x38_2x
+/Game/UI/Images/Icons/Crafting/icon_crafting_resource_2_44x38_2x
+/Game/UI/Images/Icons/Crafting/icon_crafting_resource_3_44x38_2x
+/Game/UI/Images/Icons/Crafting/icon_crafting_resource_4_44x38_2x
