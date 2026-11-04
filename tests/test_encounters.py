@@ -17,6 +17,9 @@ class EncounterTests(unittest.TestCase):
         self.assertEqual(len(enc), len({e['id'] for e in enc}), 'unique ids')
         for e in enc:
             self.assertIn(e['kind'], KINDS)
+            if e['kind'] == 'rift':
+                self.assertEqual({'id', 'kind'}, set(e) - {'bosses'}, "a mod's rift only adds bosses: its chance is the remake's")
+                continue
             self.assertGreater(e['weight'], 0)
             for s in e.get('security', []): self.assertIn(s, (0, 1, 2, 3))
         self.assertNotIn('name', next(e for e in enc if e['kind'] == 'trap'), 'a trap passes for an unknown signal')
