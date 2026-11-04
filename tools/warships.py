@@ -678,6 +678,13 @@ def rear_engines(prims, f, n=4):
 
 # ---- one ship -----------------------------------------------------------------------------------------------------------
 
+def _loot(bp):
+    """Its own drops from ES2's loot_npcs.csv (fighters.loot_of: the Okkar frigate's and corvette's resources, the Redeemer
+    battleship's), rolled on top of the capital ship's crate."""
+    import fighters
+    return fighters.loot_of(bp)
+
+
 def build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar, extra_parts=None, traffic=True, traffic_extra=None):
     prims = []
     for m in meshes:
@@ -744,7 +751,7 @@ def build_ship(sid, name, desc, race, kind, bp, meshes, turret, missile, hangar,
             'slots': {'primary': 0, 'secondary': 0, 'turret': 0, 'equipment': 0},
             'model': rel, 'modelLength': round(length), 'modelYaw': 90, 'engineStyle': 'es2',
             'mounts': mounts, 'materials': materials, 'subsystems': subs,
-            'traffic': {'capital': kind, **({} if traffic else {'weight': 0}), **(traffic_extra or {})},
+            'traffic': {'capital': kind, **({} if traffic else {'weight': 0}), **(traffic_extra or {}), **(_loot(bp) or {})},
             'explosionScale': round(min(20.0, max(4.0, float(size.max()) * f / 250.0)), 1)}
     ebp = bp or ENGINE_BP.get(sid)
     effects = engine_effects(ebp) if ebp else None
