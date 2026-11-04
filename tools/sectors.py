@@ -840,6 +840,7 @@ def build_sector(key):
         if asteroids is False: orbit['asteroids'] = False
         elif asteroids: orbit['asteroids'] = dict(asteroids)
         if not (spec['gates'] and gid == spec['gateStation']): orbit['jumpgate'] = False   # (the gate only where ES2's is)
+        if L.get('level'): orbit['level'] = int(max(1, min(30, L['level'])))   # ES2's location level: its encounters' pay
         hz = level_hazards(es2_id)   # ES2's heat volumes and radiation fields at their places
         if hz: orbit['hazards'] = hz
         if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
