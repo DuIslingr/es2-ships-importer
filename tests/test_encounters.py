@@ -35,7 +35,8 @@ class RiftBossTests(unittest.TestCase):
             es2data.configure(d)
             try: b = encounters.rift_bosses()
             finally: es2data.configure(None)
-        self.assertEqual([{'ship': 'es2_ships:es2_okkar_corvette', 'raiders': 7.42}] * 2 + [{'ship': 'es2_ships:es2_drone_carrier', 'raiders': 2.26}], b,
+        self.assertEqual([{'ship': 'es2_ships:es2_okkar_corvette', 'raiders': 7.42, 'race': 'es2_ships:okkar'}] * 2
+                         + [{'ship': 'es2_ships:es2_drone_carrier', 'raiders': 2.26, 'race': 'es2_ships:outlaw'}], b,
                          "its hull + armour + shield over the raider's 310; the corvette twice, as ES2 picks it")
 
 

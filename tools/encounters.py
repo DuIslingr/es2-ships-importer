@@ -18,11 +18,13 @@ ENCOUNTERS = [
 
 
 # ES2's rift bosses (BP_Encounter_Rift's GetBossClassAndLevel: RandomIntegerInRange(0, 7) over this list, so the doubled ones
-# twice as often) as the mod's warships (warships.py)
-RIFT_BOSSES = [('BP_Cultist_Battleship', 'es2_cultist_battleship'), ('BP_Cultist_Battleship', 'es2_cultist_battleship'),
-               ('BP_Okkar_Corvette', 'es2_okkar_corvette'), ('BP_Okkar_Corvette', 'es2_okkar_corvette'),
-               ('BP_Outlaw_DroneCarrier_Retaliators', 'es2_retaliator_drone_carrier'), ('BP_Outlaw_DroneCarrier', 'es2_drone_carrier'),
-               ('BP_Outlaw_Destroyer_Zurilia', 'es2_zurilia_destroyer'), ('BP_Outlaw_Destroyer_Zurilia', 'es2_zurilia_destroyer')]
+# twice as often) as the mod's warships (warships.py), each flying for its blueprint's faction (the boss's stage is then
+# that race's, its guards too)
+RIFT_BOSSES = [('BP_Cultist_Battleship', 'es2_cultist_battleship', 'cultist'), ('BP_Cultist_Battleship', 'es2_cultist_battleship', 'cultist'),
+               ('BP_Okkar_Corvette', 'es2_okkar_corvette', 'okkar'), ('BP_Okkar_Corvette', 'es2_okkar_corvette', 'okkar'),
+               ('BP_Outlaw_DroneCarrier_Retaliators', 'es2_retaliator_drone_carrier', 'retaliators'),
+               ('BP_Outlaw_DroneCarrier', 'es2_drone_carrier', 'outlaw'),
+               ('BP_Outlaw_Destroyer_Zurilia', 'es2_zurilia_destroyer', 'zurilia'), ('BP_Outlaw_Destroyer_Zurilia', 'es2_zurilia_destroyer', 'zurilia')]
 ES2_RAIDER_HP = 310.0   # the Outlaw raider's hull 200 + armour 50 + shield 60 (npc_leveling.csv): the remake's "raiders"
 
 
@@ -34,7 +36,8 @@ def rift_bosses():
         if len(r) > 7 and r[0].strip():
             vals = [es2data.number(r[i]) or 0.0 for i in (5, 6, 7)]
             hp[r[0].strip()] = sum(vals)
-    return [{'ship': f'es2_ships:{sid}', 'raiders': round(hp[bp] / ES2_RAIDER_HP, 2)} for bp, sid in RIFT_BOSSES if hp.get(bp)]
+    return [{'ship': f'es2_ships:{sid}', 'raiders': round(hp[bp] / ES2_RAIDER_HP, 2), 'race': f'es2_ships:{race}'}
+            for bp, sid, race in RIFT_BOSSES if hp.get(bp)]
 
 
 def build():
