@@ -9,7 +9,9 @@ neither as such, so:
     secondaries with ammunition: the Shock Blast, the nuke and the EMP bomb;
   - the drones and turrets (Phalanx, the Turret, the Combat Drone, the Sticky Turret) are sentry guns;
   - the life-steal devices (Void Swarm, Siphon Pulse, the Nano Transmitter) are transfusion beams, the repair ones
-    (Temporal Nano Recompensator, Nanobots) repair bots, the last-chance ones (Entropy Anchor, the Energy Shield) the
+    (Temporal Nano Recompensator) a repair bot, the Nanobots used-up hull repairs over a few seconds (the remake's
+    device 9 with a duration), the Nano Repair Kit the repair kit (19: an overheated item), the System Recovery Routine the
+    recovery (20: the debuffs lifted), the Annihilator Virus the virus (21), the last-chance ones (Entropy Anchor, the Energy Shield) the
     emergency system (used up), Time Extender the time extender, Energized Boost a booster, Weapon Overdrive / the Damage
     Booster / the Energy Injector weapon mods, the Front Shield Generator a shield and the Damage Limiter armour;
   - the Missile Defense System uses the remake's "missileDefense" (its auto turrets shoot down incoming missiles), on a
@@ -100,10 +102,6 @@ CONSUMABLES = [
     ('energy_injector', 'art_board17_Energy-Injector', 'equipment', 186, 'Energy Injector', 6, 20, 24000,
      {'fireRateFactor': 25, 'damageFactor': 0},
      'More power for the weapons: the primaries fire 25 % faster.'),
-    ('nanobots', 'icon_consumable_nanobot_small_86x86_2x', 'equipment', 75, 'Nanobots', 4, 40, 36000, {},
-     'Nanobots that repair the hull and armour in flight.'),
-    ('nanobots_large', 'icon_consumable_nanobot_large_86x86_2x', 'equipment', 188, 'Nanobots Large', 7, 15, 120000, {},
-     'A larger swarm of nanobots: repairs the hull and armour faster.'),
     ('damage_limiter', 'icon_consumable_damage_limiter_86x86_2x', 'equipment', 57, 'Damage Limiter', 6, 20, 40000,
      {'armor': 120},
      'Absorbs a share of the damage before it reaches the hull.'),
@@ -132,6 +130,22 @@ CONSUMABLES = [
      {'cabinSize': 0, 'device': 8, 'deviceConsumable': 1, 'deviceRadius': 16000, 'deviceGrowMs': 2000, 'deviceDurationMs': 20000},
      'Drops a sensor cloud 800 m across that grows in two seconds and lasts 20: while you fly inside it the enemies lose you, hold '
      'their fire and their missiles lose their lock. One use.'),
+    # ES2's Nanobots: a share of the hull repaired over a few seconds, used up (2026-11-04; were GoF2 repair bots before)
+    ('nanobots', 'icon_consumable_nanobot_small_86x86_2x', 'equipment', 91, 'Nanobots', 4, 40, 100,
+     {'cabinSize': 0, 'device': 9, 'deviceConsumable': 1, 'deviceDamagePercent': 30, 'deviceDurationMs': 3000},
+     'Nanobots that rebuild 30 % of the hull over 3 seconds. One use.'),
+    ('nanobots_medium', 'icon_consumable_nanobot_medium_86x86_2x', 'equipment', 91, 'Nanobots Medium', 5, 30, 200,
+     {'cabinSize': 0, 'device': 9, 'deviceConsumable': 1, 'deviceDamagePercent': 50, 'deviceDurationMs': 5000},
+     'Nanobots that rebuild 50 % of the hull over 5 seconds. One use.'),
+    ('nanobots_large', 'icon_consumable_nanobot_large_86x86_2x', 'equipment', 91, 'Nanobots Large', 7, 15, 400,
+     {'cabinSize': 0, 'device': 9, 'deviceConsumable': 1, 'deviceDamagePercent': 70, 'deviceDurationMs': 10000},
+     'Nanobots that rebuild 70 % of the hull over 10 seconds. One use.'),
+    ('nano_repair_kit', 'icon_consumable_nano_repair_kit_86x86_2x', 'equipment', 91, 'Nano Repair Kit', 5, 25, 260,
+     {'cabinSize': 0, 'device': 19, 'deviceConsumable': 1},
+     'Repairs one overheated item at once (a rift\'s Overheated Systems). One use.'),
+    ('system_recovery_routine', 'icon_consumable_system_recovery_routine_86x86_2x', 'equipment', 91, 'System Recovery Routine', 6, 25, 320,
+     {'cabinSize': 0, 'device': 20, 'deviceConsumable': 1},
+     'Lifts the debuffs on your ship: a web\'s slow, corrosion. One use.'),
     ('nano_injector', 'art_board19_Nano-Injector', 'equipment', 91, 'Nano Injector', 5, 30, 600,
      {'cabinSize': 0, 'device': 9, 'deviceConsumable': 1, 'deviceDamagePercent': 35},
      'A shot of nanites that rebuilds 35 % of the hull at once. One use.'),
@@ -163,14 +177,21 @@ CONSUMABLES = [
     ('quantum_entangler', 'icon_device_quantum_entangler_86x86_2x', 'equipment', 91, 'Quantum Entangler', 8, 8, 260000,
      {'cabinSize': 0, 'device': 18, 'deviceCooldownMs': 50000, 'deviceDurationMs': 8000, 'deviceRadius': 40000, 'deviceDamagePercent': 150},
      'Entangles the locked ship with yours for 8 seconds: all the damage you take meanwhile hits it at the end, one and a half times over. Recharges in 50 seconds.'),
+    # (2026-11-04) its damage in a pirate raider's hull: ES2's 95 + 60 against its Outlaw raider's 310
+    ('annihilator_virus', 'icon_device_annihilator_virus_86x86_2x', 'equipment', 91, 'Annihilator Virus', 8, 8, 220000,
+     {'cabinSize': 0, 'device': 21, 'deviceCooldownMs': 60000, 'deviceDurationMs': 6000, 'deviceGrowMs': 1000, 'deviceRadius': 28800,
+      'deviceDamagePercent': 50},
+     'Infects the locked ship with a virus that spreads to the nearest enemy every second, up to 6 ships; after 6 seconds every '
+     'infected ship takes heavy damage. Recharges in 60 seconds.'),
 ]
 
 # EVERSPACE 2's devices and consumables with no GoF2 mechanic to stand on (what they need).
 SKIPPED = {
-    'annihilator_virus': 'a spreading infection', 'resurgence': 'Echo Fragments',
-    'nanobots_medium': 'nothing between the two repair bots', 'nano_repair_kit': 'equipment damage',
-    'ult_recharge': 'ULT charge', 'system_recovery_routine': 'debuffs', 'pheromone_ejector': 'creatures',
+    'resurgence': 'Echo Fragments', 'ult_recharge': 'ULT charge (the ULTs are left out)',
+    'pheromone_ejector': 'creatures (the Leviathans are left out)',
 }
+# the mod's item id -> ES2's, where they differ (TABLE's numbers)
+ES2_IDS = {'nanobots': 'nanobots_small'}
 
 
 RANGE = 0.72   # ES2 cm -> game units: m x 3.6 x 20
@@ -203,6 +224,18 @@ TABLE = {
                    'Drops a sensor cloud {deviceRadius_km} km in radius that grows in two seconds and lasts {deviceDurationMs_s}: while you fly inside it the '
                    'enemies lose you, hold their fire and their missiles lose their lock. One use.'),
     'nano_injector': ([('deviceDamagePercent', 'consumable_effect', _pct)], 'A shot of nanites that rebuilds {deviceDamagePercent} % of the hull at once. One use.'),
+    'nanobots': ([('deviceDamagePercent', 'consumable_effect', _pct), ('deviceDurationMs', 'consumable_duration', _sec)],
+                 'Nanobots that rebuild {deviceDamagePercent} % of the hull over {deviceDurationMs_s} seconds. One use.'),
+    'nanobots_medium': ([('deviceDamagePercent', 'consumable_effect', _pct), ('deviceDurationMs', 'consumable_duration', _sec)],
+                        'Nanobots that rebuild {deviceDamagePercent} % of the hull over {deviceDurationMs_s} seconds. One use.'),
+    'nanobots_large': ([('deviceDamagePercent', 'consumable_effect', _pct), ('deviceDurationMs', 'consumable_duration', _sec)],
+                       'Nanobots that rebuild {deviceDamagePercent} % of the hull over {deviceDurationMs_s} seconds. One use.'),
+    'annihilator_virus': ([('deviceCooldownMs', 'device_cooldown', _sec), ('deviceDurationMs', 'device_duration', _sec),
+                           ('deviceGrowMs', 'device_time', _sec), ('deviceRadius', 'device_range', _units),
+                           ('deviceDamagePercent', ('device_kinetic_damage', 'device_energy_damage'), lambda v: int(round(v / 310 * 100)))],
+                          'Infects the locked ship with a virus that spreads to the nearest enemy within {deviceRadius_km} km every '
+                          '{deviceGrowMs_s} second, up to 6 ships; after {deviceDurationMs_s} seconds every infected ship takes '
+                          '{deviceDamagePercent} % of a raider\'s hull. Recharges in {deviceCooldownMs_s} seconds.'),
     'corrosion_injector': ([('deviceCooldownMs', 'device_cooldown', _sec), ('deviceDurationMs', 'device_effect_duration', _sec), ('deviceRadius', 'device_range', _units)],
                            'Injects the locked ship with a corrosive agent: for {deviceDurationMs_s} seconds it takes damage every second, straight past its shield. '
                            'Recharges in {deviceCooldownMs_s} seconds.'),
@@ -231,8 +264,9 @@ def from_tables(it):
     fields, template = spec
     stats = dict(it.get('stats') or {})
     changed = False
+    es2 = ES2_IDS.get(it['id'], it['id'])
     for stat, attr, conv in fields:
-        v = es2data.attr(it['id'], attr)
+        v = sum(es2data.attr(es2, a) or 0.0 for a in attr) if isinstance(attr, tuple) else es2data.attr(es2, attr)
         if v is None or v <= 0: continue
         stats[stat] = conv(v)
         changed = True
