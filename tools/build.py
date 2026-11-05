@@ -1159,6 +1159,7 @@ PARTS = {
                  'the nine ES2 hulls and the Okkar Wraith: parts, colours, liveries, decals, engine trails, weapon and turret models, exhaust styles'),
     'weapons':  ('weapons', 'EVERSPACE 2\'s weapons as shop items'),
     'devices':  ('devices and consumables', 'EVERSPACE 2\'s devices and consumables in the shops'),
+    'components': ('ship components', 'EVERSPACE 2\'s shields, platings, boosters, sensors and cargo units on GoF2\'s ranges'),
     'fighters': ('enemy fighters and drones', 'in the traffic of their factions, and EVERSPACE 2\'s encounters on the cruise drive'),
     'warships': ('warships, freighters and the Dreadnought', 'capital ships in the orbits\' traffic, the Dreadnought raiding convoys now and then'),
     'homebase': ('the Mobile Homebase', 'a station roaming the sectors (or every system without them), docked inside'),
@@ -1167,7 +1168,7 @@ PARTS = {
 }
 NEEDS = {'warships': ['ships', 'weapons', 'fighters'], 'sectors': ['fighters']}
 WITH = {'ships': ['sounds']}   # (comes along unless --no-sounds)
-ALIASES = {'all': list(PARTS), 'systems': ['sectors'], 'items': ['weapons', 'devices'], 'traffic': ['fighters', 'warships'],
+ALIASES = {'all': list(PARTS), 'systems': ['sectors'], 'items': ['weapons', 'devices', 'components'], 'traffic': ['fighters', 'warships'],
            'world': ['sectors', 'homebase']}
 
 
@@ -1284,7 +1285,7 @@ def main(version, parts=None):
         print('  no sounds: ' + audio.unavailable_reason())
     # EVERSPACE 2's weapons (items.json), warships and freighters (ships.json: "traffic": { "capital" }, their subsystems), the
     # Dreadnought and its raids (events/).
-    import weapons, warships, encounter, homebase_hangar, devices, fighters, sectors, factions
+    import weapons, warships, encounter, homebase_hangar, devices, components, fighters, sectors, factions
     # EVERSPACE 2's factions (factions.py): its ships fly for them and its sectors belong to them, never GoF2's races
     if parts & {'fighters', 'warships', 'homebase', 'sectors'}:
         print('Adding the factions ...')
@@ -1348,6 +1349,11 @@ def main(version, parts=None):
         print('Adding the devices and consumables ...')
         items += devices.build(MOD)
         made.add('devices')
+    # EVERSPACE 2's ship components (components.py: on GoF2's shields, armour, boosters, scanners and cargo by tech level).
+    if 'components' in parts:
+        print('Adding the ship components ...')
+        items += components.build(MOD)
+        made.add('components')
     # EVERSPACE 2's sectors as systems past the edge of the star map, and ES2's resources (sectors.py).
     if 'sectors' in parts:
         sectors.configure(SRC, MOD)
