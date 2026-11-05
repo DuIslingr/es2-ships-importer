@@ -452,6 +452,10 @@ def build_station(location, gid, log=print):
                              'matrix': [float(v) for v in (*M[0], 0.0, *M[1], 0.0, *M[2], 0.0, *b, 1.0)]})
         w.g['nodes'][root].setdefault('children', []).append(len(w.g['nodes']) - 1)
         tris += sum(len(tri) for _, tri, _ in _mesh(m))
+    # its worker drones (station_life.py): their loops and weld spots, the drone as the model's scene "life"
+    import station_life
+    life = station_life.loops(lv, placed, centre, lo, hi)
+    if life and not station_life.add_drone(w, gid, mats_used, names): life = []
     rel = f'stations/{gid}.glb'
     path = os.path.join(MOD, rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -461,6 +465,7 @@ def build_station(location, gid, log=print):
     # (no Space Lounge: ES2's stations have none)
     station = {'model': rel, 'modelSize': round(extent * SCALE / 0.05), 'materials': materials, 'hangar': f'es2_ships:{gid}_hangar',
                'bar': 'none'}
+    if life: station['life'] = {'loops': life}
 
     # The hangar: the same model, ES2's own docked view of the main dock
     d = _main_dock(location, docks)
@@ -468,7 +473,8 @@ def build_station(location, gid, log=print):
     room = {'id': f'{gid}_hangar', 'type': 'hangar', 'model': rel, 'scale': SCALE, 'materials': materials,
             **dock_room(d, [o for o in docks if o is not d and np.linalg.norm(o['t'] - d['t']) < PAD_REACH], g)}
     log(f'  {gid}: {len(placed)} pieces of {len(mesh_index)} meshes, {tris} triangles, {len(materials)} materials, {extent:.0f} m, '
-        f'{len([k for k in room["markers"] if k.startswith("parked")])} parked pads, {os.path.getsize(path) >> 20} MB')
+        f'{len([k for k in room["markers"] if k.startswith("parked")])} parked pads, '
+        f'{sum(l["count"] for l in life)} worker drones on {len(life)} loops, {os.path.getsize(path) >> 20} MB')
     return station, room
 
 

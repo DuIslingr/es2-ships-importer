@@ -676,6 +676,36 @@ def planet_map(pl):
     return np.clip(col, 0.0, 1.0)
 
 
+# ES2's planet masters the remake draws as lit spheres (GoF2/Es2Planet, stations.json "planetSphere"): the look and the maps
+# its compiled shader samples (M_Planet_Desert: its ReferencedTextures), each written once into the mod as it is (every
+# channel, linear; the normals in ES2's DirectX form, the shader reads them so).
+SPHERES = {'MI_Planet_Desert_A': ('es2Desert', {
+    'surface': 'Assets/Environment/Planets/Textures/T_Planet_Rock_002_H_C_R.png',
+    'normal': 'Assets/Environment/Planets/Textures/T_Planet_Rock_002_N.png',
+    'capNormal': 'Assets/Shared/Textures/Rock/T_Rocks_004_N.png',
+    'capColour': 'Assets/Shared/Textures/Rock/T_Rocks_004_C.png',
+    'noise': 'Assets/Shared/Textures/Effects/T_Noise_016_M.png'})}
+
+
+def planet_sphere(pl):
+    """A planet's stations.json "planetSphere" (its master's look, its maps in the mod, its atmosphere colour), or None
+    when the remake has no sphere for its master or the export lacks a map."""
+    look = SPHERES.get(pl.get('material'))
+    if not look: return None
+    maps = {}
+    for role, src in look[1].items():
+        rel = 'sectors/planets/' + os.path.basename(src)
+        with jobs.once(('sphere', rel)):
+            if not jobs.exists(os.path.join(MOD, rel)):
+                p = os.path.join(SRC, src)
+                if not os.path.exists(p): return None
+                jobs.write_image(os.path.join(MOD, rel), np.asarray(Image.open(p).convert('RGBA')), 2048)
+        maps[role] = rel
+    out = {'look': look[0], 'maps': maps}
+    if pl.get('atmosphere'): out['atmosphere'] = [round(float(c), 3) for c in pl['atmosphere']]
+    return out
+
+
 def planet_disc(surface, atm, size=512, light=(-0.55, 0.45, 0.70)):
     """The planet as GoF2 draws an orbit's planet: a lit sphere on transparency, its atmosphere's rim in its colour."""
     r = size / 2 - 6
@@ -836,6 +866,8 @@ def build_sector(key):
             yw, pt = yaw_pitch(to_game(rel))
             orbit['planet'] = {'size': round(float(np.clip(2.2 - dist * 0.35, 0.8, 2.2)), 2), 'yaw': yw, 'pitch': pt}
             st['planetTexture'] = pi[0]; st['mapTexture'] = pi[1]
+            sphere = planet_sphere(pi[2])   # ES2's own planet material, drawn as a lit sphere where the remake has it
+            if sphere: st['planetSphere'] = sphere
             if pi[2]['ring']: st['mapRing'] = True
         if asteroids is False: orbit['asteroids'] = False
         elif asteroids: orbit['asteroids'] = dict(asteroids)

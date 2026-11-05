@@ -168,8 +168,10 @@ pieces round its docks in ES2's level (each different piece once in `stations/<i
 level's own material choices), and you dock as in ES2: the dock's marker shows in space, the Dock button inside ES2's dock
 box lands the ship on ES2's pad under the dock's camera (its 1400 mm lens on its spring arm, its docking timeline, sway and
 sounds), and the station's menu opens over the orbit; Launch takes off from the pad along ES2's path. Other pads close by
-hold parked ships. ES2's stations have no Space Lounge. A place without a dock in its level keeps a Galaxy on Fire 2
-station of its faction's look.
+hold parked ships. ES2's worker drones fly their loops round the station's structures and stop now and then to weld its
+hull, with sparks (`tools/station_life.py`: their splines, counts and speed from the level, the weld spots traced against the
+station's own triangles beforehand, the drone in the station's file as its scene "life"). ES2's stations have no Space
+Lounge. A place without a dock in its level keeps a Galaxy on Fire 2 station of its faction's look.
 
 ES2's ships fly for **ES2's own factions** (`tools/factions.py`), not Galaxy on Fire 2's races: Grady & Brunt, the
 Freelancers, the Coalition, the Okkar, Mr. Kato's Cartel, and the always-hostile Okkar Prime, Outlaws, Redeemers and

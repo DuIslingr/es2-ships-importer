@@ -265,9 +265,14 @@ def _tex(key, kind, src, ch, extra):
                     a = _img(spec[0])
                     c = a[..., spec[1]]
                     return c if c.shape == (h, w) else np.array(Image.fromarray(c).resize((w, h)))
-                mt = chan(metal, 0); rg = chan(rough, 128)
+                mt = chan(metal, ch or 0); rg = chan(rough, 128)   # ('ch': the metalness without a metal channel, 0-255)
                 out = np.zeros((h, w, 4), np.uint8); out[..., 0] = out[..., 1] = out[..., 2] = mt; out[..., 3] = 255 - rg
-                rel = _save(out, f'warships/maps/{es2mat._name((rough or metal)[0])}_ms{metal[1] if metal else "x"}{rough[1] if rough else "x"}.png')
+                mtag = metal[1] if metal else (f'v{ch}' if ch else 'x')
+                rel = _save(out, f'warships/maps/{es2mat._name((rough or metal)[0])}_ms{mtag}{rough[1] if rough else "x"}.png')
+        elif kind == 'raw':
+            # a map as the shader reads it, every channel (EVERSPACE 2's structure layers: the wear, its noise, the grunge)
+            a = _img(src)
+            if a is not None: rel = _save(a.copy(), f'warships/maps/{es2mat._name(src)}_raw.png', 1024)
         elif kind == 'emit':
             a = _img(src)
             if a is not None and a[..., ch].max() > 8:
@@ -410,7 +415,9 @@ def material_entries(prefix, mats_used):
                 n = tex('normal', p['normal'])
                 if n: e['normal'] = n
             if 'rough' in p or 'metal' in p:
-                ms = tex('ms', (p.get('metal'), p.get('rough')))
+                # (no metal channel: the material's own metalness, an ES2 structure's override, all over the map)
+                mv = int(round(255 * p['metallic'])) if not p.get('metal') and p.get('metallic') else None
+                ms = tex('ms', (p.get('metal'), p.get('rough')), mv)
                 if ms: e['metallicSmoothness'] = ms
             else:
                 e['metallic'] = round(p.get('metallic', 0.2), 2)
@@ -422,9 +429,36 @@ def material_entries(prefix, mats_used):
             if p.get('tiling'): e['tiling'] = p['tiling']
             if es2mat.structure(m) and re.search(r'_c\d+a?\.png$', e.get('diffuse', '')) and e.get('color'):
                 e['diffuse'] = structure_colour(e['diffuse'], e['color']); e['color'] = [1.0, 1.0, 1.0]
+            if es2mat.structure(m): e.update(structure_layers(m, 'metallicSmoothness' in e))
         out.append(e)
     return out
 
+
+def structure_layers(m, rough_map):
+    """M_Structures_Parent's layers over its base (its compiled base-pass pixel shader; the remake's GoF2/Hull
+    Es2StructureLayers): the wear (DamageDetailMask, T_Structures_Damage_C_R_MT_H, its edge broken by T_Noise_018_M) where the
+    vertex alpha is low, the grunge, BaseRoughness's overlay on the roughness map, the rim (x 5). Fields left out where the
+    material lacks the map."""
+    out, sca = {}, m['sca']
+    wear = m['tex'].get('DamageDetailMask')
+    if wear:
+        w = tex('raw', wear)
+        if w:
+            out.update({'wear': w, 'wearTiling': sca.get('DamageDetailMaskTiling', 1.0), 'wearExponent': sca.get('DamageDetailMaskExponent', 0.5),
+                        'wearCap': sca.get('DamageCap', 0.7), 'wearWidth': sca.get('DamageMaskThresholdWidth', 0.5),
+                        'wearBrightness': sca.get('DamageBrightness', 0.2), 'wearMetal': sca.get('DamageMaxMetalness', 1.0)})
+            n = m['tex'].get('DamageDetailNormal')
+            if n and tex('normal', n): out['wearNormal'] = tex('normal', n)
+            if es2mat.texture_file(WEAR_NOISE) and tex('raw', WEAR_NOISE): out['wearNoise'] = tex('raw', WEAR_NOISE)
+    g = m['tex'].get('GrungeTexture')
+    if g and tex('raw', g):
+        out.update({'grunge': tex('raw', g), 'grungeTiling': sca.get('GrungeTiling', 1.0), 'grungeAmount': sca.get('GrungeAmount', 0.1)})
+    if rough_map and sca.get('BaseRoughness') is not None: out['baseRoughness'] = round(float(sca['BaseRoughness']), 3)
+    if out: out['rimBoost'] = 5.0
+    return {k: round(v, 4) if isinstance(v, float) else v for k, v in out.items()}
+
+
+WEAR_NOISE = 'T_Noise_018_M'   # M_Structures_Parent's own mask under the wear's edge (no parameter: sampled at 8 x its tiling)
 
 LIGHT_ATLAS = 'T_Structures_FX_Lights_001'
 
@@ -483,7 +517,8 @@ def split_prims(prefix, prims, mats_used, layered=False, names=None):
                 names[key] = f'{prefix}{len(names):02d}|'
                 mats_used[names[key]] = key
             used, inv = np.unique(sel.reshape(-1), return_inverse=True)
-            a = {k: v[used] for k, v in attrs.items() if k != 'COLOR_0'}
+            # (the structures keep their vertex colour: its alpha is their occlusion and wear mask, structure_layers)
+            a = {k: v[used] for k, v in attrs.items() if k != 'COLOR_0' or (kind == 'pbr' and es2mat.structure(m))}
             out.append((a, inv.astype(np.uint32), names[key]))
     return out
 

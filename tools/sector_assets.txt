@@ -33,3 +33,6 @@
 /Game/Assets/Environment/Planets/Textures/T_Planet_Rock_002_N
 /Game/Assets/Environment/Planets/Textures/T_Planet_Volcanic_001_M
 /Game/Assets/Environment/Planets/Textures/T_Planet_Volcanic_001_N
+/Game/Assets/Shared/Textures/Effects/T_Noise_016_M
+/Game/Assets/Shared/Textures/Rock/T_Rocks_004_N
+/Game/Assets/Shared/Textures/Rock/T_Rocks_004_C

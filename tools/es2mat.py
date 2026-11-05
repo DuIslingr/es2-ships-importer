@@ -257,7 +257,11 @@ def plan(m):
     t = m['sca'].get('Tiling')
     if t and abs(t - 1) > 1e-3: p['tiling'] = float(t)
     mo = m['sca'].get('MetalOverride', m['sca'].get('MetalnessOverride'))
-    if mo is not None and mo >= 0 and 'metal' not in p: p['metallic'] = float(mo)
+    if structure(m) and mo is not None and mo >= 0:
+        # M_Structures_Parent: an override of 0 or more wins over the masks' metal channel (its compiled shader: the mask only
+        # below 0), so the hull platings at 1 are all metal
+        p.pop('metal', None); p['metallic'] = float(mo)
+    elif mo is not None and mo >= 0 and 'metal' not in p: p['metallic'] = float(mo)
     if 'Metal' in m['sca'] and 'metal' not in p: p['metallic'] = float(m['sca']['Metal'])
     br = m['sca'].get('BaseRoughness', m['sca'].get('Roughness'))
     if br is not None and 'rough' not in p: p['smoothness'] = max(0.0, min(1.0, 1.0 - float(br)))
