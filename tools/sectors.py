@@ -560,6 +560,33 @@ def write_ambience(stations):
     return zones, len(written)
 
 
+# ES2's plasma fields (BP_PlasmaField: a cloud of plasma to harvest, Radius 20 000-500 000 cm) as the remake's orbit
+# "gasClouds": GoF2's own gas clouds at their places (a spectral filter shows them, an ionizing missile bursts them, a plasma
+# collector gathers the sparks), in the GoF2 plasma of the location's ES2 level (PLASMA_BY_LEVEL: Green to Red, the deeper
+# the rarer). The planet-side levels' (S05L03P, S07L01P...) are left out: GoF2 never lands.
+PLASMA_BY_LEVEL = [(10, 201), (18, 202), (26, 203), (99, 204)]   # (below this ES2 level, the GoF2 plasma item)
+MAX_GAS_CLOUDS = 8
+GAS_CLOUD_RANGE = (25000, 200000)   # game units from the station: GoF2's clouds keep 25 000 off it (Level::createGasClouds)
+
+
+def level_gas_clouds(es2_id, es2_level):
+    """An ES2 location's plasma fields as the remake's orbit "gasClouds" (the nearest MAX_GAS_CLOUDS within GAS_CLOUD_RANGE
+    of the station); None without any or on a planet-side level."""
+    if re.search(r'L\d\dP', es2_id): return None
+    d = _level(es2_id)
+    def at(ref):
+        m = re.search(r'\.(\d+)$', (ref or {}).get('ObjectPath', ''))
+        i = int(m.group(1)) if m else -1
+        return d[i].get('Properties', {}) if 0 <= i < len(d) else {}
+    places = [to_game(_vec(at(o.get('Properties', {}).get('RootComponent')).get('RelativeLocation'))) * 0.2
+              for o in d if o.get('Type') == 'BP_PlasmaField_C']
+    places = [g for g in places if GAS_CLOUD_RANGE[0] <= float(np.linalg.norm(g)) <= GAS_CLOUD_RANGE[1]]
+    if not places: return None
+    places.sort(key=lambda g: float(np.linalg.norm(g)))
+    plasma = next(item for top, item in PLASMA_BY_LEVEL if (es2_level or 1) < top)
+    return {'plasma': plasma, 'clouds': [[round(float(x)) for x in g] for g in places[:MAX_GAS_CLOUDS]]}
+
+
 # ES2's item containers (Blueprints/Pickups/BP_ItemContainer*): opened by a hit, unless bulletproof (its ContainerType
 # OpenOnInteract) or armoured (OpenOnUnlocked, the conductor puzzle: the remake's bulletproof, opened with the action key).
 CONTAINER_CLASSES = {'BP_ItemContainer_C': False, 'BP_ItemContainer_Okkar_C': False,
@@ -958,6 +985,8 @@ def build_sector(key):
         if hz: orbit['hazards'] = hz
         amb = level_ambience(es2_id)   # ES2's ambience zones round its stations, factories and wrecks
         if amb: orbit['ambience'] = amb
+        gc = level_gas_clouds(es2_id, L.get('level'))   # ES2's plasma fields as GoF2's gas clouds
+        if gc: orbit['gasClouds'] = gc
         if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
         ct = level_containers(es2_id)   # ES2's item containers there
         if ct: orbit['containers'] = ct
