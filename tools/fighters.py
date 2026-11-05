@@ -28,6 +28,37 @@ LOG = print
 ROLES = [('BP_LootDrone', 'lootDrone'), ('FrostShieldDrone', None), ('SniperDrone', 'sniper'), ('DetonatorDrone', 'detonator'), ('WebberDrone', 'webber'), ('ShieldChargeDrone', 'shieldCharger'),
          ('ShieldDrone', 'shieldCharger'), ('LinkDrone', 'armorLink'), ('AntiMissileDrone', 'antiMissile'), ('JumpSuppressorDrone', 'jumpSuppressor')]
 
+# Their abilities (the remake's ships.json "traffic": { "devices" }, the blueprints read with es2_re/kismet.py, 2026-11-05).
+# They make ES2's enemies harder than GoF2's, so each comes from a rank on (MIN_RANK) and to a share of the hull's NPCs
+# (SHARE), as the GoF3 hulls' mine drops do. ES2's distances in cm x 0.2 (game units).
+MIN_RANK, MINES_MIN_RANK, SHARE = 4, 6, 50
+ABILITIES = {
+    # its BP_FrontShield up through its special attack (OnAiBeginSpecialAttack ActivateShield .. OnAiEndSpecialAttack)
+    'BP_Cultist_Heavy': [{'type': 'frontShield', 'range': [0, 20000], 'ahead': 45, 'durationMs': 6000, 'cooldownMs': 10000}],
+    # its front shield, dropped while it fires its missiles (3 s), and scatter bombs (BombDropCooldown 2 s, within
+    # BombDropDistanceMax 40 000 cm, ScatterBombDamageRadius 10 000)
+    'BP_Outlaw_Bomber_Zurilia': [{'type': 'frontShield', 'range': [0, 20000], 'ahead': 45, 'durationMs': 8000, 'cooldownMs': 3000},
+                                 {'type': 'bombSpreader', 'range': [0, 8000], 'bombEveryMs': 2000, 'durationMs': 6000, 'cooldownMs': 6000}],
+    # Teleport() when tailed, gaining distance or fleeing (after 0-3 s): the player behind it
+    'BP_Okkar_Interceptor': [{'type': 'teleport', 'range': [0, 15000], 'notAhead': 120, 'everyMs': 3000, 'chance': 50, 'cooldownMs': 12000}],
+    'BP_OkkarPrime_Interceptor': [{'type': 'teleport', 'range': [0, 15000], 'notAhead': 120, 'everyMs': 3000, 'chance': 50, 'cooldownMs': 12000}],
+    # BP_ProximityMine_Base behind it while the player is within MineRange (250 000 cm), each living 10 s
+    'BP_Outlaw_MineLayer': [{'type': 'bombSpreader', 'range': [0, 50000], 'bombEveryMs': 2500, 'durationMs': 10000, 'cooldownMs': 5000}],
+    # its last act: a 4 s boost, then MinMines..MaxMines (4-6) mines flung ahead within 45 degrees before its pod ejects
+    'BP_Outlaw_Madcap': [{'type': 'bombSpreader', 'hullBelow': 25, 'bombEveryMs': 200, 'durationMs': 1000, 'cooldownMs': 600000}],
+}
+
+
+def abilities_of(bp):
+    """The blueprint's devices with their rank and share (None: it has none)."""
+    out = []
+    for d in ABILITIES.get(bp, []):
+        d = dict(d, share=SHARE)
+        d['minRank'] = MINES_MIN_RANK if d['type'] == 'bombSpreader' else MIN_RANK
+        out.append(d)
+    return out or None
+
+
 def loot_of(bp):
     """A blueprint's own drops from ES2's loot_npcs.csv as the remake's "traffic.loot" (and "lootDrops"): its row's item /
     chance / amount triples whose item the mod has (sectors.drop_ref: ES2's resources), its drop count. None without."""
@@ -292,7 +323,7 @@ def build_one(sid, bp, race, weight, desc):
             'hangarHeight': round(max(0.0, -float(mn[1])) * f / 0.05 + 20),
             'mounts': mounts, 'materials': warships.material_entries(sid, mats_used),
             'traffic': {'races': [fac], 'weight': weight, **({'boss': True} if boss else {}), **({'role': role_of(bp)} if role_of(bp) else {}),
-                        **(loot_of(bp) or {})},
+                        **(loot_of(bp) or {}), **({'devices': abilities_of(bp)} if abilities_of(bp) else {})},
             'explosionScale': round(min(3.0, max(0.6, float(size.max()) * f / 50.0)), 2)}
     effects = warships.engine_effects(bp)
     if effects: ship['es2Engine'] = effects
