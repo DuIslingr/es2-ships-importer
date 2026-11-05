@@ -954,6 +954,10 @@ def build(log=print):
                         if s.get('orbit', {}).get('station', True) is True: s['music'] = f'{system["id"]}_station'
                 import shutil; shutil.rmtree(tmp, ignore_errors=True)
                 LOG(f'  music: {"space" if sp else "-"}, {"docked" if stm else "-"}')
+            # the fights' music: each sector's tense layer, then its battle set (battle_music.py; systems.json "battleMusic")
+            import battle_music
+            battle_music.SRC = SRC
+            battle_music.add([(key, m[0]) for key, m in zip(SECTOR_KEYS, music)], LOG)
     except Exception as e:
         LOG(f'  no sector music: {e}')
     items = resource_items(MOD)
