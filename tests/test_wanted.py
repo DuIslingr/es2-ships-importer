@@ -35,6 +35,12 @@ class WantedTests(unittest.TestCase):
         self.assertNotIn('escorts', w[0], 'no wingmen, no escorts')
         self.assertEqual(['es2_ships:es2_outlaw_ravager'], w[2]['escorts'], 'only the escorts the mod has')
         self.assertEqual('es2_ships:okkar_prime', w[0]['race'])
+        self.assertNotIn('devices', w[0], 'the Claw has no kit of its own')
+        trapper = w[1]['devices']
+        self.assertEqual(['frontShield', 'minions', 'minions'], [d['type'] for d in trapper])
+        self.assertEqual([66, 66, 33], [d['hullBelow'] for d in trapper], 'its shield, then its armour depleted')
+        self.assertEqual(75, trapper[2]['blockPercent'], 'the armour drones: the armour link')
+        self.assertEqual([50], [d.get('hullBelow') for d in w[2]['devices']], "the Leader's second phase")
 
 
 if __name__ == '__main__':
