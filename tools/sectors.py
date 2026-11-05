@@ -479,6 +479,87 @@ def level_hazards(es2_id):
     return out[:MAX_HAZARDS]
 
 
+# ES2's ambience zones in space (BP_MusicTrigger's OverrideAmbience, its InnerSphereRadius): the four sets its location
+# levels place round stations, factories, cargo wrecks and wreck fields, as the remake's orbit "ambience" (the loops as the
+# mod's music tracks, music/es2amb_<wave>: about a minute each, kept compressed; the adds its sounds, sounds/es2amb_<wave>). Their cues (Audio/SFX/Ambience/<set>/S_SC_*): the loops a SoundNodeRandom picks
+# from, the adds a SoundNodeDelay (DelayMin..Max) over a SoundNodeRandom mixes in at its InputVolume. ES2's planet-side
+# ambiences (deserts, snow, lava, caves) are left out: GoF2 never lands, and ES2 plays them on planets only.
+AMBIENCE = {
+    'S_SC_Outlaw_Station': {'loops': ['S_Outlaw_Station_001', 'S_Outlaw_Station_002', 'S_Outlaw_Station_003'], 'volume': 0.85},
+    'S_SC_Ambience_Factory': {'loops': ['S_Ambience_Factory_003', 'S_Ambience_Factory_004', 'S_Ambience_Factory_005',
+                                        'S_Ambience_Factory_007b'],
+                              'adds': [f'S_Factory_Ambience_Add_{i:02d}' for i in range(1, 11)], 'addVolume': 0.1,
+                              'addEveryMs': [4000, 10000]},
+    'S_SC_Cargo_Wreck_Ambience': {'loops': ['S_Cargo_Wreck_Ambience_001'],
+                                  'adds': [f'S_Cargo_Wreck_Ambience_Add_{i:03d}' for i in range(1, 9)], 'addVolume': 0.3,
+                                  'addEveryMs': [8000, 15000]},
+    'S_SC_WreckField_Loop': {'loops': ['S_WreckField_001'], 'volume': 1.0},   # (its cue's 1.5: the remake's at most 1)
+}
+AMBIENCE_GAIN = 0.6   # x the cues' volumes: ES2's beds under the remake's music and sound effects
+MAX_AMBIENCE = 6
+
+
+def ambience_sound(wave): return 'es2amb_' + wave[2:].lower()
+
+
+def level_ambience(es2_id):
+    """An ES2 location's ambience zones in space as the remake's orbit "ambience" (the nearest MAX_AMBIENCE): each its set's
+    loops and adds (as the mod's sound names), volumes, its place (ES2 cm -> game units) and inner radius x scale."""
+    d = _level(es2_id)
+    if not d: return []
+    def at(ref):
+        m = re.search(r'\.(\d+)$', (ref or {}).get('ObjectPath', ''))
+        i = int(m.group(1)) if m else -1
+        return d[i].get('Properties', {}) if 0 <= i < len(d) else {}
+    out = []
+    for o in d:
+        if o.get('Type') != 'BP_MusicTrigger_C': continue
+        p = o.get('Properties', {})
+        m = re.search(r"'(\w+)'", (p.get('OverrideAmbience') or {}).get('ObjectName', ''))
+        spec = AMBIENCE.get(m.group(1)) if m else None
+        if not spec: continue
+        root = at(p.get('RootComponent'))
+        sc = root.get('RelativeScale3D') or {}
+        scale = max(abs(sc.get('X', 1.0)), abs(sc.get('Y', 1.0)), abs(sc.get('Z', 1.0))) if sc else 1.0
+        z = {'loops': [ambience_sound(w) for w in spec['loops']], 'volume': round(spec.get('volume', 1.0) * AMBIENCE_GAIN, 2),
+             'centre': [round(float(x)) for x in to_game(_vec(root.get('RelativeLocation'))) * 0.2],
+             'radius': round(max(1000.0, float(p.get('InnerSphereRadius', 50000.0)) * scale * 0.2))}
+        if spec.get('adds'):
+            z['adds'] = [ambience_sound(w) for w in spec['adds']]
+            z['addVolume'] = round(spec['addVolume'] * AMBIENCE_GAIN, 2)
+            z['addEveryMs'] = spec['addEveryMs']
+        out.append(z)
+    out.sort(key=lambda z: np.linalg.norm(z['centre']))
+    return out[:MAX_AMBIENCE]
+
+
+def write_ambience(stations):
+    """The ambience waves the orbits use, into the mod's sounds; the orbits' zones whose loops couldn't be written dropped."""
+    import audio
+    loops = {w for spec in AMBIENCE.values() for w in spec['loops']}
+    used = sorted({w for spec in AMBIENCE.values() for w in spec['loops'] + spec.get('adds', [])
+                   if any(ambience_sound(w) in z['loops'] + z.get('adds', []) for st in stations for z in st.get('orbit', {}).get('ambience', []))})
+    written = set()
+    if used and audio.available():
+        waves, tmp = audio.decode(used)
+        for w in used:
+            if w in waves:
+                audio.write(waves[w], f'{"music" if w in loops else "sounds"}/{ambience_sound(w)}'); written.add(ambience_sound(w))
+        import shutil; shutil.rmtree(tmp, ignore_errors=True)
+    zones = 0
+    for st in stations:
+        orbit = st.get('orbit', {})
+        if 'ambience' not in orbit: continue
+        keep = []
+        for z in orbit['ambience']:
+            z['loops'] = [s for s in z['loops'] if s in written]
+            if 'adds' in z: z['adds'] = [s for s in z['adds'] if s in written]
+            if z['loops']: keep.append(z)
+        if keep: orbit['ambience'] = keep; zones += len(keep)
+        else: del orbit['ambience']
+    return zones, len(written)
+
+
 # ES2's item containers (Blueprints/Pickups/BP_ItemContainer*): opened by a hit, unless bulletproof (its ContainerType
 # OpenOnInteract) or armoured (OpenOnUnlocked, the conductor puzzle: the remake's bulletproof, opened with the action key).
 CONTAINER_CLASSES = {'BP_ItemContainer_C': False, 'BP_ItemContainer_Okkar_C': False,
@@ -875,6 +956,8 @@ def build_sector(key):
         if L.get('level'): orbit['level'] = int(max(1, min(30, L['level'])))   # ES2's location level: its encounters' pay
         hz = level_hazards(es2_id)   # ES2's heat volumes and radiation fields at their places
         if hz: orbit['hazards'] = hz
+        amb = level_ambience(es2_id)   # ES2's ambience zones round its stations, factories and wrecks
+        if amb: orbit['ambience'] = amb
         if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
         ct = level_containers(es2_id)   # ES2's item containers there
         if ct: orbit['containers'] = ct
@@ -992,6 +1075,13 @@ def build(log=print):
             battle_music.add([(key, m[0]) for key, m in zip(SECTOR_KEYS, music)], LOG)
     except Exception as e:
         LOG(f'  no sector music: {e}')
+    # the orbits' ambience zones: their waves as the mod's sounds (the zones dropped when they can't be written)
+    try:
+        zones, waves = write_ambience(stations)
+        LOG(f'  ambience: {zones} zones, {waves} sounds')
+    except Exception as e:
+        for st in stations: st.get('orbit', {}).pop('ambience', None)
+        LOG(f'  no ambience: {e}')
     items = resource_items(MOD)
     LOG(f'  {len(items)} of EVERSPACE 2\'s resources as commodities ({sum(1 for i in items if i.get("icon"))} icons)')
     return systems, stations, items
