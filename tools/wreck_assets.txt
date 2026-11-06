@@ -1,0 +1,9 @@
+# What the wreck fields' hulls need beyond a plain FModel export (tools/sectors.py wreck_models). tools/shaders: export <this file> <Exports> all
+/Game/Assets/Environment/Structures/Meshes/SM_Wrecks_001
+/Game/Assets/Environment/Structures/Meshes/SM_Wrecks_003
+/Game/Assets/Environment/Structures/Meshes/SM_Wrecks_004
+/Game/Assets/Environment/Structures/Meshes/SM_Wrecks_006
+/Game/Assets/Environment/Structures/Meshes/SM_Wrecks_008
+/Game/Assets/Environment/Structures/Meshes/SM_Wrecks_009
+/Game/Assets/Environment/Structures/Meshes/SM_Wrecks_010
+/Game/Assets/Environment/Structures/Meshes/SM_Wrecks_018

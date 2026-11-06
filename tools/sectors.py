@@ -668,16 +668,90 @@ def container_models():
 
 # ES2's own asteroids (Assets/Environment/Asteroids/Meshes; tools/asteroid_assets.txt exports them) as the orbits'
 # asteroids' "models" with their materials (warships.py's, as the props are made): the rock orbits its jagged rocks
-# (MI_Asteroid_Rock_Seamless_Jagged: T_Rocks_005_C on T_Quixel_Rock_017_N, es2mat reads it), the ice orbits its generic ices,
-# whose master shades them from their C_R_TH map (grey, roughness, thickness) and noise: the grey with an icy tint here
-# (ICE_TINT). Its generic rocks' tiling Quixel shader isn't read by es2mat (white rocks): left out. Mining stays GoF2's.
+# (MI_Asteroid_Rock_Seamless_Jagged: T_Rocks_005_C on T_Quixel_Rock_017_N, es2mat reads it) and its generic rocks, the ice
+# orbits its generic ices. The generic rocks' and ices' masters (M_Asteroid_Rock_Parent, M_Asteroid_Ice_Parent) have no
+# colour map: their compiled base-pass pixel shaders (es2_re astmat, ShaderDump + disasm) take the colour from
+# MPC_Asteroids (RockColor / IceColor, which no level changes) and shade it by the mesh's curvature map, so it is baked
+# here (rock_maps, ice_maps). Mining stays GoF2's.
 ASTEROID_MESHES = {'rock': ['SM_Asteroid_Rock_Jagged_001', 'SM_Asteroid_Rock_Jagged_002', 'SM_Asteroid_Rock_Jagged_003',
-                            'SM_Asteroid_Rock_Jagged_004', 'SM_Asteroid_Rock_Jagged_005'],
+                            'SM_Asteroid_Rock_Jagged_004', 'SM_Asteroid_Rock_Jagged_005',
+                            'SM_Asteroid_Rock_Generic_Small_001', 'SM_Asteroid_Rock_Generic_Small_002',
+                            'SM_Asteroid_Rock_Generic_Small_003', 'SM_Asteroid_Rock_Generic_Medium_001',
+                            'SM_Asteroid_Rock_Generic_Medium_002'],
                    'ice': ['SM_Asteroid_Ice_Generic_Small_001', 'SM_Asteroid_Ice_Generic_Small_002',
                            'SM_Asteroid_Ice_Generic_Medium_001', 'SM_Asteroid_Ice_Generic_Medium_002']}
-ICE_TINT = [0.78, 0.86, 0.95]
+ROCK_COLOR = [0.4, 0.394272, 0.37708]   # MPC_Asteroids RockColor / IceColor (linear)
+ICE_COLOR = [0.395832, 0.762062, 1.0]
 ASTEROID_MAP_SIZE = 1024
 _asteroid_models = {}
+
+
+def _srgb(lin):
+    lin = np.clip(lin, 0.0, 1.0)
+    return np.round(np.where(lin <= 0.0031308, lin * 12.92, 1.055 * lin ** (1 / 2.4) - 0.055) * 255).astype(np.uint8)
+
+
+def _overlay(base, blend):
+    """UE's BlendOverlay(base, blend), the masters' colour over their curvature."""
+    return np.where(base >= 0.5, 1 - 2 * (1 - base) * (1 - blend), 2 * base * blend)
+
+
+def _contrast(x, k):
+    """The masters' contrast curve (their shaders' S-curve): 0.5 (2x)^k below a half, 1 - 0.5 (2 - 2x)^k above."""
+    a = np.clip(2 * x, 0, 1)
+    lo = 0.5 * a ** k
+    hi = 1 - np.clip(1 - 2 * (x - 0.5), 0, 1) ** k
+    return np.where(hi > 0, 0.5 + 0.5 * hi, lo)
+
+
+def _map(name, size):
+    """A map's channels as floats (0-1) at size x size, None without it."""
+    import warships
+    a = warships._img(name)
+    if a is None: return None
+    if a.shape[0] != size: a = np.array(Image.fromarray(a).resize((size, size), Image.LANCZOS))
+    return a.astype(np.float32) / 255
+
+
+def rock_maps(mi):
+    """(colour, metallicSmoothness) maps of a generic rock (MI_Asteroid_Rock_Generic_*: M_Asteroid_Rock_Parent's base-pass
+    pixel shader with its parameters, which every generic rock keeps): its AO_CRV_R map's curvature (G) overlaid by the
+    Quixel cavity (T_Quixel_Rock_022_C_R_H R, at the UV x DetailTiling 2), through the contrast curve (CurvatureContrast 0.5)
+    to the power CurvatureStrength 1.5; RockColor overlaid on it, to the power of the colour variation's exponent (2 - the
+    world-space noise: 1.5, its middle); the roughness BaseRoughness 0.7 overlaid on the map's B (0.4 + 0.6 B). The rim
+    light (view-dependent) left out."""
+    import warships
+    t = 'T_' + mi[3:]
+    s = ASTEROID_MAP_SIZE
+    m = _map(t + '_AO_CRV_R', s)
+    q = _map('T_Quixel_Rock_022_C_R_H', s // 2)
+    if m is None or q is None: return None
+    cav = np.tile(q[..., 0], (2, 2))
+    c = _contrast(_overlay(m[..., 1], cav), 0.5) ** 1.5
+    col = _overlay(np.array(ROCK_COLOR, np.float32), c[..., None]) ** 1.5
+    rough = 0.4 + 0.6 * m[..., 2]
+    ms = np.zeros((s, s, 4), np.uint8); ms[..., 3] = np.round((1 - rough) * 255)
+    return (warships._save(_srgb(col), f'asteroids/maps/{t}_c.png', s), warships._save(ms, f'asteroids/maps/{t}_ms.png', s))
+
+
+def ice_maps(mi):
+    """(colour, metallicSmoothness) maps of a generic ice (MI_Asteroid_Ice_Generic_*: M_Asteroid_Ice_Parent's base-pass
+    pixel shader with the ices' parameters): IceColor x the per-asteroid variation (0.2-1 by ColorVariationAmount 0.8: 0.6,
+    its middle), overlaid on the C_R_TH map's curvature (R ^ CurvatureExponent 1, through the contrast curve 2), times the
+    noise (T_Noise_014_M at the UV x 2, its square root through the contrast curve 2, by Param_2 0.7; its parallax left
+    out), times (1 - thickness B) ^ ThicknessExponent 1; the roughness the map's G. The fresnel (view-dependent, into the
+    subsurface colour) left out."""
+    import warships
+    t = 'T_' + mi[3:]
+    s = ASTEROID_MAP_SIZE
+    m = _map(t + '_C_R_TH', s)
+    nz = _map('T_Noise_014_M', s // 2)
+    if m is None or nz is None: return None
+    c = _contrast(m[..., 0], 2.0)
+    n = _contrast(np.sqrt(np.tile(nz[..., 0], (2, 2))), 2.0)
+    col = _overlay(np.array(ICE_COLOR, np.float32) * 0.6, c[..., None]) * ((n - 1) * 0.7 + 1)[..., None] * (1 - m[..., 2:3])
+    ms = np.zeros((s, s, 4), np.uint8); ms[..., 3] = np.round((1 - m[..., 1]) * 255)
+    return (warships._save(_srgb(col), f'asteroids/maps/{t}_c.png', s), warships._save(ms, f'asteroids/maps/{t}_ms.png', s))
 
 
 def asteroid_models(kind):
@@ -686,14 +760,13 @@ def asteroid_models(kind):
     import warships, es2mat
     if warships.SRC is None: warships.configure(SRC, MOD, LOG)
     plan = es2mat.plan
-    def ice_plan(m):   # (the generic ices: their C_R_TH map's grey and roughness, their normals)
+    baked = {'MI_Asteroid_Rock_Generic': rock_maps, 'MI_Asteroid_Ice_Generic': ice_maps}
+    def baked_plan(m):   # (the generic rocks and ices: their normals; the colour and roughness baked below)
         n = (m or {}).get('name') or ''
-        if n.startswith('MI_Asteroid_Ice_Generic'):
-            t = 'T_' + n[3:]
-            return {'colour': (t + '_C_R_TH', 0), 'rough': (t + '_C_R_TH', 1), 'normal': t + '_N', 'tint': list(ICE_TINT)}
+        if any(n.startswith(k) for k in baked): return {'normal': 'T_' + n[3:] + '_N', 'tint': [1.0, 1.0, 1.0]}
         return plan(m)
     models, materials = [], []
-    es2mat.plan = ice_plan
+    es2mat.plan = baked_plan
     try:
         for mesh in ASTEROID_MESHES.get(kind, []):
             path = os.path.join(SRC, 'Assets/Environment/Asteroids/Meshes', mesh + '.glb')
@@ -705,7 +778,17 @@ def asteroid_models(kind):
             rel = f'asteroids/{mesh.lower()}.glb'
             warships.write_glb(rel, warships.split_prims(prefix, prims, used), (mn + mx) / 2)
             models.append(rel)
-            materials += warships.material_entries(prefix, used)
+            for e in warships.material_entries(prefix, used):
+                src = es2mat._name(used[e['material']][0])
+                bake = next((f for k, f in baked.items() if src.startswith(k)), None)
+                maps = bake(src) if bake else None
+                if maps:
+                    e.update({'diffuse': maps[0], 'metallicSmoothness': maps[1], 'color': [1.0, 1.0, 1.0]})
+                    e.pop('metallic', None); e.pop('smoothness', None)
+                    if bake is rock_maps:   # (the Quixel detail normal at its tiling, as URP's detail normal)
+                        dn = warships.tex('normal', 'T_Quixel_Rock_022_N')
+                        if dn: e.update({'detailNormal': dn, 'detailTiling': 2.0})
+                materials.append(e)
     finally:
         es2mat.plan = plan
     # (the asteroids' own maps at ASTEROID_MAP_SIZE: a GoF2 asteroid never fills the screen; shared maps untouched)
@@ -723,6 +806,39 @@ def asteroid_models(kind):
     _asteroid_models[kind] = {'models': models, 'materials': materials} if models else None
     if not models: LOG(f'  asteroids ({kind}): their meshes aren\'t in the export (tools/asteroid_assets.txt): the game\'s')
     return _asteroid_models[kind]
+
+
+# ES2's wreck fields' hulls (BP_MeshField_Wrecks' SM_Wrecks_*, Assets/Environment/Structures/Meshes; tools/
+# wreck_assets.txt exports them) as the orbit "wrecks" "models" with their materials (MI_ShipWrecks_RGB_004, warships.py's
+# as the props are made): the field's larger hulls (113-400 m), the largest WRECK_SIZE game units (ES2 cm x 0.2) and the
+# others in proportion (the remake keeps them as authored); WRECK_HULKS of them among the wreck containers.
+WRECK_MESHES = ['SM_Wrecks_001', 'SM_Wrecks_003', 'SM_Wrecks_004', 'SM_Wrecks_006', 'SM_Wrecks_008', 'SM_Wrecks_009',
+                'SM_Wrecks_010', 'SM_Wrecks_018']
+WRECK_SIZE = 8000   # (SM_Wrecks_010's 400 m)
+WRECK_HULKS = 8
+_wreck_models = []
+
+
+def wreck_models():
+    """{"models", "materials"} of the wreck fields' hulls (made once), None without the meshes."""
+    if _wreck_models: return _wreck_models[0]
+    import warships
+    if warships.SRC is None: warships.configure(SRC, MOD, LOG)
+    models, materials = [], []
+    for mesh in WRECK_MESHES:
+        path = os.path.join(SRC, 'Assets/Environment/Structures/Meshes', mesh + '.glb')
+        if not os.path.exists(path): continue
+        prims = warships.read_prims(path)
+        mn, mx = warships.bounds(prims)
+        used = {}
+        prefix = 'es2_' + mesh.lower().replace('sm_', '') + '_'
+        rel = f'wrecks/{mesh.lower()}.glb'
+        warships.write_glb(rel, warships.split_prims(prefix, prims, used), (mn + mx) / 2)
+        models.append(rel)
+        materials += warships.material_entries(prefix, used)
+    _wreck_models.append({'models': models, 'materials': materials} if models else None)
+    if not models: LOG('  wrecks: their meshes aren\'t in the export (tools/wreck_assets.txt): containers only')
+    return _wreck_models[0]
 
 
 # ES2's plasma fields (BP_PlasmaField: a cloud of plasma to harvest, Radius 20 000-500 000 cm) as the remake's orbit
@@ -1158,7 +1274,10 @@ def build_sector(key):
         loc, raid = orbit_spawns(es2_id)   # who flies here in ES2 (location_spawns.CSV)
         if loc: orbit['locals'] = [f'es2_ships:{f}' for f in loc]
         if raid: orbit['raiders'] = [f'es2_ships:{f}' for f in raid]
-        if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
+        if is_wreck_place(L):   # ES2's war wrecks to salvage, among its wreck hulls
+            orbit['wrecks'] = {'count': 16, 'spread': 80000}
+            hulls = wreck_models()
+            if hulls: orbit['wrecks'].update({'models': hulls['models'], 'materials': hulls['materials'], 'hulks': WRECK_HULKS, 'size': WRECK_SIZE})
         ct = level_containers(es2_id)   # ES2's item containers there
         unique = orbit_unique_loot(es2_id)   # ... and its fixed loot in them, once a game
         if unique:
