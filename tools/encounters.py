@@ -16,6 +16,8 @@ ENCOUNTERS = [
     # BP_Encounter_Minesweeper (RegardAsDistressCall, its stuck-freighter task): the remake's minesweeper, mines being a danger
     # only from a rank on and where security is low, as the orbit minefields
     {'id': 'es2_minesweeper', 'kind': 'minesweeper', 'weight': 5, 'visible': True, 'minRank': 4, 'security': [0, 1], 'name': 'Minesweeper'},
+    # BP_Encounter_ShootingChallenge: the remake's challenge (a Challenger and 4-5 enemy groups; a battle's risk)
+    {'id': 'es2_challenge', 'kind': 'challenge', 'weight': 5, 'visible': True, 'security': [0, 1, 2], 'name': 'Shooting Challenge'},
     {'id': 'es2_rift', 'kind': 'rift'},   # (the rift's chance and stages are the remake's: the mod only adds its bosses)
 ]
 
