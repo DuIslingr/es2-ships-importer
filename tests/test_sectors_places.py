@@ -55,6 +55,25 @@ class HazardTests(unittest.TestCase):
             finally: sectors.SRC = old
         self.assertEqual([2.0, 3.64], [x['raiderDps'] for x in h], "its own 110, else ES2's 200, over the raider's 55")
 
+    def test_frost_and_corrosion_fields(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            def obj(i, t, **props): return {'Type': t, 'Name': f'o{i}', 'Properties': props}
+            ref = lambda i: {'ObjectPath': f'/Game/Maps/Locations/F.{i}'}
+            level = [obj(0, 'BP_FrostField_C', RootComponent=ref(1), Sphere=ref(2), Radius=70000.0),
+                     obj(1, 'SceneComponent', RelativeLocation={'X': 500000, 'Y': 0, 'Z': 0}), obj(2, 'SphereComponent', SphereRadius=70000.0),
+                     obj(3, 'BP_CorrosionField_C', RootComponent=ref(4), Radius=4000.0),
+                     obj(4, 'SceneComponent', RelativeLocation={'X': 0, 'Y': 600000, 'Z': 0}),
+                     obj(5, 'BP_DamageField_C', RootComponent=ref(4))]
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'F.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: h = sectors.level_hazards('F')
+            finally: sectors.SRC = old
+        self.assertEqual([('frost', 14000), ('corrosion', 1000)], [(x['kind'], x['radius']) for x in h],
+                         "700 m across; the corrosion's 40 m at the remake's 1000-unit least; the mining fire's damage field left out")
+        self.assertNotIn('raiderDps', h[1], "the remake's default: ES2's intensity 5")
+
 
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):

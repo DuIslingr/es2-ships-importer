@@ -430,7 +430,11 @@ def read(sector):
     return out
 
 
-HAZARD_CLASSES = {'BP_HeatDamageVolume_C': 'heat', 'BP_RadiationField_C': 'radiation'}
+# (BP_FrostField / BP_CorrosionField too: the remake's frost and corrosion kinds with ES2's own buildup, freeze and ticks;
+# BP_DamageField left out: each is a child of a burning mining prop, BP_Mining_Fire_001, which the mod doesn't place)
+HAZARD_CLASSES = {'BP_HeatDamageVolume_C': 'heat', 'BP_RadiationField_C': 'radiation', 'BP_FrostField_C': 'frost',
+                  'BP_CorrosionField_C': 'corrosion'}
+HAZARD_RADIUS = {'heat': 10000.0, 'radiation': 15000.0, 'frost': 70000.0, 'corrosion': 4000.0}   # (cm: the blueprints' spheres)
 HEAT_DPS = 200.0        # BP_HeatDamageVolume's DamagePerSecondMax (an actor may set its own): GetScaledDamage by level, as
 ES2_RAIDER_DPS = 55.0   # its NPCs' DPS are: the Outlaw raider's 31 + 24 (npc_leveling.csv); the remake's "raiderDps"
 HAZARD_CLEAR = 10000    # game units (500 m) a volume's edge stays from the orbit's centre, where the station and arrivals are
@@ -450,7 +454,7 @@ def _level(es2_id):
 
 
 def level_hazards(es2_id):
-    """An ES2 location's heat volumes and radiation fields (Maps/Locations/<id>.json) as the remake's orbit "hazards":
+    """An ES2 location's heat volumes, radiation, frost and corrosion fields (Maps/Locations/<id>.json) as the remake's orbit "hazards":
     their place (ES2 cm -> game units, 1 m = 20) and sphere radius x scale, the nearest MAX_HAZARDS whose edge stays
     HAZARD_CLEAR from the orbit's centre."""
     d = _level(es2_id)
@@ -468,7 +472,7 @@ def level_hazards(es2_id):
         loc = _vec(root.get('RelativeLocation'))
         sc = root.get('RelativeScale3D') or {}
         scale = max(abs(sc.get('X', 1.0)), abs(sc.get('Y', 1.0)), abs(sc.get('Z', 1.0))) if sc else 1.0
-        radius = float(sph.get('SphereRadius', 15000.0 if kind == 'radiation' else 10000.0)) * scale * 0.2
+        radius = float(sph.get('SphereRadius', p.get('Radius', HAZARD_RADIUS[kind]))) * scale * 0.2
         g = to_game(loc) * 0.2
         radius = max(1000.0, radius)
         if np.linalg.norm(g) - radius < HAZARD_CLEAR: continue
