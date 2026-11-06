@@ -22,7 +22,7 @@ split by bone like build.turret_model into base / pivot / gun with their texture
 import json, os, re, glob, struct, io
 import numpy as np
 from PIL import Image
-import glbtool, es2mat, icons, es2data
+import glbtool, es2mat, icons, es2data, weapon_fx
 
 SRC = MOD = None
 LOG = print
@@ -32,6 +32,7 @@ def configure(src, mod, log=print):
     global SRC, MOD, LOG
     SRC, MOD, LOG = src, mod, log
     es2mat.configure(src)
+    weapon_fx.configure(src, mod)
 
 
 # The GoF2 items the ES2 weapons are based on: their stats (items.json; the importer runs without the remake's files).
@@ -363,8 +364,9 @@ def make_item(bp):
         'description': describe(fam, known, secondary, stats, legendary),
         'techLevel': tl, 'occurrence': occurrence, 'price': item_price(tl, secondary, legendary),
         'stats': stats,
-        'fx': fx_parts(spec[1], colour),
-        '_cues': cues, '_model': mesh, '_es2model': (None if secondary else spec[5]), '_secondary': secondary,
+        # ES2's own looks baked into sprites (weapon_fx: its effects' shaders), else the GoF2 base's parts recoloured
+        'fx': (None if secondary else weapon_fx.parts(fam, spec[1], colour)) or fx_parts(spec[1], colour),
+        '_fxcolour': colour, '_cues': cues, '_model': mesh, '_es2model': (None if secondary else spec[5]), '_secondary': secondary,
     }
     item = out
     wid = item['id']

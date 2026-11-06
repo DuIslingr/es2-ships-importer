@@ -268,5 +268,5 @@ def share(items):
     for group in by.values():
         group.sort(key=lambda i: (not i.get('_own_icon', True), len(i['id']), i['id']))
         for it in group[1:]:
-            c = ((it.get('fx') or {}).get('projectile') or {}).get('color')
+            c = ((it.get('fx') or {}).get('projectile') or {}).get('color') or it.get('_fxcolour')   # (a baked sprite has none)
             if c: it['_recolour'] = c
