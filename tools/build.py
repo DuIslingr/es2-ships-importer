@@ -1313,8 +1313,10 @@ def main(version, parts=None):
         made.add('fighters')
         print(f'  {len(enemies)} fighters and drones as traffic of their faction\'s race')
         # EVERSPACE 2's encounters on the cruise drive (the remake's battle / trap / stash / depot / highrisk kinds)
-        import encounters
-        enc = encounters.build()
+        import encounters, battle_music
+        battle_music.SRC = SRC
+        tracks = battle_music.encounter_tracks() if audio.available() else {}   # ES2's rift / high-risk / Dreadnought music
+        enc = encounters.build(tracks)
         json.dump(enc, open(os.path.join(MOD, 'encounters.json'), 'w', encoding='utf-8'), indent=1)
         print(f'  {len(enc)} EVERSPACE 2 encounters on the cruise drive')
     elif 'fighters' in parts:

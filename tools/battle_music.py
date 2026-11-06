@@ -50,6 +50,31 @@ def _join(files, rel):
     return rel + '.ogg' if subprocess.run(cmd, capture_output=True).returncode == 0 else None
 
 
+# The encounters' own fight music (the remake's encounters.json "music", World.EncounterMusic; the Dreadnought raid's mission
+# "music" step): ES2's music sets for its rifts, high-risk areas and the Dreadnought (DA_MusicSet_Rift_001,
+# _HighRiskSector_001, _Dreadnought), each set's songs' 3Battle layers one after the other as one track.
+ENCOUNTER_SETS = {'rift': 'Rift_001', 'highrisk': 'HighRiskSector_001', 'dreadnought': 'Dreadnought'}
+
+
+def encounter_tracks(log=print):
+    """Writes music/es2_<kind>.ogg for each of ENCOUNTER_SETS; {kind: track name} of those written."""
+    songs = {k: _songs(s) for k, s in ENCOUNTER_SETS.items()}
+    names = [n for ss in songs.values() for s in ss for n in _layer(s, '3Battle')]
+    if not names: return {}
+    waves, tmp = audio.decode(names)
+    try:
+        out = {}
+        for kind, ss in songs.items():
+            files = [next((waves[n] for n in _layer(s, '3Battle') if n in waves), None) for s in ss]
+            files = [f for f in files if f]
+            if files and _join(files, f'music/es2_{kind}'):
+                out[kind] = f'es2_{kind}'
+                log(f'  encounter music es2_{kind}: {len(files)} songs ({", ".join(ss)})')
+        return out
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def add(sectors, log=print):
     """sectors: [(sector key 'S01', its systems.json entry)]. Writes the tracks and sets each system's "battleMusic"."""
     plan, sets = {}, {}

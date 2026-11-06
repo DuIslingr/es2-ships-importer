@@ -55,7 +55,7 @@ def build(mod):
             {'type': 'waituntil', 'condition': 'alive("Dreadnought") > 0', 'timeout': 30},
             {'type': 'if', 'condition': 'alive("Dreadnought") == 0', 'then': [{'type': 'target', 'station': 'off'}, {'type': 'stop'}]},
             {'type': 'restrict', 'what': 'all'},
-            {'type': 'music', 'track': 'boss'},
+            {'type': 'music', 'track': 'es2_dreadnought' if os.path.exists(os.path.join(mod, 'music', 'es2_dreadnought.ogg')) else 'boss'},
             {'type': 'title', 'title': 'Dreadnought', 'subtitle': 'An Outlaw raid on a convoy', 'seconds': 5},
             {'type': 'wait', 'seconds': 4},
             {'type': 'dialog', 'pages': [

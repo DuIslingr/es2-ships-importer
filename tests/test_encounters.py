@@ -25,6 +25,15 @@ class EncounterTests(unittest.TestCase):
         self.assertNotIn('name', next(e for e in enc if e['kind'] == 'trap'), 'a trap passes for an unknown signal')
 
 
+class EncounterMusicTests(unittest.TestCase):
+    def test_music(self):
+        enc = encounters.build({'rift': 'es2_rift', 'highrisk': 'es2_highrisk'})
+        self.assertEqual('es2_rift', next(e for e in enc if e['kind'] == 'rift')['music'])
+        self.assertEqual('es2_highrisk', next(e for e in enc if e['kind'] == 'highrisk')['music'])
+        self.assertNotIn('music', next(e for e in enc if e['kind'] == 'battle'), 'the system\'s battle music')
+        self.assertTrue(all('music' not in e for e in encounters.build()), 'none without the tracks')
+
+
 class RiftBossTests(unittest.TestCase):
     def test_rift_bosses(self):
         import os, tempfile, es2data

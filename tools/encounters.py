@@ -47,10 +47,11 @@ def rift_bosses():
             for bp, sid, race in RIFT_BOSSES if hp.get(bp)]
 
 
-def build():
-    """encounters.json's entries."""
+def build(music=None):
+    """encounters.json's entries; 'music' {kind: track} gives the rift and the high-risk area ES2's own fight music."""
     out = [dict(e) for e in ENCOUNTERS]
     bosses = rift_bosses()
     for e in out:
         if e['kind'] == 'rift' and bosses: e['bosses'] = bosses
+        if music and e['kind'] in music: e['music'] = music[e['kind']]
     return out
