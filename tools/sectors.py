@@ -1119,7 +1119,21 @@ SPHERES = {'MI_Planet_Desert_A': ('es2Desert', {
     'normal': 'Assets/Environment/Planets/Textures/T_Planet_Rock_002_N.png',
     'capNormal': 'Assets/Shared/Textures/Rock/T_Rocks_004_N.png',
     'capColour': 'Assets/Shared/Textures/Rock/T_Rocks_004_C.png',
-    'noise': 'Assets/Shared/Textures/Effects/T_Noise_016_M.png'})}
+    'noise': 'Assets/Shared/Textures/Effects/T_Noise_016_M.png'}),
+    # (2026-11-06) the gas giants: M_Planet_GasSmooth / M_Planet_Gas's compiled shaders (es2_re planetmat); their two colours
+    # the masters' defaults (linear; the instances keep them), turned per planet by its PlanetData Variation
+    'MI_Planet_GasSmooth_A': ('es2GasSmooth', {
+        'surface': 'Assets/Environment/Planets/Textures/T_Planet_Gas_002_C_H.png',
+        'normal': 'Assets/Environment/Planets/Textures/T_Planet_Gas_002_N.png',
+        'capNormal': 'Assets/Shared/Textures/Rock/T_Rocks_004_N.png',
+        'capColour': 'Assets/Shared/Textures/Rock/T_Rocks_004_C.png',
+        'noise': 'Assets/Shared/Textures/Effects/T_Noise_016_M.png'},
+        [[0.02, 0.071433, 0.1], [0.166665, 0.487763, 0.5]]),   # Color, Color2
+    'MI_Planet_Gas_A': ('es2Gas', {
+        'surface': 'Assets/Environment/Planets/Textures/T_Planet_Gas_001_C_H.png',
+        'normal': 'Assets/Environment/Planets/Textures/T_Planet_Gas_001_N.png',
+        'noise': 'Assets/Shared/Textures/Effects/T_Noise_001_M.png'},
+        [[0.5, 0.233332, 0.099999], [1.0, 0.515625, 0.354167]])}   # SecondaryColor, BaseColor
 
 
 def planet_sphere(pl):
@@ -1138,6 +1152,9 @@ def planet_sphere(pl):
         maps[role] = rel
     out = {'look': look[0], 'maps': maps}
     if pl.get('atmosphere'): out['atmosphere'] = [round(float(c), 3) for c in pl['atmosphere']]
+    if len(look) > 2:   # (the gas giants: their colours, the planet's variation)
+        out['colors'] = look[2]
+        out['variation'] = round(float(pl.get('variation', 0.5) or 0.0) % 1.0, 4)
     return out
 
 
