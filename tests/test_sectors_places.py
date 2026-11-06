@@ -75,6 +75,26 @@ class HazardTests(unittest.TestCase):
         self.assertNotIn('raiderDps', h[1], "the remake's default: ES2's intensity 5")
 
 
+class StormTests(unittest.TestCase):
+    def test_level_storm(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            level = [{'Type': 'BP_LightningField_C', 'Name': 'L', 'Properties': {'Frequency': 2.0, 'LightningScale': 1.5}}]
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'S9L01.json'), 'w'))
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'S9L01P.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: s, planet, none = sectors.level_storm('S9L01'), sectors.level_storm('S9L01P'), sectors.level_storm('S9L02')
+            finally: sectors.SRC = old
+        self.assertEqual(2.0, s['frequency'], "the actor's own")
+        self.assertEqual(80000, s['radius'], "the blueprint's 400 000 cm x 0.2")
+        self.assertEqual(1.5, s['scale'])
+        self.assertEqual(0.2, s['thunderChance'])
+        self.assertEqual(7, len(s['thunder']))
+        self.assertIsNone(planet, 'planet-side: left out')
+        self.assertIsNone(none)
+
+
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):
         import json, os, tempfile

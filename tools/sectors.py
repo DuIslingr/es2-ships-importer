@@ -483,6 +483,48 @@ def level_hazards(es2_id):
     return out[:MAX_HAZARDS]
 
 
+# ES2's lightning storms (BP_LightningField: AttachToCamera, a storm round the camera wherever it is in the location) as the
+# remake's orbit "storm" with the actor's own Frequency / Radius (cm -> game units) / HeightPercent / LightningScale /
+# LightningIntensity / ThunderSoundSpawnChance over the blueprint's; its thunder S_SC_Thunder's seven waves, the mod's
+# sounds es2_thunder_00N (write_thunder). 6 locations (S02L11, S03L04...); the planet-side ones left out.
+STORM_DEFAULTS = {'Frequency': 1.0, 'Radius': 400000.0, 'HeightPercent': 1.0, 'LightningScale': 1.0, 'LightningIntensity': 1.0,
+                  'ThunderSoundSpawnChance': 0.2}
+THUNDER_WAVES = [f'S_Thunder_00{i}' for i in range(1, 8)]
+
+
+def thunder_sound(wave): return 'es2_thunder_' + wave[-3:]
+
+
+def level_storm(es2_id):
+    """An ES2 location's lightning field as the remake's orbit "storm", None without one (or on a planet-side level)."""
+    if re.search(r'L\d\dP', es2_id): return None
+    for o in _level(es2_id) or []:
+        if o.get('Type') != 'BP_LightningField_C': continue
+        p = dict(STORM_DEFAULTS, **{k: v for k, v in o.get('Properties', {}).items() if k in STORM_DEFAULTS})
+        return {'frequency': round(float(p['Frequency']), 3), 'radius': round(float(p['Radius']) * 0.2),
+                'heightPercent': round(float(p['HeightPercent']), 3), 'scale': round(float(p['LightningScale']), 3),
+                'intensity': round(float(p['LightningIntensity']), 3), 'thunderChance': round(float(p['ThunderSoundSpawnChance']), 3),
+                'thunder': [thunder_sound(w) for w in THUNDER_WAVES]}
+    return None
+
+
+def write_thunder(stations):
+    """The thunder waves into the mod's sounds when an orbit has a storm; the storms' thunder dropped if they can't be."""
+    import audio
+    storms = [st['orbit']['storm'] for st in stations if st.get('orbit', {}).get('storm')]
+    if not storms: return 0
+    written = set()
+    if audio.available():
+        waves, tmp = audio.decode(THUNDER_WAVES)
+        for w in THUNDER_WAVES:
+            if w in waves: audio.write(waves[w], f'sounds/{thunder_sound(w)}'); written.add(thunder_sound(w))
+        import shutil; shutil.rmtree(tmp, ignore_errors=True)
+    for s in storms:
+        s['thunder'] = [t for t in s.get('thunder', []) if t in written]
+        if not s['thunder']: s.pop('thunder', None)
+    return len(written)
+
+
 # ES2's ambience zones in space (BP_MusicTrigger's OverrideAmbience, its InnerSphereRadius): the four sets its location
 # levels place round stations, factories, cargo wrecks and wreck fields, as the remake's orbit "ambience" (the loops as the
 # mod's music tracks, music/es2amb_<wave>: about a minute each, kept compressed; the adds its sounds, sounds/es2amb_<wave>). Their cues (Audio/SFX/Ambience/<set>/S_SC_*): the loops a SoundNodeRandom picks
@@ -1273,6 +1315,8 @@ def build_sector(key):
         if hz: orbit['hazards'] = hz
         amb = level_ambience(es2_id)   # ES2's ambience zones round its stations, factories and wrecks
         if amb: orbit['ambience'] = amb
+        storm = level_storm(es2_id)   # ES2's lightning storm round the camera
+        if storm: orbit['storm'] = storm
         gc = level_gas_clouds(es2_id, L.get('level'))   # ES2's plasma fields as GoF2's gas clouds
         if gc: orbit['gasClouds'] = gc
         loc, raid = orbit_spawns(es2_id)   # who flies here in ES2 (location_spawns.CSV)
@@ -1405,6 +1449,13 @@ def build(log=print):
             battle_music.add([(key, m[0]) for key, m in zip(SECTOR_KEYS, music)], LOG)
     except Exception as e:
         LOG(f'  no sector music: {e}')
+    # the storms' thunder: ES2's waves as the mod's sounds
+    try:
+        n = write_thunder(stations)
+        if n: LOG(f'  storms: {sum(1 for st in stations if st.get("orbit", {}).get("storm"))}, {n} thunder sounds')
+    except Exception as e:
+        for st in stations: st.get('orbit', {}).get('storm', {}).pop('thunder', None)
+        LOG(f'  no thunder: {e}')
     # the orbits' ambience zones: their waves as the mod's sounds (the zones dropped when they can't be written)
     try:
         zones, waves = write_ambience(stations)
