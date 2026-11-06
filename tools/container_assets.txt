@@ -1,0 +1,3 @@
+# What the orbits' containers need beyond a plain FModel export (tools/sectors.py container_models). tools/shaders: export <this file> <Exports> all
+/Game/Assets/Environment/Props/Meshes/SK_Container_Generic_002
+/Game/Assets/Environment/Props/Meshes/SK_Container_Generic_004

@@ -1382,8 +1382,6 @@ def main(version, parts=None):
         json.dump(systems, open(os.path.join(MOD, 'systems.json'), 'w', encoding='utf-8'), indent=1)
     elif 'sectors' in parts:
         print('  no sectors: the travel maps (Maps/TravelMode) or the sky and planet textures (tools/sector_assets.txt) are missing')
-    if world_stations:
-        json.dump(world_stations, open(os.path.join(MOD, 'stations.json'), 'w', encoding='utf-8'), indent=1)
     # (after the sectors: the Slipstream II's recipe takes their resources)
     clear_old_drives(MOD)
     # EVERSPACE 2's crafting (crafting.py: its recipe grids as blueprints; after the devices and the sectors, whose items they take)
@@ -1403,6 +1401,10 @@ def main(version, parts=None):
             print(f'  {len(crooks)} EVERSPACE 2 bosses on the sectors\' Most Wanted boards')
     elif os.path.exists(wanted_path) and {'fighters', 'sectors'} <= set(parts):
         os.remove(wanted_path)
+    if world_stations:
+        # (after the crafting: the orbits' unique loot names its goods too, sectors.resolve_container_loot)
+        sectors.resolve_container_loot(world_stations, {it['id'] for it in items})
+        json.dump(world_stations, open(os.path.join(MOD, 'stations.json'), 'w', encoding='utf-8'), indent=1)
     if items: json.dump(items, open(os.path.join(MOD, 'items.json'), 'w', encoding='utf-8'), indent=1)
     if kits:
         json.dump(kits, open(os.path.join(MOD, 'shipkits.json'), 'w', encoding='utf-8'), indent=1)

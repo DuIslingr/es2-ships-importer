@@ -592,6 +592,80 @@ def orbit_spawns(es2_id):
     return _spawns.get(es2_id, ([], []))
 
 
+# ES2's unique loot (DataFiles/unique_loot.csv: a location's fixed loot, mostly a rarity of random gear, which GoF2 has no
+# roll for, but also named items and resources with amounts) as the remake's orbit "containers.loot": each found once a game.
+# Only the named items and resources the mod has (resolve_container_loot, once every item is made): ES2's rare resources,
+# its components, devices and weapons by their ids, its crafting goods; its personal items, logbooks, augment parts and ship
+# module blueprints (no GoF2 counterpart) left out.
+SKIP_UNIQUE = ('personal_item', 'generic_logbook', 'augment_part', 'blueprint_ship_module', 'credits', 'device_reset_item')
+_unique = None
+
+
+def orbit_unique_loot(es2_id):
+    """An ES2 location's named loot: [{'_ids': candidate item ids, 'amount'}] (resolve_container_loot picks the mod's)."""
+    global _unique
+    if _unique is None:
+        import es2data
+        _unique, where = {}, None
+        for r in es2data.rows('unique_loot.csv'):
+            r = r + [''] * 20
+            if r[1].strip(): where = r[1].strip()
+            for item, amount in ((r[3].strip(), 1), (r[8].strip(), es2data.number(r[10]) or 1)):
+                if not item or not where or item.startswith(SKIP_UNIQUE): continue
+                ids = [item, 'es2_' + item]
+                ref = drop_ref(item)
+                if ref: ids.insert(0, ref.split(':', 1)[1])
+                _unique.setdefault(where, []).append({'_ids': ids, 'amount': max(1, int(round(amount)))})
+    return [dict(e) for e in _unique.get(es2_id, [])]
+
+
+def resolve_container_loot(stations, item_ids, log=print):
+    """The orbits' containers.loot to the mod's item references ('item_ids' every item the mod has); unknown ones dropped."""
+    kept = dropped = 0
+    for st in stations:
+        ct = st.get('orbit', {}).get('containers')
+        if not isinstance(ct, dict) or 'loot' not in ct: continue
+        out = []
+        for e in ct['loot']:
+            iid = next((i for i in e.get('_ids', []) if i in item_ids), None)
+            if iid: out.append({'item': f'es2_ships:{iid}', 'amount': e['amount']}); kept += 1
+            else: dropped += 1
+        if out: ct['loot'] = out
+        else: del ct['loot']
+    log(f'  unique loot: {kept} items in the orbits\' containers ({dropped} the mod has no item for)')
+
+
+# ES2's item containers' own models (BP_ItemContainer: SK_Container_Generic_002, the armoured BP_ItemContainer_Armored:
+# SK_Container_Generic_004; tools/container_assets.txt exports them) as the orbits' containers' "model" / "bulletproofModel"
+# with their ES2 materials (warships.py's, as its props are made), drawn as big as the race's container. Without the meshes
+# in the export the containers keep the race's container.
+CONTAINER_MESHES = {'model': 'SK_Container_Generic_002', 'bulletproofModel': 'SK_Container_Generic_004'}
+_container_models = False
+
+
+def container_models():
+    """{"model", "bulletproofModel", "materials"} for the orbits' containers (made once), None without the meshes."""
+    global _container_models
+    if _container_models is not False: return _container_models
+    import warships
+    if warships.SRC is None: warships.configure(SRC, MOD, LOG)
+    out, materials = {}, []
+    for field, mesh in CONTAINER_MESHES.items():
+        path = os.path.join(SRC, 'Assets/Environment/Props/Meshes', mesh + '.glb')
+        if not os.path.exists(path): continue
+        prims = warships.read_prims(path)
+        mn, mx = warships.bounds(prims)
+        used = {}
+        prefix = f'es2_{field.lower()}_'
+        rel = f'containers/{mesh.lower()}.glb'
+        warships.write_glb(rel, warships.split_prims(prefix, prims, used), (mn + mx) / 2)
+        out[field] = rel
+        materials += warships.material_entries(prefix, used)
+    _container_models = dict(out, materials=materials) if out else None
+    if not out: LOG('  containers: their meshes aren\'t in the export (tools/container_assets.txt): the race\'s container')
+    return _container_models
+
+
 # ES2's plasma fields (BP_PlasmaField: a cloud of plasma to harvest, Radius 20 000-500 000 cm) as the remake's orbit
 # "gasClouds": GoF2's own gas clouds at their places (a spectral filter shows them, an ionizing missile bursts them, a plasma
 # collector gathers the sparks), in the GoF2 plasma of the location's ES2 level (PLASMA_BY_LEVEL: Green to Red, the deeper
@@ -1024,7 +1098,14 @@ def build_sector(key):
         if raid: orbit['raiders'] = [f'es2_ships:{f}' for f in raid]
         if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
         ct = level_containers(es2_id)   # ES2's item containers there
-        if ct: orbit['containers'] = ct
+        unique = orbit_unique_loot(es2_id)   # ... and its fixed loot in them, once a game
+        if unique:
+            ct = ct or {'count': min(len(unique), 6), 'spread': 40000, 'bulletproof': 0.5}
+            ct['loot'] = unique
+        if ct:
+            models = container_models()   # ES2's own container models
+            if models: ct.update({k: (list(v) if k == 'materials' else v) for k, v in models.items()})
+            orbit['containers'] = ct
         ln = level_lanes(es2_id)   # ... and its ships' traffic lanes
         if ln: orbit['lanes'] = ln
         st['orbit'] = orbit
