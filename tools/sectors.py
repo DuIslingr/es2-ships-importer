@@ -994,10 +994,45 @@ def level_containers(es2_id):
 #                              in EnergyOrbSocketsConnected, else the nearest one)
 #   EnergyCoilSocketsRequired  BP_EnergyCoil_Socket: a socket with a coil ("coil": the nearest loose BP_Portable_EnergyCoil*
 #                              not yet given to another socket)
-# Conductor receivers and sockets without a dispenser or coil leave the container a plain bulletproof one. Planet-side levels
-# left out. 82 trigger-locked, 74 orb-locked and 48 coil-locked containers in the survey.
+#   ConductorReceiverRequired  BP_Conductor_Receiver*: "conductors" with its receivers and the level's sources, statics
+#                              and portables (BP_Conductor_Source* / _Static* / _Portable*, BP_ConductorPortable_Materializing,
+#                              the Okkar pipes as statics) on the receivers' layer (ConductorLayer; any when a receiver has
+#                              none) within CONDUCTOR_REACH of a receiver, each with its own Conduction Sphere Radius
+#                              (cm -> game units, the blueprints' 20 000 / 200 when unset) as [x, y, z, radius]
+# Sockets without a dispenser or coil, and conductors without a source in reach, leave the container a plain bulletproof
+# one. Planet-side levels left out. 82 trigger-locked, 74 orb-locked, 48 coil-locked and 13 conductor-locked in the survey.
 MAX_SECURE = 6
+CONDUCTOR_REACH = 200000   # cm
+CONDUCTOR_KINDS = (('sources', ('BP_Conductor_Source',)), ('statics', ('BP_Conductor_Static', 'BP_Conductor_Pipe')),
+                   ('portables', ('BP_Conductor_Portable', 'BP_ConductorPortable_Materializing')))
 SHOT_TRIGGER_CLASSES = ('BP_ShotTrigger_C', 'BP_ShotTrigger_Okkar_Toggle_C')
+
+
+def conductor_solvable(net):
+    """Whether the portables can join every receiver to a source: the fewest portables each gap between fixed nodes needs (a
+    chain of hops each within a sphere: the ends' and the portables'), the cheapest route to each receiver within the count."""
+    import heapq
+    fixed = [(n, True) for n in net.get('sources', [])] + [(n, False) for n in net.get('statics', [])]
+    recv = net.get('receivers', [])
+    nodes = fixed + [(n, False) for n in recv]
+    portables = net.get('portables', [])
+    rp = max((p[3] for p in portables), default=0)
+    def need(a, b):
+        dist = float(np.linalg.norm(np.subtract(a[:3], b[:3])))
+        if dist <= max(a[3], b[3]): return 0
+        if rp <= 0: return None
+        return max(1, math.ceil((dist - max(a[3], rp) - max(b[3], rp)) / rp) + 1)
+    cost = [math.inf] * len(nodes)
+    heap = []
+    for i, (n, src) in enumerate(nodes):
+        if src: cost[i] = 0; heapq.heappush(heap, (0, i))
+    while heap:
+        c, i = heapq.heappop(heap)
+        if c > cost[i]: continue
+        for j in range(len(nodes)):
+            k = need(nodes[i][0], nodes[j][0])
+            if k is not None and c + k < cost[j]: cost[j] = c + k; heapq.heappush(heap, (c + k, j))
+    return all(cost[len(fixed) + r] <= len(portables) for r in range(len(recv)))
 
 
 def _secure_specs(d):
@@ -1052,7 +1087,24 @@ def _secure_specs(d):
             sockets.append({'at': place(sock), 'coil': place(coil)})
         if sockets is None: continue   # (a socket it can't fill: a plain bulletproof container)
         if sockets: spec['sockets'] = sockets[:4]
-        if spec['triggers'] or sockets: out[ci] = spec if spec['triggers'] else {k: v for k, v in spec.items() if k != 'triggers'}
+        receivers = [obj(r) for r in p.get('ConductorReceiverRequired') or []]
+        receivers = [r for r in receivers if r.get('Type', '').startswith('BP_Conductor_Receiver')]
+        if receivers:
+            layers = {r.get('Properties', {}).get('ConductorLayer') for r in receivers}
+            def node(o, default):
+                r = o.get('Properties', {}).get('Conduction Sphere Radius')
+                return place(o) + [round(float(r if r is not None else default) * 0.2)]
+            rx = [np.array(place(r)) for r in receivers]
+            net = {'receivers': [node(r, 200.0) for r in receivers]}
+            for field, prefixes in CONDUCTOR_KINDS:
+                pool = [o2 for o2 in d if o2.get('Type', '').startswith(prefixes) and not o2.get('Type', '').endswith('Component_C')
+                        and (None in layers or o2.get('Properties', {}).get('ConductorLayer') in layers)
+                        and min(float(np.linalg.norm(np.array(place(o2)) - x)) for x in rx) <= CONDUCTOR_REACH * 0.2]
+                net[field] = [node(o2, 20000.0) for o2 in pool][:12]
+            if not net['sources'] or not conductor_solvable(net): continue   # (no way to energize it here: a plain bulletproof container)
+            spec['conductors'] = {k: v for k, v in net.items() if v}
+        if spec['triggers'] or sockets or spec.get('conductors'):
+            out[ci] = spec if spec['triggers'] else {k: v for k, v in spec.items() if k != 'triggers'}
     return out
 
 

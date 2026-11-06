@@ -193,6 +193,40 @@ class SocketContainerTests(unittest.TestCase):
         self.assertEqual(1, plain['count'])
 
 
+class ConductorContainerTests(unittest.TestCase):
+    def test_conductor_locked(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            def obj(i, t, **props): return {'Type': t, 'Name': f'o{i}', 'Properties': props}
+            ref = lambda i: {'ObjectPath': f'/Game/Maps/Locations/R9L01.{i}'}
+            loc = lambda i, x: obj(i, 'SceneComponent', RelativeLocation={'X': x, 'Y': 0, 'Z': 0})
+            L1 = 'EConductorLayer::NewEnumerator1'
+            level = [obj(0, 'BP_ItemContainer_Armored_C', RootComponent=ref(1), ConductorReceiverRequired=[ref(2)]), loc(1, 100000),
+                     obj(2, 'BP_Conductor_Receiver_C', RootComponent=ref(3), ConductorLayer=L1), loc(3, 110000),
+                     obj(4, 'BP_Conductor_Source_C', RootComponent=ref(5), ConductorLayer=L1), loc(5, 140000),
+                     obj(6, 'BP_Conductor_Portable_Okkar_C', RootComponent=ref(7), ConductorLayer=L1, **{'Conduction Sphere Radius': 15000.0}), loc(7, 130000),
+                     obj(8, 'BP_Conductor_Static_C', RootComponent=ref(9), ConductorLayer='EConductorLayer::NewEnumerator2'), loc(9, 120000),
+                     obj(10, 'BP_Conductor_Source_C', RootComponent=ref(11), ConductorLayer=L1), loc(11, 900000)]
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'R9L01.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: s = sectors.level_secure_containers('R9L01')
+            finally: sectors.SRC = old
+        c = s[0]['conductors']
+        self.assertEqual([[0, 0, 22000, 40]], c['receivers'], "the receiver's 200 cm")
+        self.assertEqual([[0, 0, 28000, 4000]], c['sources'], 'the near source on its layer; the far one out of reach')
+        self.assertEqual([[0, 0, 26000, 3000]], c['portables'], 'its own 15 000 cm')
+        self.assertNotIn('statics', c, 'another layer')
+
+    def test_conductor_solvable(self):
+        src, rec = [0, 0, 0, 4000], [0, 0, 10000, 40]
+        self.assertFalse(sectors.conductor_solvable({'sources': [src], 'receivers': [rec]}), '500 m apart, nothing to bridge it')
+        self.assertTrue(sectors.conductor_solvable({'sources': [src], 'receivers': [rec], 'portables': [[0, 0, 0, 4000], [0, 0, 0, 4000]]}),
+                        'two 200 m portables: 200 + 200 + 200 >= 500 m')
+        self.assertFalse(sectors.conductor_solvable({'sources': [src], 'receivers': [rec], 'portables': [[0, 0, 0, 2000]]}))
+        self.assertTrue(sectors.conductor_solvable({'sources': [src], 'statics': [[0, 0, 4000, 4000], [0, 0, 8000, 4000]], 'receivers': [rec]}), 'relays on the way')
+
+
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):
         import json, os, tempfile
