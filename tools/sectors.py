@@ -984,6 +984,27 @@ def level_containers(es2_id):
             'bulletproof': round(proof / len(places), 2)}
 
 
+# ES2's cloaked containers (BP_Activity_InvisibleContainer: a BP_InvisibleItemContainer under the cloak, its marker hidden
+# until the ship is within its InteractRadius, a rare container's loot) as the remake's orbit containers "cloaked": their
+# places (ES2 cm -> game units), at most MAX_CLOAKED. 29 in 27 locations.
+MAX_CLOAKED = 10
+
+
+def level_cloaked_containers(es2_id):
+    """An ES2 location's cloaked containers' places as the remake's containers "cloaked", the nearest first; [] without any
+    (or on a planet-side level)."""
+    if re.search(r'L\d\dP', es2_id): return []
+    d = _level(es2_id)
+    out = []
+    for o in d or []:
+        if o.get('Type') != 'BP_Activity_InvisibleContainer_C': continue
+        m = re.search(r'\.(\d+)$', (o.get('Properties', {}).get('RootComponent') or {}).get('ObjectPath', ''))
+        root = d[int(m.group(1))].get('Properties', {}) if m and int(m.group(1)) < len(d) else {}
+        out.append([round(float(x)) for x in to_game(_vec(root.get('RelativeLocation'))) * 0.2])
+    out.sort(key=lambda p: np.linalg.norm(p))
+    return out[:MAX_CLOAKED]
+
+
 # ES2's spline traffic (Blueprints/Environment/BP_SplineTraffic*): its ships' lanes; the worker drones' small loops around
 # station parts and the industrial ground vehicles are left out. Their class defaults (BP_SplineTraffic: Count 10, BaseSpeed
 # 8000 cm/s, ClosedLoop, TwoLanes; the Industrial one open), an actor's own values winning.
@@ -1430,6 +1451,10 @@ def build_sector(key):
             if hulls: orbit['wrecks'].update({'models': hulls['models'], 'materials': hulls['materials'], 'hulks': WRECK_HULKS, 'size': WRECK_SIZE})
         ct = level_containers(es2_id)   # ES2's item containers there
         unique = orbit_unique_loot(es2_id)   # ... and its fixed loot in them, once a game
+        cloaked = level_cloaked_containers(es2_id)   # ... and its cloaked containers (the fixed loot in them first)
+        if cloaked:
+            ct = ct or {'count': 0}
+            ct['cloaked'] = cloaked
         if unique:
             ct = ct or {'count': min(len(unique), 6), 'spread': 40000, 'bulletproof': 0.5}
             ct['loot'] = unique

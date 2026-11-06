@@ -121,6 +121,25 @@ class MinefieldTests(unittest.TestCase):
         self.assertEqual(3, sectors.minefield_count(1000, 12000, 40), 'at least 3')
 
 
+class CloakedContainerTests(unittest.TestCase):
+    def test_level_cloaked_containers(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            def obj(i, t, **props): return {'Type': t, 'Name': f'o{i}', 'Properties': props}
+            ref = lambda i: {'ObjectPath': f'/Game/Maps/Locations/C9L01.{i}'}
+            level = [obj(0, 'BP_Activity_InvisibleContainer_C', RootComponent=ref(1)),
+                     obj(1, 'SceneComponent', RelativeLocation={'X': 500000, 'Y': 0, 'Z': 0}),
+                     obj(2, 'BP_Activity_InvisibleContainer_C', RootComponent=ref(3)),
+                     obj(3, 'SceneComponent', RelativeLocation={'X': 0, 'Y': 0, 'Z': 100000})]
+            for name in ('C9L01', 'C9L01P'): json.dump(level, open(os.path.join(d, 'Maps', 'Locations', name + '.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: c, planet = sectors.level_cloaked_containers('C9L01'), sectors.level_cloaked_containers('C9L01P')
+            finally: sectors.SRC = old
+        self.assertEqual([[0, 20000, 0], [0, 0, 100000]], c, "cm x 0.2, the nearest first (UE's Z is up)")
+        self.assertEqual([], planet, 'planet-side: left out')
+
+
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):
         import json, os, tempfile
