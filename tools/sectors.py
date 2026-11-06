@@ -666,6 +666,65 @@ def container_models():
     return _container_models
 
 
+# ES2's own asteroids (Assets/Environment/Asteroids/Meshes; tools/asteroid_assets.txt exports them) as the orbits'
+# asteroids' "models" with their materials (warships.py's, as the props are made): the rock orbits its jagged rocks
+# (MI_Asteroid_Rock_Seamless_Jagged: T_Rocks_005_C on T_Quixel_Rock_017_N, es2mat reads it), the ice orbits its generic ices,
+# whose master shades them from their C_R_TH map (grey, roughness, thickness) and noise: the grey with an icy tint here
+# (ICE_TINT). Its generic rocks' tiling Quixel shader isn't read by es2mat (white rocks): left out. Mining stays GoF2's.
+ASTEROID_MESHES = {'rock': ['SM_Asteroid_Rock_Jagged_001', 'SM_Asteroid_Rock_Jagged_002', 'SM_Asteroid_Rock_Jagged_003',
+                            'SM_Asteroid_Rock_Jagged_004', 'SM_Asteroid_Rock_Jagged_005'],
+                   'ice': ['SM_Asteroid_Ice_Generic_Small_001', 'SM_Asteroid_Ice_Generic_Small_002',
+                           'SM_Asteroid_Ice_Generic_Medium_001', 'SM_Asteroid_Ice_Generic_Medium_002']}
+ICE_TINT = [0.78, 0.86, 0.95]
+ASTEROID_MAP_SIZE = 1024
+_asteroid_models = {}
+
+
+def asteroid_models(kind):
+    """{"models", "materials"} for an orbit's asteroids of 'kind' ('rock' / 'ice'; made once), None without the meshes."""
+    if kind in _asteroid_models: return _asteroid_models[kind]
+    import warships, es2mat
+    if warships.SRC is None: warships.configure(SRC, MOD, LOG)
+    plan = es2mat.plan
+    def ice_plan(m):   # (the generic ices: their C_R_TH map's grey and roughness, their normals)
+        n = (m or {}).get('name') or ''
+        if n.startswith('MI_Asteroid_Ice_Generic'):
+            t = 'T_' + n[3:]
+            return {'colour': (t + '_C_R_TH', 0), 'rough': (t + '_C_R_TH', 1), 'normal': t + '_N', 'tint': list(ICE_TINT)}
+        return plan(m)
+    models, materials = [], []
+    es2mat.plan = ice_plan
+    try:
+        for mesh in ASTEROID_MESHES.get(kind, []):
+            path = os.path.join(SRC, 'Assets/Environment/Asteroids/Meshes', mesh + '.glb')
+            if not os.path.exists(path): continue
+            prims = warships.read_prims(path)
+            mn, mx = warships.bounds(prims)
+            used = {}
+            prefix = 'es2_' + mesh.lower().replace('sm_asteroid_', '') + '_'
+            rel = f'asteroids/{mesh.lower()}.glb'
+            warships.write_glb(rel, warships.split_prims(prefix, prims, used), (mn + mx) / 2)
+            models.append(rel)
+            materials += warships.material_entries(prefix, used)
+    finally:
+        es2mat.plan = plan
+    # (the asteroids' own maps at ASTEROID_MAP_SIZE: a GoF2 asteroid never fills the screen; shared maps untouched)
+    from PIL import Image
+    jobs.flush()   # (the maps are written in the background)
+    for e in materials:
+        for v in e.values():
+            if not isinstance(v, str) or 'T_Asteroid_' not in v: continue
+            f = os.path.join(MOD, v)
+            if not os.path.exists(f): continue
+            im = Image.open(f)
+            if max(im.size) > ASTEROID_MAP_SIZE:
+                im.thumbnail((ASTEROID_MAP_SIZE, ASTEROID_MAP_SIZE), Image.LANCZOS)
+                im.save(f)
+    _asteroid_models[kind] = {'models': models, 'materials': materials} if models else None
+    if not models: LOG(f'  asteroids ({kind}): their meshes aren\'t in the export (tools/asteroid_assets.txt): the game\'s')
+    return _asteroid_models[kind]
+
+
 # ES2's plasma fields (BP_PlasmaField: a cloud of plasma to harvest, Radius 20 000-500 000 cm) as the remake's orbit
 # "gasClouds": GoF2's own gas clouds at their places (a spectral filter shows them, an ionizing missile bursts them, a plasma
 # collector gathers the sparks), in the GoF2 plasma of the location's ES2 level (PLASMA_BY_LEVEL: Green to Red, the deeper
@@ -1084,7 +1143,10 @@ def build_sector(key):
             if sphere: st['planetSphere'] = sphere
             if pi[2]['ring']: st['mapRing'] = True
         if asteroids is False: orbit['asteroids'] = False
-        elif asteroids: orbit['asteroids'] = dict(asteroids)
+        elif asteroids:
+            orbit['asteroids'] = dict(asteroids)
+            looks = asteroid_models(asteroids.get('type', 'rock'))   # ES2's own asteroid models
+            if looks: orbit['asteroids'].update({'models': list(looks['models']), 'materials': list(looks['materials'])})
         if not (spec['gates'] and gid == spec['gateStation']): orbit['jumpgate'] = False   # (the gate only where ES2's is)
         if L.get('level'): orbit['level'] = int(max(1, min(30, L['level'])))   # ES2's location level: its encounters' pay
         hz = level_hazards(es2_id)   # ES2's heat volumes and radiation fields at their places

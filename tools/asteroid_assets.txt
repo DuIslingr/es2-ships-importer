@@ -1,0 +1,15 @@
+# What the orbits' asteroids need beyond a plain FModel export (tools/sectors.py asteroid_models). tools/shaders: export <this file> <Exports> all
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Ice_Generic_Medium_001
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Ice_Generic_Medium_002
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Ice_Generic_Small_001
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Ice_Generic_Small_002
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Medium_001
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Medium_002
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Small_001
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Small_002
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Small_003
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Jagged_001
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Jagged_002
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Jagged_003
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Jagged_004
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Jagged_005
