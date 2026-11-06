@@ -159,12 +159,38 @@ class SecureContainerTests(unittest.TestCase):
             old = sectors.SRC; sectors.SRC = d
             try: s, plain = sectors.level_secure_containers('K9L01'), sectors.level_containers('K9L01')
             finally: sectors.SRC = old
-        self.assertEqual(1, len(s), 'the orb-locked one stays a bulletproof container')
+        self.assertEqual(1, len(s), 'the orb-locked one without a dispenser stays a bulletproof container')
         self.assertEqual([0, 0, 20000], s[0]['at'])
         self.assertEqual([[0, 0, 24000], [0, 0, 22000]], s[0]['triggers'], 'in chain order: the one named as previous first')
         self.assertTrue(s[0]['ordered'])
         self.assertEqual(3.0, s[0]['retrigger'], "BP_ShotTrigger's RegtriggerDelay")
         self.assertEqual(1, plain['count'], 'the secure one not counted twice')
+
+
+class SocketContainerTests(unittest.TestCase):
+    def test_orb_and_coil_sockets(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            def obj(i, t, **props): return {'Type': t, 'Name': f'o{i}', 'Properties': props}
+            ref = lambda i: {'ObjectPath': f'/Game/Maps/Locations/E9L01.{i}'}
+            loc = lambda i, x: obj(i, 'SceneComponent', RelativeLocation={'X': x, 'Y': 0, 'Z': 0})
+            level = [obj(0, 'BP_ItemContainer_Armored_C', RootComponent=ref(1), EnergyOrbsRequired=[ref(2)], EnergyCoilSocketsRequired=[ref(4)]), loc(1, 100000),
+                     obj(2, 'BP_EnergyOrb_Socket_C', RootComponent=ref(3)), loc(3, 105000),
+                     obj(4, 'BP_EnergyCoil_Socket_C', RootComponent=ref(5)), loc(5, 95000),
+                     obj(6, 'BP_EnergyOrb_Dispenser_C', RootComponent=ref(7)), loc(7, 300000),
+                     obj(8, 'BP_EnergyOrb_Dispenser_C', RootComponent=ref(9), EnergyOrbSocketsConnected=[ref(2)]), loc(9, 500000),
+                     obj(10, 'BP_Portable_EnergyCoil_C', RootComponent=ref(11)), loc(11, 90000),
+                     obj(12, 'BP_ItemContainer_Armored_C', RootComponent=ref(1), EnergyCoilSocketsRequired=[ref(4)])]
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'E9L01.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: s, plain = sectors.level_secure_containers('E9L01'), sectors.level_containers('E9L01')
+            finally: sectors.SRC = old
+        self.assertEqual(1, len(s), 'the second wants the only coil, already given: a bulletproof one')
+        self.assertNotIn('triggers', s[0])
+        self.assertEqual([{'at': [0, 0, 21000], 'orb': [0, 0, 100000]}, {'at': [0, 0, 19000], 'coil': [0, 0, 18000]}], s[0]['sockets'],
+                         'the dispenser listing the socket, not the nearer one; the nearest loose coil')
+        self.assertEqual(1, plain['count'])
 
 
 class ContainerTests(unittest.TestCase):

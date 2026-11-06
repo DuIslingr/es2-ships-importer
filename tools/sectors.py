@@ -970,11 +970,12 @@ def level_containers(es2_id):
         i = int(m.group(1)) if m else -1
         return d[i].get('Properties', {}) if 0 <= i < len(d) else {}
     places, proof = [], 0
-    for o in d:
+    secure_at = None if re.search(r'L\d\dP', es2_id) else _secure_specs(d)   # (the secure ones, level_secure_containers)
+    for oi, o in enumerate(d):
         armoured = CONTAINER_CLASSES.get(o.get('Type'))
         if armoured is None: continue
         p = o.get('Properties', {})
-        if armoured and p.get('ShotTriggersRequired'): continue   # (a secure container of its own: level_secure_containers)
+        if armoured and secure_at is not None and oi in secure_at: continue   # (a secure container of its own)
         places.append(to_game(_vec(at(p.get('RootComponent')).get('RelativeLocation'))) * 0.2)
         if armoured or p.get('ContainerType') in ('EContainerType::OpenOnInteract', 'EContainerType::OpenOnUnlocked'): proof += 1
     if not places: return None
@@ -985,44 +986,80 @@ def level_containers(es2_id):
             'bulletproof': round(proof / len(places), 2)}
 
 
-# ES2's armoured containers locked by shot triggers (BP_ItemContainer_Armored with ShotTriggersRequired: OpenOnUnlocked;
-# BP_ShotTrigger lights by a hit, its ShotTriggerChainPreviousOne makes a chain in order, Retriggerable with RegtriggerDelay
-# 3 s makes it go dark again) as the remake's containers "secure": the container's place, its triggers' places in chain
-# order (at most 8), "ordered" when chained, "retrigger" when retriggerable. 82 in 41 locations (20 planet-side, left out);
-# the ones locked otherwise (energy orbs, coil sockets, conductor receivers) stay bulletproof containers.
+# ES2's armoured containers (BP_ItemContainer_Armored, OpenOnUnlocked) as the remake's containers "secure": the container's
+# place and what unlocks it, by its lists:
+#   ShotTriggersRequired       BP_ShotTrigger: its triggers' places in chain order (at most 8), "ordered" when chained
+#                              (ShotTriggerChainPreviousOne), "retrigger" when Retriggerable (RegtriggerDelay 3 s)
+#   EnergyOrbsRequired         BP_EnergyOrb_Socket: a socket with its dispenser ("orb": the BP_EnergyOrb_Dispenser listing it
+#                              in EnergyOrbSocketsConnected, else the nearest one)
+#   EnergyCoilSocketsRequired  BP_EnergyCoil_Socket: a socket with a coil ("coil": the nearest loose BP_Portable_EnergyCoil*
+#                              not yet given to another socket)
+# Conductor receivers and sockets without a dispenser or coil leave the container a plain bulletproof one. Planet-side levels
+# left out. 82 trigger-locked, 74 orb-locked and 48 coil-locked containers in the survey.
 MAX_SECURE = 6
 SHOT_TRIGGER_CLASSES = ('BP_ShotTrigger_C', 'BP_ShotTrigger_Okkar_Toggle_C')
 
 
-def level_secure_containers(es2_id):
-    """An ES2 location's shot-trigger secure containers as the remake's containers "secure", the nearest first."""
-    if re.search(r'L\d\dP', es2_id): return []
-    d = _level(es2_id)
-    def obj(ref):
+def _secure_specs(d):
+    """The level's armoured containers' "secure" specs: {container index: spec}."""
+    def idx(ref):
         m = re.search(r'\.(\d+)$', (ref or {}).get('ObjectPath', ''))
         i = int(m.group(1)) if m else -1
-        return d[i] if 0 <= i < len(d) else {}
-    def place(o): return [round(float(x)) for x in to_game(_vec(obj(o.get('Properties', {}).get('RootComponent')).get('Properties', {}).get('RelativeLocation'))) * 0.2]
-    out = []
-    for o in d or []:
+        return i if 0 <= i < len(d) else -1
+    def obj(ref):
+        i = idx(ref)
+        return d[i] if i >= 0 else {}
+    def place(o):
+        return [round(float(x)) for x in to_game(_vec(obj(o.get('Properties', {}).get('RootComponent')).get('Properties', {}).get('RelativeLocation'))) * 0.2]
+    def loose(o): return 'AttachParent' not in obj(o.get('Properties', {}).get('RootComponent')).get('Properties', {})
+    dispensers = [o for o in d if o.get('Type', '').startswith('BP_EnergyOrb_Dispenser')]
+    coils = [o for o in d if o.get('Type', '').startswith('BP_Portable_EnergyCoil') and loose(o)]
+    used_coils = set()
+    def nearest(at, pool):
+        return min(pool, key=lambda o: float(np.linalg.norm(np.subtract(place(o), at))), default=None)
+    out = {}
+    for ci, o in enumerate(d):
         p = o.get('Properties', {})
-        if not CONTAINER_CLASSES.get(o.get('Type')) or not p.get('ShotTriggersRequired'): continue
-        refs = [r.get('ObjectPath') for r in p['ShotTriggersRequired']]
+        if not CONTAINER_CLASSES.get(o.get('Type')): continue
+        spec = {'at': place(o), 'triggers': []}
+        refs = [r.get('ObjectPath') for r in p.get('ShotTriggersRequired') or []]
         trig = {r: obj({'ObjectPath': r}) for r in refs}
         trig = {r: t for r, t in trig.items() if t.get('Type') in SHOT_TRIGGER_CLASSES}
-        if not trig: continue
-        prev = {r: (t.get('Properties', {}).get('ShotTriggerChainPreviousOne') or {}).get('ObjectPath') for r, t in trig.items()}
-        ordered = any(v in trig for v in prev.values())
-        # the chain's order: each after the one it names as its previous (the rest as listed)
-        order, left = [], list(trig)
-        while left:
-            nxt = next((r for r in left if prev[r] not in left), left[0])
-            order.append(nxt); left.remove(nxt)
-        retrig = [t.get('Properties', {}) for t in trig.values() if t.get('Properties', {}).get('Retriggerable')]
-        spec = {'at': place(o), 'triggers': [place(trig[r]) for r in order][:8]}
-        if ordered: spec['ordered'] = True
-        if retrig: spec['retrigger'] = round(float(retrig[0].get('RegtriggerDelay', 3.0)), 2)
-        out.append(spec)
+        if trig:
+            prev = {r: (t.get('Properties', {}).get('ShotTriggerChainPreviousOne') or {}).get('ObjectPath') for r, t in trig.items()}
+            order, left = [], list(trig)
+            while left:   # (each after the one it names as its previous; the rest as listed)
+                nxt = next((r for r in left if prev[r] not in left), left[0])
+                order.append(nxt); left.remove(nxt)
+            spec['triggers'] = [place(trig[r]) for r in order][:8]
+            if any(v in trig for v in prev.values()): spec['ordered'] = True
+            retrig = [t.get('Properties', {}) for t in trig.values() if t.get('Properties', {}).get('Retriggerable')]
+            if retrig: spec['retrigger'] = round(float(retrig[0].get('RegtriggerDelay', 3.0)), 2)
+        sockets = []
+        for r in p.get('EnergyOrbsRequired') or []:
+            sock = obj(r)
+            if not sock: continue
+            linked = [x for x in dispensers if any(idx(q) == idx(r) for q in x.get('Properties', {}).get('EnergyOrbSocketsConnected') or [])]
+            disp = linked[0] if linked else nearest(place(sock), dispensers)
+            if disp is None: sockets = None; break
+            sockets.append({'at': place(sock), 'orb': place(disp)})
+        for r in (p.get('EnergyCoilSocketsRequired') or []) if sockets is not None else []:
+            sock = obj(r)
+            if not sock: continue
+            coil = nearest(place(sock), [c for c in coils if id(c) not in used_coils])
+            if coil is None: sockets = None; break
+            used_coils.add(id(coil))
+            sockets.append({'at': place(sock), 'coil': place(coil)})
+        if sockets is None: continue   # (a socket it can't fill: a plain bulletproof container)
+        if sockets: spec['sockets'] = sockets[:4]
+        if spec['triggers'] or sockets: out[ci] = spec if spec['triggers'] else {k: v for k, v in spec.items() if k != 'triggers'}
+    return out
+
+
+def level_secure_containers(es2_id):
+    """An ES2 location's locked armoured containers as the remake's containers "secure", the nearest first."""
+    if re.search(r'L\d\dP', es2_id): return []
+    out = list(_secure_specs(_level(es2_id) or []).values())
     out.sort(key=lambda s: np.linalg.norm(s['at']))
     return out[:MAX_SECURE]
 
