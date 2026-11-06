@@ -12,3 +12,10 @@
 /Game/Assets/Environment/Structures/Meshes/SM_Wrecks_017
 /Game/Assets/Environment/Structures/Meshes/SM_Wrecks_019
 /Game/Assets/Environment/Structures/Meshes/SM_Wrecks_020
+/Game/Assets/Environment/Structures/Meshes/SM_Ship_Wrecks_Detail_003
+/Game/Assets/Environment/Structures/Meshes/SM_Ship_Wrecks_Detail_004
+/Game/Assets/Environment/Structures/Meshes/SM_Ship_Wrecks_Detail_005
+/Game/Assets/Environment/Structures/Meshes/SM_Ship_Wrecks_Detail_007
+/Game/Assets/Environment/Structures/Meshes/SM_Ship_Wrecks_Detail_009
+/Game/Assets/Environment/Structures/Meshes/SM_Ship_Wrecks_Detail_010
+/Game/Assets/Environment/Structures/Meshes/SM_Ship_Wrecks_Detail_011
