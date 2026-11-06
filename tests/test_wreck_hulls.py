@@ -24,6 +24,10 @@ class WreckHullTests(unittest.TestCase):
 
     def test_largest_is_the_size(self):
         self.assertIn('SM_Wrecks_010', sectors.WRECK_MESHES, 'the 400 m hull WRECK_SIZE stands for')
+        self.assertFalse(set(sectors.WRECK_DEBRIS) & set(sectors.WRECK_MESHES), 'the debris apart from the hulls')
+        self.assertLessEqual(sectors.WRECK_HULKS, 30, "the remake's most")
+        assets = open(sectors.os.path.join(sectors.os.path.dirname(sectors.__file__), 'wreck_assets.txt')).read()
+        for m in sectors.WRECK_MESHES + sectors.WRECK_DEBRIS: self.assertIn(m, assets, 'exported by wreck_assets.txt')
         self.assertEqual(8000, sectors.WRECK_SIZE, '40000 cm x 0.2')
 
 

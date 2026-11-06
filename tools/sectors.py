@@ -924,11 +924,14 @@ def asteroid_models(kind):
 # ES2's wreck fields' hulls (BP_MeshField_Wrecks' SM_Wrecks_*, Assets/Environment/Structures/Meshes; tools/
 # wreck_assets.txt exports them) as the orbit "wrecks" "models" with their materials (MI_ShipWrecks_RGB_004, warships.py's
 # as the props are made): the field's larger hulls (113-400 m), the largest WRECK_SIZE game units (ES2 cm x 0.2) and the
-# others in proportion (the remake keeps them as authored); WRECK_HULKS of them among the wreck containers.
+# others in proportion (the remake keeps them as authored); WRECK_HULKS of them among the wreck containers. With them the
+# field's smaller pieces from the same MeshEntries (WRECK_DEBRIS: SM_Wrecks_015-017, 019, 020, 20-60 m), so a field is a
+# few big hulls among their debris as ES2's (the remake picks among the models evenly).
 WRECK_MESHES = ['SM_Wrecks_001', 'SM_Wrecks_003', 'SM_Wrecks_004', 'SM_Wrecks_006', 'SM_Wrecks_008', 'SM_Wrecks_009',
                 'SM_Wrecks_010', 'SM_Wrecks_018']
+WRECK_DEBRIS = ['SM_Wrecks_015', 'SM_Wrecks_016', 'SM_Wrecks_017', 'SM_Wrecks_019', 'SM_Wrecks_020']
 WRECK_SIZE = 8000   # (SM_Wrecks_010's 400 m)
-WRECK_HULKS = 8
+WRECK_HULKS = 16
 _wreck_models = []
 
 
@@ -938,7 +941,7 @@ def wreck_models():
     import warships
     if warships.SRC is None: warships.configure(SRC, MOD, LOG)
     models, materials = [], []
-    for mesh in WRECK_MESHES:
+    for mesh in WRECK_MESHES + WRECK_DEBRIS:
         path = os.path.join(SRC, 'Assets/Environment/Structures/Meshes', mesh + '.glb')
         if not os.path.exists(path): continue
         prims = warships.read_prims(path)
