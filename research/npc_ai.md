@@ -166,6 +166,10 @@ Compiled 2026-11-06. It compares what each game's fighter AI does, with constant
 - **ES2 dogfighting** ("NPC dogfighting" "ES2 for all", or a hull's `"ai": "es2"`; `Flight.Es2Dogfight`):
   - BT_Default's runs, gaining distance, tailed evasion and barrel roll (none on Easy);
   - BT_FleeSubtree at 20 % hull, once.
+- **ES2 NPC flight** (Options > Gameplay "EVERSPACE 2 NPC flight", `Settings.Es2NpcFlight`; `Flight.Es2NpcFlight`):
+  - physics flight with ramped turns that coast out (CalcAiRotationInput) and eased thrust with braking and turning drift;
+  - ES2's path test against asteroids and obstacles;
+  - at GoF2's top speed and turn rate.
 - The importer's ES2 fighters (not the drones) and traffic ships ask for `"ai": "es2"`.
 - Details are in the remake's docs/notes/npcs-and-combat.md under "ES2 aiming" and "ES2 dogfighting".
 
@@ -187,7 +191,7 @@ Compiled 2026-11-06. It compares what each game's fighter AI does, with constant
 - steering noise;
 - leader/follower formations attacking the leader's target.
 
-**Not portable as is:** ES2's physics steering. GoF2's NPCs are kinematic, and ES2's inputs and braking angles assume a rigid body with angular acceleration.
+**Physics steering:** GoF2's NPCs are kinematic, and ES2's inputs and braking angles assume a rigid body with angular acceleration. Ported anyway on a small NPC physics model (the "ES2 NPC flight" option).
 
 ## Difficulty scaling
 
