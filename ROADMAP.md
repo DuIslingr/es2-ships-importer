@@ -22,13 +22,13 @@ depot, highrisk, lootdrone and rift (ES2's pay formula; the rift with its stages
 mutators (5aa95f53) and ES2's eight rift bosses); five ES2 bosses on the Most Wanted boards; the sectors' calm music
 (each `DA_MusicSet_Sector_NNN`'s first two songs, their `1Calm` layer).
 
-In progress (uncommitted, 2026-11-05): ES2's worker drones (`station_life.py`, BP_SplineTraffic_WorkerDrones: loops,
+Landed (the importer's side 61c176e, the remake's 35f5528b4 on 2026-11-06): ES2's worker drones (`station_life.py`, BP_SplineTraffic_WorkerDrones: loops,
 weld spots traced on the station's triangles, the remake's stations.json `life` / World.StationLife); ES2's desert
 planet master drawn as a lit sphere (`sectors.planet_sphere`, MI_Planet_Desert_A as stations.json `planetSphere`,
 GoF2/Es2Planet); M_Structures_Parent's wear, grunge and rim layers on the warships' and stations' structure materials
 (`warships.structure_layers`, the remake's Hull shader Es2StructureLayers) and its MetalOverride winning over the mask
-(`es2mat.plan`). The remake's side of all three is uncommitted in the main checkout too (StationLife.cs,
-Es2Planet.shader, Hull*.hlsl, ModWorld*, PlanetSphereCheck / StationLifeCheck play-mode checks).
+(`es2mat.plan`). The remake's side of all three (StationLife.cs, Es2Planet.shader, Hull*.hlsl, ModWorld*,
+PlanetSphereCheck / StationLifeCheck play-mode checks) is on its main since 35f5528b4; not yet seen in game.
 
 ## Assets (importer work; the remake reads most of them already)
 
