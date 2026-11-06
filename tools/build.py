@@ -1047,7 +1047,7 @@ def okkar_mounts(src):
 
 # NPC fighters of every race fly the ES2 ships (the game's "Mod ships in traffic" option; 0 Terran, 1 Vossk, 2 Nivelian,
 # 3 Midorian, 8 pirates and the minor races, 9 Void), each in a random build of its kit (parts, tier, colour scheme, skin).
-TRAFFIC = {'races': [0, 1, 2, 3, 8, 9], 'randomBuild': True}
+TRAFFIC = {'races': [0, 1, 2, 3, 8, 9], 'randomBuild': True, 'ai': 'es2'}   # ai: the remake's ES2 dogfighting (Flight.Es2Dogfight)
 
 
 def es2_flight():

@@ -322,7 +322,8 @@ def build_one(sid, bp, race, weight, desc):
             'model': rel_out, 'modelLength': round(length), 'modelYaw': 90, 'engineStyle': 'es2',
             'hangarHeight': round(max(0.0, -float(mn[1])) * f / 0.05 + 20),
             'mounts': mounts, 'materials': warships.material_entries(sid, mats_used),
-            'traffic': {'races': [fac], 'weight': weight, **({'boss': True} if boss else {}), **({'role': role_of(bp)} if role_of(bp) else {}),
+            # the remake's ES2 dogfighting (Flight.Es2Dogfight, BP_Ship_NPC's BT_Default) for the fighters; drones fly BT_Drone's orbits
+            'traffic': {'races': [fac], 'weight': weight, **({} if drone else {'ai': 'es2'}), **({'boss': True} if boss else {}), **({'role': role_of(bp)} if role_of(bp) else {}),
                         **(loot_of(bp) or {}), **({'devices': abilities_of(bp)} if abilities_of(bp) else {})},
             'explosionScale': round(min(3.0, max(0.6, float(size.max()) * f / 50.0)), 2)}
     effects = warships.engine_effects(bp)
