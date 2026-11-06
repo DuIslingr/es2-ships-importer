@@ -567,6 +567,31 @@ def write_thunder(stations):
     return len(written)
 
 
+# The secure containers' puzzle sounds (the remake's orbit containers "sounds", World.PuzzleSounds): the waves of ES2's grab
+# cues (BP_Portable_Component: S_SC_Grab_Hold / _Hold_Loop / _Leggo / _Throw), the orb dispenser's loop, the conductor beam
+# and the armoured container opening, as the mod's sounds es2_puzzle_<role>, named on every orbit with secure containers.
+PUZZLE_SOUNDS = {'grab': 'S_Grab_Hold_001', 'hold': 'S_Grab_Hold_Loop_001', 'drop': 'S_Grab_Leggo_002', 'throw': 'S_Grab_Throw_001',
+                 'dispenser': 'S_OrbDispenser_Loop_001', 'conductor': 'S_3D_ConductorBeam_Loop', 'unlock': 'S_Container_Armored'}
+
+
+def write_puzzle_sounds(stations):
+    """The puzzle sounds into the mod's sounds when an orbit has secure containers, and their names on those orbits."""
+    import audio
+    orbits = [st['orbit']['containers'] for st in stations
+              if isinstance(st.get('orbit', {}).get('containers'), dict) and st['orbit']['containers'].get('secure')]
+    if not orbits or not audio.available(): return 0
+    waves, tmp = audio.decode(list(PUZZLE_SOUNDS.values()))
+    written = {}
+    try:
+        for role, wave in PUZZLE_SOUNDS.items():
+            if wave in waves and audio.write(waves[wave], f'sounds/es2_puzzle_{role}'): written[role] = f'es2_puzzle_{role}'
+    finally:
+        import shutil; shutil.rmtree(tmp, ignore_errors=True)
+    for ct in orbits:
+        if written: ct['sounds'] = dict(written)
+    return len(written)
+
+
 # ES2's ambience zones in space (BP_MusicTrigger's OverrideAmbience, its InnerSphereRadius): the four sets its location
 # levels place round stations, factories, cargo wrecks and wreck fields, as the remake's orbit "ambience" (the loops as the
 # mod's music tracks, music/es2amb_<wave>: about a minute each, kept compressed; the adds its sounds, sounds/es2amb_<wave>). Their cues (Audio/SFX/Ambience/<set>/S_SC_*): the loops a SoundNodeRandom picks
@@ -1722,6 +1747,12 @@ def build(log=print):
     except Exception as e:
         for st in stations: st.get('orbit', {}).get('storm', {}).pop('thunder', None)
         LOG(f'  no thunder: {e}')
+    # the secure containers' puzzle sounds: ES2's grab, dispenser, conductor and armoured container waves
+    try:
+        n = write_puzzle_sounds(stations)
+        if n: LOG(f'  puzzle sounds: {n}')
+    except Exception as e:
+        LOG(f'  no puzzle sounds: {e}')
     # the orbits' ambience zones: their waves as the mod's sounds (the zones dropped when they can't be written)
     try:
         zones, waves = write_ambience(stations)

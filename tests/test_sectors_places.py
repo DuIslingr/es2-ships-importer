@@ -227,6 +227,16 @@ class ConductorContainerTests(unittest.TestCase):
         self.assertTrue(sectors.conductor_solvable({'sources': [src], 'statics': [[0, 0, 4000, 4000], [0, 0, 8000, 4000]], 'receivers': [rec]}), 'relays on the way')
 
 
+class PuzzleSoundTests(unittest.TestCase):
+    def test_puzzle_sounds_only_with_secure_containers(self):
+        import audio
+        old = audio.available; audio.available = lambda: False
+        try: self.assertEqual(0, sectors.write_puzzle_sounds([{'orbit': {'containers': {'count': 3}}}]), 'no secure containers: nothing')
+        finally: audio.available = old
+        self.assertEqual({'grab', 'hold', 'drop', 'throw', 'dispenser', 'conductor', 'unlock'}, set(sectors.PUZZLE_SOUNDS),
+                         "the remake's PuzzleSoundRoles")
+
+
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):
         import json, os, tempfile
