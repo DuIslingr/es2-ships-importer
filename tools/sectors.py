@@ -560,6 +560,38 @@ def write_ambience(stations):
     return zones, len(written)
 
 
+# Who flies where (DataFiles/location_spawns.CSV: a location's weight for each faction's ships, besides its cargo ships,
+# capital ships, creatures and resources): the factions with a weight as the orbit's own "locals" (the friendly ones,
+# heaviest first) and "raiders" (the hostile ones, factions.py's flag), beating its system's there. Only who, not how many:
+# GoF2's own counts and raider chances stay (ES2's spawn counts and levels would change its difficulty).
+SPAWN_FACTIONS = {'gb': 'gb', 'okkar': 'okkar', 'outlaw': 'outlaw', 'outlaw_bloodstar': 'outlaw', 'zurilia': 'zurilia',
+                  'retaliators': 'retaliators', 'coalition': 'coalition', 'freelancer': 'freelancer', 'cultist': 'cultist',
+                  'okkar_radicals': 'okkar_prime', 'ancient_swarmers': 'ancient', 'okkar_wota_dlc': 'okkar',
+                  'okkar_radicals_wota_dlc': 'okkar_prime'}
+_spawns = None
+
+
+def orbit_spawns(es2_id):
+    """(locals, raiders) of an ES2 location from location_spawns.CSV, the mod's faction ids heaviest first; ([], []) without."""
+    global _spawns
+    if _spawns is None:
+        import es2data, factions
+        _spawns = {}
+        rows = es2data.rows('location_spawns.CSV')
+        head = [c.strip() for c in rows[0]] if rows else []
+        hostile = {v[0]: v[3] for v in factions.FACTIONS.values()}
+        for r in rows[1:]:
+            if not r or not r[0].strip(): continue
+            weight = {}
+            for j, col in enumerate(head):
+                f = SPAWN_FACTIONS.get(col)
+                w = es2data.number(r[j]) if f and j < len(r) else None
+                if w: weight[f] = weight.get(f, 0.0) + w
+            order = sorted(weight, key=lambda f: -weight[f])
+            _spawns[r[0].strip()] = ([f for f in order if not hostile.get(f)], [f for f in order if hostile.get(f)])
+    return _spawns.get(es2_id, ([], []))
+
+
 # ES2's plasma fields (BP_PlasmaField: a cloud of plasma to harvest, Radius 20 000-500 000 cm) as the remake's orbit
 # "gasClouds": GoF2's own gas clouds at their places (a spectral filter shows them, an ionizing missile bursts them, a plasma
 # collector gathers the sparks), in the GoF2 plasma of the location's ES2 level (PLASMA_BY_LEVEL: Green to Red, the deeper
@@ -987,6 +1019,9 @@ def build_sector(key):
         if amb: orbit['ambience'] = amb
         gc = level_gas_clouds(es2_id, L.get('level'))   # ES2's plasma fields as GoF2's gas clouds
         if gc: orbit['gasClouds'] = gc
+        loc, raid = orbit_spawns(es2_id)   # who flies here in ES2 (location_spawns.CSV)
+        if loc: orbit['locals'] = [f'es2_ships:{f}' for f in loc]
+        if raid: orbit['raiders'] = [f'es2_ships:{f}' for f in raid]
         if is_wreck_place(L): orbit['wrecks'] = {'count': 16, 'spread': 80000}   # ES2's war wrecks to salvage
         ct = level_containers(es2_id)   # ES2's item containers there
         if ct: orbit['containers'] = ct
