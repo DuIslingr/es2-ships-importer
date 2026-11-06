@@ -1144,6 +1144,30 @@ def level_secure_containers(es2_id):
     return out[:MAX_SECURE]
 
 
+# ES2's acid pouches (BP_AcidSack_Base and its anemone kind: a stalk holding a BP_AcidSack that spits corrosion every 8-13 s,
+# can be pulled off and thrown to burst into corrosion, and grows again) as the remake's orbit "acidSacks": their places
+# (the base mesh's, cm -> game units), spread x ES2_SHIP_SCALE about their centre as the remake's corrosion field is (ES2's
+# 40 m field x 3.6: at 1:1 the bases' 70 m spacing made the spits one corrosive zone), at most MAX_ACID. 26 bases in 3
+# locations (S04L01, S04L04, S08ML04).
+ACID_CLASSES = ('BP_AcidSack_Base_C', 'BP_AcidSack_Base_Anemone_C')
+MAX_ACID = 30
+
+
+def level_acid_sacks(es2_id):
+    """An ES2 location's acid pouch bases as the remake's orbit "acidSacks" ([] on a planet-side level)."""
+    if re.search(r'L\d\dP', es2_id): return []
+    d = _level(es2_id)
+    out = []
+    for o in d or []:
+        if o.get('Type') not in ACID_CLASSES: continue
+        m = re.search(r'\.(\d+)$', (o.get('Properties', {}).get('RootComponent') or {}).get('ObjectPath', ''))
+        root = d[int(m.group(1))].get('Properties', {}) if m and int(m.group(1)) < len(d) else {}
+        out.append(to_game(_vec(root.get('RelativeLocation'))) * 0.2)
+    if not out: return []
+    c = np.mean(out, axis=0)
+    return [[round(float(x)) for x in c + (p - c) * ES2_SHIP_SCALE] for p in out][:MAX_ACID]
+
+
 # ES2's cloaked containers (BP_Activity_InvisibleContainer: a BP_InvisibleItemContainer under the cloak, its marker hidden
 # until the ship is within its InteractRadius, a rare container's loot) as the remake's orbit containers "cloaked": their
 # places (ES2 cm -> game units), at most MAX_CLOAKED. 29 in 27 locations.
@@ -1600,6 +1624,8 @@ def build_sector(key):
         if storm: orbit['storm'] = storm
         mf = level_minefields(es2_id)   # ES2's minefields at their places (the remake gates them by security, rank and share)
         if mf: orbit['minefields'] = mf
+        acid = level_acid_sacks(es2_id)   # ES2's acid pouches on their stalks
+        if acid: orbit['acidSacks'] = acid
         gc = level_gas_clouds(es2_id, L.get('level'))   # ES2's plasma fields as GoF2's gas clouds
         if gc: orbit['gasClouds'] = gc
         loc, raid = orbit_spawns(es2_id)   # who flies here in ES2 (location_spawns.CSV)

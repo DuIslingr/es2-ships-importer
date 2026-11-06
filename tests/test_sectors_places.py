@@ -237,6 +237,24 @@ class PuzzleSoundTests(unittest.TestCase):
                          "the remake's PuzzleSoundRoles")
 
 
+class AcidSackTests(unittest.TestCase):
+    def test_level_acid_sacks(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            def obj(i, t, **props): return {'Type': t, 'Name': f'o{i}', 'Properties': props}
+            ref = lambda i: {'ObjectPath': f'/Game/Maps/Locations/A9L01.{i}'}
+            level = [obj(0, 'BP_AcidSack_Base_C', RootComponent=ref(1)), obj(1, 'StaticMeshComponent', RelativeLocation={'X': 100000, 'Y': 0, 'Z': 0}),
+                     obj(2, 'BP_AcidSack_Base_Anemone_C', RootComponent=ref(3)), obj(3, 'StaticMeshComponent', RelativeLocation={'X': 0, 'Y': 0, 'Z': 50000}),
+                     obj(4, 'BP_AcidSack_C', RootComponent=ref(1))]
+            for n in ('A9L01', 'A9L01P'): json.dump(level, open(os.path.join(d, 'Maps', 'Locations', n + '.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: a, planet = sectors.level_acid_sacks('A9L01'), sectors.level_acid_sacks('A9L01P')
+            finally: sectors.SRC = old
+        self.assertEqual([[0, -13000, 46000], [0, 23000, -26000]], a, 'the bases (not the pouches they grow), spread x 3.6 about their centre')
+        self.assertEqual([], planet)
+
+
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):
         import json, os, tempfile
