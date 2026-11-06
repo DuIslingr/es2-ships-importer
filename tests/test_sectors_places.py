@@ -255,6 +255,34 @@ class AcidSackTests(unittest.TestCase):
         self.assertEqual([], planet)
 
 
+class UniqueRockTests(unittest.TestCase):
+    def test_unity_euler(self):
+        self.assertEqual([0.0, 90.0, 0.0], [abs(x) if x == 0 else x for x in sectors.unity_euler({'Yaw': 90})], "UE's yaw about up: Unity's y")
+        self.assertEqual(30.0, sectors.unity_euler({'Pitch': 30})[0])
+        self.assertEqual(45.0, sectors.unity_euler({'Roll': 45})[2])
+
+    def test_level_props(self):
+        import json, os, tempfile
+        mesh = sectors.UNIQUE_ROCKS[0]
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations')); os.makedirs(os.path.join(d, 'Assets/Environment/Asteroids/Meshes'))
+            json.dump([{'Type': 'StaticMesh', 'Properties': {'ExtendedBounds': {'BoxExtent': {'X': 5000, 'Y': 2000, 'Z': 1000}}}}],
+                      open(os.path.join(d, 'Assets/Environment/Asteroids/Meshes', mesh + '.json'), 'w'))
+            sm = {'ObjectName': f"StaticMesh'{mesh}'"}
+            level = [{'Type': 'StaticMeshComponent', 'Properties': {'StaticMesh': sm, 'RelativeLocation': {'X': 500000, 'Y': 0, 'Z': 0}, 'RelativeScale3D': {'X': 2, 'Y': 2, 'Z': 2}}},
+                     {'Type': 'StaticMeshComponent', 'Properties': {'StaticMesh': sm, 'RelativeLocation': {'X': 1000, 'Y': 0, 'Z': 0}}},
+                     {'Type': 'StaticMeshComponent', 'Properties': {'StaticMesh': sm, 'AttachParent': {}, 'RelativeLocation': {'X': 600000, 'Y': 0, 'Z': 0}}},
+                     {'Type': 'StaticMeshComponent', 'Properties': {'StaticMesh': {'ObjectName': "StaticMesh'SM_Asteroid_Rock_Generic_Unique_099'"}, 'RelativeLocation': {'X': 700000, 'Y': 0, 'Z': 0}}}]
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'U9L01.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d; sectors._rock_extents.clear()
+            try: p = sectors.level_props('U9L01')
+            finally: sectors.SRC = old; sectors._rock_extents.clear()
+        self.assertEqual(1, len(p), 'the one on the station, the attached one and a mesh not taken left out')
+        self.assertEqual([0, 0, 100000], p[0]['at'])
+        self.assertEqual(4000, p[0]['size'], '10 000 cm x scale 2 x 0.2')
+        self.assertTrue(p[0]['model'].startswith('rocks/'))
+
+
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):
         import json, os, tempfile

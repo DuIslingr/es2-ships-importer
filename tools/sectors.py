@@ -870,6 +870,15 @@ def ice_maps(mi):
 def asteroid_models(kind):
     """{"models", "materials"} for an orbit's asteroids of 'kind' ('rock' / 'ice'; made once), None without the meshes."""
     if kind in _asteroid_models: return _asteroid_models[kind]
+    _asteroid_models[kind] = _asteroid_meshes(ASTEROID_MESHES.get(kind, []), 'asteroids')
+    if not _asteroid_models[kind]: LOG(f'  asteroids ({kind}): their meshes aren\'t in the export (tools/asteroid_assets.txt): the game\'s')
+    return _asteroid_models[kind]
+
+
+def _asteroid_meshes(meshes, folder):
+    """ES2 asteroid meshes (Assets/Environment/Asteroids/Meshes) as the mod's models under 'folder' with their materials (the
+    generic rocks' and ices' colour and roughness baked, the seamless ones through es2mat): {"models", "materials"}, None
+    without any."""
     import warships, es2mat
     if warships.SRC is None: warships.configure(SRC, MOD, LOG)
     plan = es2mat.plan
@@ -881,14 +890,14 @@ def asteroid_models(kind):
     models, materials = [], []
     es2mat.plan = baked_plan
     try:
-        for mesh in ASTEROID_MESHES.get(kind, []):
+        for mesh in meshes:
             path = os.path.join(SRC, 'Assets/Environment/Asteroids/Meshes', mesh + '.glb')
             if not os.path.exists(path): continue
             prims = warships.read_prims(path)
             mn, mx = warships.bounds(prims)
             used = {}
             prefix = 'es2_' + mesh.lower().replace('sm_asteroid_', '') + '_'
-            rel = f'asteroids/{mesh.lower()}.glb'
+            rel = f'{folder}/{mesh.lower()}.glb'
             warships.write_glb(rel, warships.split_prims(prefix, prims, used), (mn + mx) / 2)
             models.append(rel)
             for e in warships.material_entries(prefix, used):
@@ -916,9 +925,76 @@ def asteroid_models(kind):
             if max(im.size) > ASTEROID_MAP_SIZE:
                 im.thumbnail((ASTEROID_MAP_SIZE, ASTEROID_MAP_SIZE), Image.LANCZOS)
                 im.save(f)
-    _asteroid_models[kind] = {'models': models, 'materials': materials} if models else None
-    if not models: LOG(f'  asteroids ({kind}): their meshes aren\'t in the export (tools/asteroid_assets.txt): the game\'s')
-    return _asteroid_models[kind]
+    return {'models': models, 'materials': materials} if models else None
+
+
+# ES2's unique asteroids: the landmark rocks its location levels place one by one (StaticMeshActors of
+# SM_Asteroid_Rock_*_Unique_*, up to kilometres across, 1560 in 104 space levels on 111 meshes) as the remake's orbit "props":
+# the UNIQUE_ROCKS meshes (the 16 most placed, 72 % of them; tools/unique_rock_assets.txt), each placed rock's place, its
+# rotation (UE's rotator into the orbit's Unity frame, Unity's Euler) and its largest side (the mesh's bounds x its scale,
+# cm -> game units); the nearest MAX_PROPS within PROP_RANGE whose edge stays HAZARD_CLEAR from the orbit's centre.
+UNIQUE_ROCKS = [l.rsplit('/', 1)[1].strip() for l in open(os.path.join(os.path.dirname(__file__), 'unique_rock_assets.txt'))
+                if l.startswith('/Game/')]
+MAX_PROPS = 30
+PROP_RANGE = 300000   # game units (15 km)
+_unique_rocks = []
+
+
+def unique_rock_models():
+    """{"models", "materials"} of UNIQUE_ROCKS (made once), None without the meshes."""
+    if not _unique_rocks: _unique_rocks.append(_asteroid_meshes(UNIQUE_ROCKS, 'rocks'))
+    return _unique_rocks[0]
+
+
+def unity_euler(rotator):
+    """An Unreal FRotator (degrees) as Unity Euler degrees (x, y, z; Quaternion.Euler's Z, X, Y order) in the orbit's Unity
+    frame: UE (X fwd, Y right, Z up) -> game (to_game) -> Unity (x, y, -z)."""
+    U = np.array([[0, -1, 0], [0, 0, 1], [-1, 0, 0]], np.float64)   # (UE -> Unity: to_game, then z negated; a rotation)
+    R = U @ _rotator(rotator) @ U.T
+    # Unity: R = Ry(y) Rx(x) Rz(z)
+    x = math.degrees(math.asin(max(-1.0, min(1.0, -R[1, 2]))))
+    if abs(R[1, 2]) < 0.9999:
+        y = math.degrees(math.atan2(R[0, 2], R[2, 2])); z = math.degrees(math.atan2(R[1, 0], R[1, 1]))
+    else:
+        y = math.degrees(math.atan2(-R[2, 0], R[0, 0])); z = 0.0
+    return [round(x, 2), round(y, 2), round(z, 2)]
+
+
+_rock_extents = {}
+def _rock_extent(mesh):
+    """A mesh's largest side (cm) from its export's bounds, 0 when unknown."""
+    if mesh not in _rock_extents:
+        e = 0.0
+        p = os.path.join(SRC, 'Assets/Environment/Asteroids/Meshes', mesh + '.json')
+        if os.path.exists(p):
+            for o in json.load(open(p, encoding='utf-8-sig')):
+                b = (o.get('Properties') or {}).get('ExtendedBounds') or o.get('Bounds') or (o.get('Properties') or {}).get('Bounds')
+                if isinstance(b, dict) and b.get('BoxExtent'):
+                    e = 2.0 * max(abs(b['BoxExtent'].get(k, 0.0)) for k in 'XYZ'); break
+        _rock_extents[mesh] = e
+    return _rock_extents[mesh]
+
+
+def level_props(es2_id):
+    """An ES2 location's unique asteroids (of UNIQUE_ROCKS) as the remake's orbit "props" ([] on a planet-side level)."""
+    if re.search(r'L\d\dP', es2_id): return []
+    out = []
+    for o in _level(es2_id) or []:
+        p = o.get('Properties') or {}
+        if o.get('Type') != 'StaticMeshComponent' or 'AttachParent' in p or not isinstance(p.get('StaticMesh'), dict): continue
+        m = re.search(r"SM_Asteroid_Rock_[A-Za-z]+_Unique_[0-9A-Za-z_]+", p['StaticMesh'].get('ObjectName', ''))
+        if not m or m.group(0) not in UNIQUE_ROCKS: continue
+        sc = p.get('RelativeScale3D') or {}
+        scale = max(abs(sc.get(k, 1.0)) for k in 'XYZ') if sc else 1.0
+        size = _rock_extent(m.group(0)) * scale * 0.2
+        g = to_game(_vec(p.get('RelativeLocation'))) * 0.2
+        dist = float(np.linalg.norm(g))
+        if size <= 0 or dist > PROP_RANGE or dist - size / 2 < HAZARD_CLEAR: continue
+        out.append({'model': f'rocks/{m.group(0).lower()}.glb', 'at': [round(float(x)) for x in g],
+                    'rotation': unity_euler(p.get('RelativeRotation')), 'size': round(size)})
+    out.sort(key=lambda x: np.linalg.norm(x['at']))
+    return out[:MAX_PROPS]
+
 
 
 # ES2's wreck fields' hulls (BP_MeshField_Wrecks' SM_Wrecks_*, Assets/Environment/Structures/Meshes; tools/
@@ -1631,6 +1707,11 @@ def build_sector(key):
         if mf: orbit['minefields'] = mf
         acid = level_acid_sacks(es2_id)   # ES2's acid pouches on their stalks
         if acid: orbit['acidSacks'] = acid
+        props = level_props(es2_id)   # ES2's unique asteroids, one by one
+        rocks = unique_rock_models() if props else None
+        if props and rocks:
+            orbit['props'] = props
+            orbit['propMaterials'] = list(rocks['materials'])
         gc = level_gas_clouds(es2_id, L.get('level'))   # ES2's plasma fields as GoF2's gas clouds
         if gc: orbit['gasClouds'] = gc
         loc, raid = orbit_spawns(es2_id)   # who flies here in ES2 (location_spawns.CSV)

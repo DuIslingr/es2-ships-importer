@@ -1,0 +1,18 @@
+# What the orbits' unique asteroids need beyond a plain FModel export (tools/sectors.py UNIQUE_ROCKS: the 16 most placed of
+# ES2's SM_Asteroid_Rock_*_Unique_*, 72 % of its space levels' unique rocks). tools/shaders: export <this file> <Exports> all
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_010
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Jagged_Unique_001
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_005
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_009
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_008
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Jagged_Unique_004
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_003
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Edged_Unique_003
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Edged_Unique_004
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_014
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Edged_Unique_002
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_004
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_007
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_013
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Jagged_Unique_007
+/Game/Assets/Environment/Asteroids/Meshes/SM_Asteroid_Rock_Generic_Unique_016
