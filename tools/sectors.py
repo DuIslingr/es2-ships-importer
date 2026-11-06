@@ -974,6 +974,7 @@ def level_containers(es2_id):
         armoured = CONTAINER_CLASSES.get(o.get('Type'))
         if armoured is None: continue
         p = o.get('Properties', {})
+        if armoured and p.get('ShotTriggersRequired'): continue   # (a secure container of its own: level_secure_containers)
         places.append(to_game(_vec(at(p.get('RootComponent')).get('RelativeLocation'))) * 0.2)
         if armoured or p.get('ContainerType') in ('EContainerType::OpenOnInteract', 'EContainerType::OpenOnUnlocked'): proof += 1
     if not places: return None
@@ -982,6 +983,48 @@ def level_containers(es2_id):
     spread = float(np.clip(2 * np.abs(pts - centre).max(), 5000, 400000))
     return {'count': min(len(places), MAX_CONTAINERS), 'centre': [round(float(x)) for x in centre], 'spread': round(spread),
             'bulletproof': round(proof / len(places), 2)}
+
+
+# ES2's armoured containers locked by shot triggers (BP_ItemContainer_Armored with ShotTriggersRequired: OpenOnUnlocked;
+# BP_ShotTrigger lights by a hit, its ShotTriggerChainPreviousOne makes a chain in order, Retriggerable with RegtriggerDelay
+# 3 s makes it go dark again) as the remake's containers "secure": the container's place, its triggers' places in chain
+# order (at most 8), "ordered" when chained, "retrigger" when retriggerable. 82 in 41 locations (20 planet-side, left out);
+# the ones locked otherwise (energy orbs, coil sockets, conductor receivers) stay bulletproof containers.
+MAX_SECURE = 6
+SHOT_TRIGGER_CLASSES = ('BP_ShotTrigger_C', 'BP_ShotTrigger_Okkar_Toggle_C')
+
+
+def level_secure_containers(es2_id):
+    """An ES2 location's shot-trigger secure containers as the remake's containers "secure", the nearest first."""
+    if re.search(r'L\d\dP', es2_id): return []
+    d = _level(es2_id)
+    def obj(ref):
+        m = re.search(r'\.(\d+)$', (ref or {}).get('ObjectPath', ''))
+        i = int(m.group(1)) if m else -1
+        return d[i] if 0 <= i < len(d) else {}
+    def place(o): return [round(float(x)) for x in to_game(_vec(obj(o.get('Properties', {}).get('RootComponent')).get('Properties', {}).get('RelativeLocation'))) * 0.2]
+    out = []
+    for o in d or []:
+        p = o.get('Properties', {})
+        if not CONTAINER_CLASSES.get(o.get('Type')) or not p.get('ShotTriggersRequired'): continue
+        refs = [r.get('ObjectPath') for r in p['ShotTriggersRequired']]
+        trig = {r: obj({'ObjectPath': r}) for r in refs}
+        trig = {r: t for r, t in trig.items() if t.get('Type') in SHOT_TRIGGER_CLASSES}
+        if not trig: continue
+        prev = {r: (t.get('Properties', {}).get('ShotTriggerChainPreviousOne') or {}).get('ObjectPath') for r, t in trig.items()}
+        ordered = any(v in trig for v in prev.values())
+        # the chain's order: each after the one it names as its previous (the rest as listed)
+        order, left = [], list(trig)
+        while left:
+            nxt = next((r for r in left if prev[r] not in left), left[0])
+            order.append(nxt); left.remove(nxt)
+        retrig = [t.get('Properties', {}) for t in trig.values() if t.get('Properties', {}).get('Retriggerable')]
+        spec = {'at': place(o), 'triggers': [place(trig[r]) for r in order][:8]}
+        if ordered: spec['ordered'] = True
+        if retrig: spec['retrigger'] = round(float(retrig[0].get('RegtriggerDelay', 3.0)), 2)
+        out.append(spec)
+    out.sort(key=lambda s: np.linalg.norm(s['at']))
+    return out[:MAX_SECURE]
 
 
 # ES2's cloaked containers (BP_Activity_InvisibleContainer: a BP_InvisibleItemContainer under the cloak, its marker hidden
@@ -1455,6 +1498,10 @@ def build_sector(key):
         if cloaked:
             ct = ct or {'count': 0}
             ct['cloaked'] = cloaked
+        secure = level_secure_containers(es2_id)   # ... and its armoured containers locked by shot triggers
+        if secure:
+            ct = ct or {'count': 0}
+            ct['secure'] = secure
         if unique:
             ct = ct or {'count': min(len(unique), 6), 'spread': 40000, 'bulletproof': 0.5}
             ct['loot'] = unique

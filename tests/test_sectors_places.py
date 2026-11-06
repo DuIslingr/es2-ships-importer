@@ -140,6 +140,33 @@ class CloakedContainerTests(unittest.TestCase):
         self.assertEqual([], planet, 'planet-side: left out')
 
 
+class SecureContainerTests(unittest.TestCase):
+    def test_level_secure_containers(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            def obj(i, t, **props): return {'Type': t, 'Name': f'o{i}', 'Properties': props}
+            ref = lambda i: {'ObjectPath': f'/Game/Maps/Locations/K9L01.{i}'}
+            loc = lambda x: {'X': x, 'Y': 0, 'Z': 0}
+            level = [obj(0, 'BP_ItemContainer_Armored_C', RootComponent=ref(1), ShotTriggersRequired=[ref(2), ref(4)]),
+                     obj(1, 'SceneComponent', RelativeLocation=loc(100000)),
+                     obj(2, 'BP_ShotTrigger_C', RootComponent=ref(3), ShotTriggerChainPreviousOne=ref(4)),
+                     obj(3, 'SceneComponent', RelativeLocation=loc(110000)),
+                     obj(4, 'BP_ShotTrigger_C', RootComponent=ref(5), Retriggerable=True),
+                     obj(5, 'SceneComponent', RelativeLocation=loc(120000)),
+                     obj(6, 'BP_ItemContainer_Armored_C', RootComponent=ref(1), EnergyOrbsRequired=[ref(5)])]
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'K9L01.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: s, plain = sectors.level_secure_containers('K9L01'), sectors.level_containers('K9L01')
+            finally: sectors.SRC = old
+        self.assertEqual(1, len(s), 'the orb-locked one stays a bulletproof container')
+        self.assertEqual([0, 0, 20000], s[0]['at'])
+        self.assertEqual([[0, 0, 24000], [0, 0, 22000]], s[0]['triggers'], 'in chain order: the one named as previous first')
+        self.assertTrue(s[0]['ordered'])
+        self.assertEqual(3.0, s[0]['retrigger'], "BP_ShotTrigger's RegtriggerDelay")
+        self.assertEqual(1, plain['count'], 'the secure one not counted twice')
+
+
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):
         import json, os, tempfile
