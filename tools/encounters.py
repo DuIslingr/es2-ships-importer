@@ -18,6 +18,8 @@ ENCOUNTERS = [
     {'id': 'es2_minesweeper', 'kind': 'minesweeper', 'weight': 5, 'visible': True, 'minRank': 4, 'security': [0, 1], 'name': 'Minesweeper'},
     # BP_Encounter_ShootingChallenge: the remake's challenge (a Challenger and 4-5 enemy groups; a battle's risk)
     {'id': 'es2_challenge', 'kind': 'challenge', 'weight': 5, 'visible': True, 'security': [0, 1, 2], 'name': 'Shooting Challenge'},
+    # BP_Encounter_ItemsNeeded ("Ship In Need"): the remake's needy (a damaged ship wanting repair goods; no danger)
+    {'id': 'es2_needy', 'kind': 'needy', 'weight': 6, 'visible': True, 'name': 'Ship In Need'},
     {'id': 'es2_rift', 'kind': 'rift'},   # (the rift's chance and stages are the remake's: the mod only adds its bosses)
 ]
 

@@ -7,13 +7,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import encounters
 
-KINDS = {'pirates', 'trader', 'derelict', 'distress', 'flyby', 'quest', 'battle', 'trap', 'stash', 'depot', 'highrisk', 'lootdrone', 'rift', 'minesweeper', 'challenge'}
+KINDS = {'pirates', 'trader', 'derelict', 'distress', 'flyby', 'quest', 'battle', 'trap', 'stash', 'depot', 'highrisk', 'lootdrone', 'rift', 'minesweeper', 'challenge', 'needy'}
 
 
 class EncounterTests(unittest.TestCase):
     def test_entries(self):
         enc = encounters.build()
-        self.assertEqual(9, len(enc))
+        self.assertEqual(10, len(enc))
         self.assertEqual(len(enc), len({e['id'] for e in enc}), 'unique ids')
         for e in enc:
             self.assertIn(e['kind'], KINDS)
