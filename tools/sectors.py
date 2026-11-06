@@ -484,7 +484,9 @@ def level_hazards(es2_id):
 
 
 # ES2's minefields (BP_Minefield_*: Radius 25 000 cm, AverageMineDistance 12 000 cm, MaxMineAmount 40 over the blueprint's)
-# as the remake's orbit "minefields": the actor's place and radius (cm -> game units), its kind by class, and as many mines
+# as the remake's orbit "minefields": the actor's place, its radius (cm -> game units x the ES2 ships' 3.6, as the remake's mine
+# trigger and blast: else ES2's 120 m spacing against its 100 m trigger becomes 120 m against 360 m and a field goes off at
+# once), its kind by class, and as many mines
 # as fit the sphere at that spacing (4/3 pi (Radius / AverageMineDistance)^3, 38 for the defaults), 3 to MaxMineAmount.
 # The remake lays them only in risky or dangerous systems for a pilot of rank 4 or more, on half the visits (its defaults).
 # 90 actors in 30 locations: Corrosion 48, Web 19, Thermal 13, Cryo 10.
@@ -493,6 +495,7 @@ MINEFIELD_CLASSES = {'BP_Minefield_C': 'kinetic', 'BP_Minefield_Base_C': 'kineti
                      'BP_Minefield_Corrosion_C': 'corrosion'}
 MINEFIELD_DEFAULTS = {'Radius': 25000.0, 'AverageMineDistance': 12000.0, 'MaxMineAmount': 40}
 MAX_MINEFIELDS = 6
+ES2_SHIP_SCALE = 3.6   # the remake's ES2 numbers' scale (its mines' trigger / blast, interaction ranges)
 
 
 def minefield_count(radius_cm, spacing_cm, most):
@@ -514,7 +517,7 @@ def level_minefields(es2_id):
         m = re.search(r'\.(\d+)$', (o.get('Properties', {}).get('RootComponent') or {}).get('ObjectPath', ''))
         root = d[int(m.group(1))].get('Properties', {}) if m and int(m.group(1)) < len(d) else {}
         g = to_game(_vec(root.get('RelativeLocation'))) * 0.2
-        radius = max(500.0, float(p['Radius']) * 0.2)
+        radius = max(500.0, float(p['Radius']) * 0.2 * ES2_SHIP_SCALE)
         if np.linalg.norm(g) - radius < HAZARD_CLEAR: continue
         out.append({'kind': kind, 'centre': [round(float(x)) for x in g], 'radius': round(radius),
                     'count': minefield_count(float(p['Radius']), float(p['AverageMineDistance']), int(p['MaxMineAmount']))})

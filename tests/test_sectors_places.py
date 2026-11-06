@@ -112,8 +112,8 @@ class MinefieldTests(unittest.TestCase):
             old = sectors.SRC; sectors.SRC = d
             try: m = sectors.level_minefields('M9L01')
             finally: sectors.SRC = old
-        self.assertEqual([('web', 5000, 38), ('corrosion', 2400, 4)], [(x['kind'], x['radius'], x['count']) for x in m],
-                         "the blueprint's 25 000 cm x 0.2 with 38 mines at 12 000 cm apart; the actor's own 12 000 cm holds 4; "
+        self.assertEqual([('web', 18000, 38), ('corrosion', 8640, 4)], [(x['kind'], x['radius'], x['count']) for x in m],
+                         "the blueprint's 25 000 cm x 0.2 x 3.6 with 38 mines at 12 000 cm apart; the actor's own 12 000 cm holds 4; "
                          "the cryo field on the station left out")
         self.assertEqual([0, 0, 100000], m[0]['centre'], "UE's X (forward) is the game's Z, as the hazards' places")
         self.assertNotIn('minRank', m[0], "the remake's gate: its defaults")

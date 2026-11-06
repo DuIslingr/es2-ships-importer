@@ -13,6 +13,9 @@ ENCOUNTERS = [
     {'id': 'es2_depot', 'kind': 'depot', 'weight': 8, 'visible': True, 'security': [0, 1, 2], 'name': 'Resource Depot'},
     {'id': 'es2_highrisk', 'kind': 'highrisk', 'weight': 4, 'visible': True, 'minRank': 6, 'security': [0, 1], 'name': 'High Risk Area'},
     {'id': 'es2_lootdrone', 'kind': 'lootdrone', 'weight': 6, 'visible': True, 'name': 'Cargo Drone'},
+    # BP_Encounter_Minesweeper (RegardAsDistressCall, its stuck-freighter task): the remake's minesweeper, mines being a danger
+    # only from a rank on and where security is low, as the orbit minefields
+    {'id': 'es2_minesweeper', 'kind': 'minesweeper', 'weight': 5, 'visible': True, 'minRank': 4, 'security': [0, 1], 'name': 'Minesweeper'},
     {'id': 'es2_rift', 'kind': 'rift'},   # (the rift's chance and stages are the remake's: the mod only adds its bosses)
 ]
 
