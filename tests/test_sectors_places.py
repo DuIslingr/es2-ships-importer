@@ -95,6 +95,32 @@ class StormTests(unittest.TestCase):
         self.assertIsNone(none)
 
 
+class MinefieldTests(unittest.TestCase):
+    def test_level_minefields(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'Maps', 'Locations'))
+            def obj(i, t, **props): return {'Type': t, 'Name': f'o{i}', 'Properties': props}
+            ref = lambda i: {'ObjectPath': f'/Game/Maps/Locations/M9L01.{i}'}
+            level = [obj(0, 'BP_Minefield_Web_C', RootComponent=ref(1)),
+                     obj(1, 'SceneComponent', RelativeLocation={'X': 500000, 'Y': 0, 'Z': 0}),
+                     obj(2, 'BP_Minefield_Corrosion_C', RootComponent=ref(3), Radius=12000.0),
+                     obj(3, 'SceneComponent', RelativeLocation={'X': 0, 'Y': 600000, 'Z': 0}),
+                     obj(4, 'BP_Minefield_Cryo_C', RootComponent=ref(5)),
+                     obj(5, 'SceneComponent', RelativeLocation={'X': 1000, 'Y': 0, 'Z': 0})]
+            json.dump(level, open(os.path.join(d, 'Maps', 'Locations', 'M9L01.json'), 'w'))
+            old = sectors.SRC; sectors.SRC = d
+            try: m = sectors.level_minefields('M9L01')
+            finally: sectors.SRC = old
+        self.assertEqual([('web', 5000, 38), ('corrosion', 2400, 4)], [(x['kind'], x['radius'], x['count']) for x in m],
+                         "the blueprint's 25 000 cm x 0.2 with 38 mines at 12 000 cm apart; the actor's own 12 000 cm holds 4; "
+                         "the cryo field on the station left out")
+        self.assertEqual([0, 0, 100000], m[0]['centre'], "UE's X (forward) is the game's Z, as the hazards' places")
+        self.assertNotIn('minRank', m[0], "the remake's gate: its defaults")
+        self.assertEqual(40, sectors.minefield_count(50000, 12000, 40), 'at most MaxMineAmount')
+        self.assertEqual(3, sectors.minefield_count(1000, 12000, 40), 'at least 3')
+
+
 class ContainerTests(unittest.TestCase):
     def test_level_containers(self):
         import json, os, tempfile
