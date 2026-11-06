@@ -39,6 +39,12 @@ class PlanetSphereTests(unittest.TestCase):
         self.assertEqual(0.5, s['variation'], 'the PlanetData default')
         self.assertNotIn('capNormal', s['maps'], 'no poles')
 
+    def test_cratered(self):
+        s = self.sphere('MI_Planet_Cratered_A')
+        self.assertEqual('es2Cratered', s['look'])
+        self.assertIn('surface2', s['maps'], 'the rock beside the craters')
+        self.assertNotIn('colors', s, 'grey')
+
     def test_desert_has_no_colours(self):
         s = self.sphere('MI_Planet_Desert_A')
         self.assertNotIn('colors', s)

@@ -1133,7 +1133,16 @@ SPHERES = {'MI_Planet_Desert_A': ('es2Desert', {
         'surface': 'Assets/Environment/Planets/Textures/T_Planet_Gas_001_C_H.png',
         'normal': 'Assets/Environment/Planets/Textures/T_Planet_Gas_001_N.png',
         'noise': 'Assets/Shared/Textures/Effects/T_Noise_001_M.png'},
-        [[0.5, 0.233332, 0.099999], [1.0, 0.515625, 0.354167]])}   # SecondaryColor, BaseColor
+        [[0.5, 0.233332, 0.099999], [1.0, 0.515625, 0.354167]]),   # SecondaryColor, BaseColor
+    # (2026-11-06) the grey cratered moons: M_Planet_Cratered (craters or rock by a noise, the desert's poles)
+    'MI_Planet_Cratered_A': ('es2Cratered', {
+        'surface': 'Assets/Environment/Planets/Textures/T_Planet_Craters_001_H_C_R.png',
+        'normal': 'Assets/Environment/Planets/Textures/T_Planet_Craters_001_N.png',
+        'surface2': 'Assets/Environment/Planets/Textures/T_Planet_Rock_002_H_C_R.png',
+        'normal2': 'Assets/Environment/Planets/Textures/T_Planet_Rock_002_N.png',
+        'capNormal': 'Assets/Shared/Textures/Rock/T_Rocks_004_N.png',
+        'capColour': 'Assets/Shared/Textures/Rock/T_Rocks_004_C.png',
+        'noise': 'Assets/Shared/Textures/Effects/T_Noise_016_M.png'})}
 
 
 def planet_sphere(pl):
