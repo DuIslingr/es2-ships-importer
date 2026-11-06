@@ -1,0 +1,2 @@
+# What the planet spheres need beyond a plain FModel export (tools/sectors.py SPHERES). tools/shaders: export <this file> <Exports> all
+/Game/Assets/Shared/Textures/Quixel/T_Quixel_Rock_024_C_R_H

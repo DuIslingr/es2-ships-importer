@@ -1143,6 +1143,41 @@ SPHERES = {'MI_Planet_Desert_A': ('es2Desert', {
         'capNormal': 'Assets/Shared/Textures/Rock/T_Rocks_004_N.png',
         'capColour': 'Assets/Shared/Textures/Rock/T_Rocks_004_C.png',
         'noise': 'Assets/Shared/Textures/Effects/T_Noise_016_M.png'})}
+# (2026-11-06) the volcanic planets: M_Planet_Volcanic's lava (its compiled emissive pass), its rock from the master's
+# BaseColor; T_Quixel_Rock_024_C_R_H through tools/planet_assets.txt
+SPHERES['MI_Planet_Volcanic_A'] = ('es2Volcanic', {
+    'surface': 'Assets/Environment/Planets/Textures/T_Planet_Volcanic_001_M.png',
+    'normal': 'Assets/Environment/Planets/Textures/T_Planet_Volcanic_001_N.png',
+    'surface2': 'Assets/Shared/Textures/Quixel/T_Quixel_Rock_024_C_R_H.png',
+    'capNormal': 'Assets/Shared/Textures/Rock/T_Rocks_004_N.png',
+    'noise': 'Assets/Shared/Textures/Effects/T_Noise_016_M.png',
+    'noise2': 'Assets/Shared/Textures/Effects/T_Noise_008_M.png'},
+    [[0.05, 0.048342, 0.043371], [1.0, 0.25, 0.1]])   # BaseColor, LavaColor
+# (2026-11-06) the ice and water planets, with M_Planet_Ice / M_Planet_Water's drifting clouds
+CLOUDS = {'clouds': 'Assets/Environment/Planets/Textures/T_Planet_Clouds_001_C_AO.png',
+          'cloudsNormal': 'Assets/Environment/Planets/Textures/T_Planet_Clouds_001_N.png'}
+SPHERES['MI_Planet_Ice_A'] = ('es2Ice', dict({
+    'surface': 'Assets/Environment/Planets/Textures/T_Planet_Rock_002_H_C_R.png',
+    'normal': 'Assets/Environment/Planets/Textures/T_Planet_Rock_002_N.png',
+    'capNormal': 'Assets/Shared/Textures/Rock/T_Rocks_004_N.png',
+    'capColour': 'Assets/Shared/Textures/Rock/T_Rocks_004_C.png',
+    'noise': 'Assets/Shared/Textures/Effects/T_Noise_016_M.png'}, **CLOUDS),
+    [[0.7708, 0.9229, 1.0], [0.7708, 0.9229, 1.0]])   # BaseColor (one colour)
+SPHERES['MI_Planet_Water_A'] = ('es2Water', dict({
+    'surface': 'Assets/Shared/Textures/Effects/T_Noise_018_M.png',
+    'normal': 'Assets/Shared/Textures/Effects/T_Noise_018_N.png',
+    'noise2': 'Assets/Shared/Textures/Effects/T_Noise_009_M.png'}, **CLOUDS),
+    [[0.08, 0.156, 0.2], [0.4, 0.4832, 0.5]])   # Color, IceColor
+SPHERES['MI_Planet_Earthlike_A'] = ('es2Earthlike', dict({   # (land, seas and clouds: its colours are the shader's own)
+    'surface': 'Assets/Environment/Planets/Textures/T_Planet_Mountains_001_H_C_R.png',
+    'normal': 'Assets/Environment/Planets/Textures/T_Planet_Mountains_001_N.png',
+    'surface2': 'Assets/Environment/Planets/Textures/T_Planet_Rock_001_H_C_R.png',
+    'normal2': 'Assets/Environment/Planets/Textures/T_Planet_Rock_001_N.png',
+    'capNormal': 'Assets/Shared/Textures/Rock/T_Rocks_004_N.png',
+    'capColour': 'Assets/Shared/Textures/Rock/T_Rocks_004_C.png',
+    'noise': 'Assets/Shared/Textures/Effects/T_Noise_016_M.png',
+    'noise2': 'Assets/Shared/Textures/Effects/T_Noise_015_M.png'}, **CLOUDS))
+SPHERES['MI_Planet_Desert_Okkar'] = SPHERES['MI_Planet_Desert_A']   # (M_Planet_Desert unchanged: the same look and maps)
 
 
 def planet_sphere(pl):

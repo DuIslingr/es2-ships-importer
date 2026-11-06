@@ -45,6 +45,28 @@ class PlanetSphereTests(unittest.TestCase):
         self.assertIn('surface2', s['maps'], 'the rock beside the craters')
         self.assertNotIn('colors', s, 'grey')
 
+    def test_volcanic(self):
+        s = self.sphere('MI_Planet_Volcanic_A', variation=0.1)
+        self.assertEqual('es2Volcanic', s['look'])
+        self.assertEqual([1.0, 0.25, 0.1], s['colors'][1], "M_Planet_Volcanic's LavaColor")
+        self.assertIn('noise2', s['maps'])
+
+    def test_ice_and_water_have_clouds(self):
+        for m, look in (('MI_Planet_Ice_A', 'es2Ice'), ('MI_Planet_Water_A', 'es2Water')):
+            s = self.sphere(m)
+            self.assertEqual(look, s['look'])
+            self.assertIn('clouds', s['maps']); self.assertIn('cloudsNormal', s['maps'])
+        self.assertEqual([0.08, 0.156, 0.2], self.sphere('MI_Planet_Water_A')['colors'][0], "M_Planet_Water's Color")
+
+    def test_earthlike(self):
+        s = self.sphere('MI_Planet_Earthlike_A')
+        self.assertEqual('es2Earthlike', s['look'])
+        self.assertNotIn('colors', s, "its colours are the shader's own")
+        self.assertIn('clouds', s['maps'])
+
+    def test_okkar_desert_is_the_desert(self):
+        self.assertEqual('es2Desert', self.sphere('MI_Planet_Desert_Okkar')['look'])
+
     def test_desert_has_no_colours(self):
         s = self.sphere('MI_Planet_Desert_A')
         self.assertNotIn('colors', s)
