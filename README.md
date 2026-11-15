@@ -160,7 +160,9 @@ Who raids each sector is a pick from ES2's story (ES2 spawns its enemies per enc
 where they do from it in ES2, and each sector sits on the star map where it does on ES2's. The skies are composed from ES2's
 star and nebula textures in each sector's own nebula colours; the planets are drawn from ES2's planet textures in their own
 colours (gas giants, earthlike and water worlds, deserts, ice, volcanic and Okkar city worlds; ES2 draws both with its
-materials at runtime, so these are compositions, not copies). Each sector's music is its own (ES2's music sets). EVERSPACE
+materials at runtime, so these are compositions, not copies). The mod also gives the game's layered skies (Options > Graphics "Skies": EVERSPACE 2
+style and Combined) ES2's own star and nebula masks (`textures/star_mask.png`, `textures/nebula_masks.png`,
+`sectors.write_sky_layers`), in place of the remake's recreated ones. Each sector's music is its own (ES2's music sets). EVERSPACE
 2's resources (Copper, Insidium, Baromite, Clygon, Glacit, Coruscate, Aetheum, Culver, Mallemite, Phazium) are new
 commodities, mined from the sectors' asteroids and traded like ores; Iron and Titanium are the game's own. With the
 locations' levels the stations are **ES2's own** (`tools/stations.py`): each place's station is the cluster of structure

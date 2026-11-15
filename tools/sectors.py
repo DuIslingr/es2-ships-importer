@@ -1812,6 +1812,28 @@ def resource_items(mod):
     return out
 
 
+def write_sky_layers():
+    """ES2's own star and nebula masks for the remake's layered skies (Options > Graphics "Skies", EVERSPACE 2 style and
+    Combined): textures/star_mask.png and textures/nebula_masks.png replace the game's recreated ones by name
+    (ModTextures.SkyLayer). The star mask as it is (its r, g, b: three star layers, M_Skybox_Stars); the nebula masks packed
+    as the game's are laid out: r billows (Nebula_Global_001's r), g laned detail (Nebula_005's g), b haze (Nebula_Global_002's
+    g). Square: the game tiles a mask by its aspect. Returns the files written."""
+    out = []
+    os.makedirs(os.path.join(MOD, 'textures'), exist_ok=True)
+    stars = os.path.join(SRC, SKY_TEX + 'T_Skybox_Stars_001_M.png')
+    if os.path.exists(stars):
+        Image.open(stars).convert('RGB').save(os.path.join(MOD, 'textures', 'star_mask.png'))
+        out.append('textures/star_mask.png')
+    try:
+        g1 = (_texture(SKY_TEX + 'T_Skybox_Nebula_Global_001_M.png', 2048) * 255).astype(np.uint8)
+        g2 = (_texture(SKY_TEX + 'T_Skybox_Nebula_Global_002_M.png', 2048) * 255).astype(np.uint8)
+        n5 = (_texture(SKY_TEX + 'T_Skybox_Nebula_005_M.png', 2048) * 255).astype(np.uint8)
+        Image.fromarray(np.dstack([g1[..., 0], n5[..., 1], g2[..., 1]])).save(os.path.join(MOD, 'textures', 'nebula_masks.png'))
+        out.append('textures/nebula_masks.png')
+    except FileNotFoundError:
+        pass
+    return out
+
 def build(log=print):
     """The sectors (systems.json, the stations to add to stations.json) and ES2's resources. Returns (systems, stations, items).
     """
@@ -1831,6 +1853,12 @@ def build(log=print):
         systems.append(system); stations += sts
         music.append((system, sts, spec))
     jobs.flush()
+    # the remake's layered skies: ES2's own star and nebula masks in place of the game's recreated ones
+    try:
+        files = write_sky_layers()
+        if files: LOG(f'  sky layers: {", ".join(files)}')
+    except Exception as e:
+        LOG(f'  no sky layers: {e}')
     # the music: each sector's calm layers (its space and docked tracks)
     try:
         import audio
