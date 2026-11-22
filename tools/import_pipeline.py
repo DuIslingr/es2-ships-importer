@@ -56,7 +56,7 @@ def main(cli, a, parts, content, out, blender):
     remake = os.path.abspath(os.path.expanduser(a.remake)) if a.remake else None
     validate_paths(work, out, content, item_icons, remake, root)
     env = runtime()
-    wants_blender = a.mobile or not a.no_preview or ('ships' in parts and not a.no_icons)
+    wants_blender = a.mobile or not a.no_preview
     render_blender = blender or (cli.find_blender(a.blender, required=False) if wants_blender else None)
     blender_info = cache.executable(render_blender)
     if render_blender:
@@ -81,7 +81,7 @@ def main(cli, a, parts, content, out, blender):
     else:
         sky = {'kind': 'missing'}
     build = importlib.import_module('build')
-    options = {'parts': parts, 'icons': not a.no_icons, 'preview_renders': not a.no_preview,
+    options = {'parts': parts, 'preview_renders': not a.no_preview,
                'sounds': 'sounds' in parts, 'mobile': a.mobile, 'ratio': a.ratio,
                'zip': a.zip, 'jobs': a.jobs, 'remake': remake, 'item_icons': item_icons}
     provenance = out + '.build-manifest.json'
@@ -108,16 +108,7 @@ def main(cli, a, parts, content, out, blender):
         for line in converted['diagnostics']:
             if stages.records['content']['reused']: print('  previous build: ' + line)
 
-        if 'ships' in made and not a.no_icons:
-            def render_icons(folder):
-                note, notes = capture(lambda: cli.make_icons(out, render_blender))
-                cache.copy_files(out, folder, [Path('ships.json')] + [p.relative_to(out) for p in (Path(out) / 'icons').rglob('*') if p.is_file()])
-                return {'note': note, 'diagnostics': notes, 'reusable': 'failed' not in note.lower() and not any('failed' in n.lower() for n in notes)}
-            recipe = cache.stage(root, ['import_pipeline.py', 'preview_blender.py', 'icons.py'], cache.inventory(out),
-                                 {'runtime': env, 'blender': blender_info, 'atlas': atlas})
-            files, result = stages.run('icons', recipe, render_icons)
-            cache.copy_files(files, out)
-            print('  icons: ' + result['note'])
+        # (No ship icons: the remake draws each ship without one from its model, Modding.ModShipIcons, since 2026-11-21.)
 
         def preview(folder):
             note, notes = capture(lambda: cli.make_preview(out, None if a.no_preview else render_blender, remake))

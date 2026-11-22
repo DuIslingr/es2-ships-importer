@@ -84,12 +84,11 @@ class PipelineTests(unittest.TestCase):
         self.sky.parent.mkdir(parents=True)
         self.sky.write_bytes(b'sky')
         self.a = types.SimpleNamespace(work=None, fresh=False, item_icons=None, remake=str(self.remake), jobs=1,
-                                      vgmstream=None, blender=None, mobile=False, no_preview=False, no_icons=False, ratio=.25, zip=False)
+                                      vgmstream=None, blender=None, mobile=False, no_preview=False, ratio=.25, zip=False)
         self.calls = []
         self.available = True
         self.partial = False
         self.fail_content = False
-        self.fail_icons = False
         self.fail_preview = False
         self.fail_mobile = False
         self.version = 'Blender 4.5.3'
@@ -108,14 +107,6 @@ class PipelineTests(unittest.TestCase):
         if self.fail_content: raise RuntimeError('content failed')
         if self.partial: print('  skipped optional asset: missing export')
         return [] if self.partial else parts
-
-    def render_icons(self, mod, blender):
-        self.calls.append('icons')
-        if self.fail_icons: return 'none (renders failed)'
-        (Path(mod) / 'icons').mkdir(exist_ok=True)
-        (Path(mod) / 'icons/hull.png').write_bytes(b'icon')
-        (Path(mod) / 'ships.json').write_text('[{"id":"hull","kit":"kit","icon":"icons/hull.png"}]')
-        return '1 of 1'
 
     def preview(self, mod, blender, remake):
         self.calls.append('preview')
@@ -139,7 +130,6 @@ class PipelineTests(unittest.TestCase):
         def module(name): return fake_modules[name] if name in fake_modules else real_import(name)
         with contextlib.ExitStack() as stack:
             stack.enter_context(patch.object(pipeline.importlib, 'import_module', module))
-            stack.enter_context(patch.object(self.cli, 'make_icons', self.render_icons))
             stack.enter_context(patch.object(self.cli, 'make_preview', self.preview))
             stack.enter_context(patch.object(self.cli, 'make_mobile', self.mobile))
             stack.enter_context(patch.object(self.cli, 'find_blender', lambda *_, **__: 'blender' if self.available else None))
@@ -162,7 +152,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(payload, self.payload())
         self.a.fresh = True
         third = self.run_build()
-        self.assertEqual(['content', 'icons', 'preview'], self.calls)
+        self.assertEqual(['content', 'preview'], self.calls)
         self.assertEqual(payload, self.payload())
         self.assertEqual(first['made'], third['made'])
 
@@ -170,23 +160,21 @@ class PipelineTests(unittest.TestCase):
         first = self.run_build()
         (self.export / 'source.glb').write_bytes(b'BBBB')
         second = self.run_build()
-        self.assertEqual(['content', 'icons', 'preview'], self.calls)
+        self.assertEqual(['content', 'preview'], self.calls)
         self.assertNotEqual(first['source'], second['source'])
 
     def test_converter_helper_change_rebuilds_content(self):
         self.run_build(); self.edit('tools/es2mat.py'); self.run_build()
         self.assertIn('content', self.calls)
 
-    def test_preview_change_preserves_content_and_icons(self):
+    def test_preview_change_preserves_content(self):
         self.run_build(); self.edit('tools/preview_card.py'); self.run_build()
         self.assertEqual(['preview'], self.calls)
 
-    def test_icon_helper_change_preserves_content(self):
+    def test_render_helper_change_preserves_content(self):
         # preview_blender is a render helper, rather than the shared item-icon converter.
         self.run_build(); self.edit('tools/preview_blender.py'); self.run_build()
-        self.assertNotIn('content', self.calls)
-        self.assertIn('icons', self.calls)
-        self.assertIn('preview', self.calls)
+        self.assertEqual(['preview'], self.calls)
 
     def test_mobile_ratio_change_preserves_desktop(self):
         self.a.mobile = True; self.run_build()
@@ -202,24 +190,17 @@ class PipelineTests(unittest.TestCase):
         self.a.mobile = True; self.run_build()
         self.version = 'Blender 4.5.4'; self.run_build()
         self.assertNotIn('content', self.calls)
-        self.assertIn('icons', self.calls)
         self.assertIn('preview', self.calls)
         self.assertIn('mobile', self.calls)
 
-    def test_parts_change_drops_previous_optional_output(self):
+    def test_parts_change_rebuilds_content_only(self):
+        # (the preview's input, the built mod, is the same here: it is reused)
         self.run_build(); self.run_build(['devices'])
-        self.assertEqual(['content', 'preview'], self.calls)
-        self.assertFalse((self.out / 'icons/hull.png').exists())
-        self.assertNotIn('icon', json.loads((self.out / 'ships.json').read_text())[0])
+        self.assertEqual(['content'], self.calls)
 
-    def test_preview_option_does_not_invalidate_content_or_icons(self):
+    def test_preview_option_does_not_invalidate_content(self):
         self.run_build(); self.a.no_preview = True; self.run_build()
         self.assertEqual(['preview'], self.calls)
-
-    def test_disabling_icons_restores_unmodified_ship_table(self):
-        self.run_build(); self.a.no_icons = True; self.run_build()
-        self.assertFalse((self.out / 'icons/hull.png').exists())
-        self.assertNotIn('icon', json.loads((self.out / 'ships.json').read_text())[0])
 
     def test_failed_content_does_not_leave_reusable_snapshot_or_provenance(self):
         self.run_build(); self.edit('tools/build.py'); self.fail_content = True
@@ -236,13 +217,6 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(first['diagnostics']['content'])
         self.partial = False; self.run_build()
         self.assertIn('content', self.calls)
-        self.assertIn('icons', self.calls)
-
-    def test_failed_icon_render_is_retried(self):
-        self.fail_icons = True; self.run_build()
-        self.fail_icons = False; self.run_build()
-        self.assertNotIn('content', self.calls)
-        self.assertIn('icons', self.calls)
 
     def test_failed_preview_fallback_is_retried(self):
         self.fail_preview = True; self.run_build()
@@ -274,12 +248,11 @@ class PipelineTests(unittest.TestCase):
         self.run_build(); self.sky.write_bytes(b'new'); self.run_build()
         self.assertEqual(['preview'], self.calls)
 
-    def test_external_atlas_edit_rebuilds_content_and_icons(self):
+    def test_external_atlas_edit_rebuilds_content(self):
         self.run_build()
         Path(self.icons.REMAKE_ATLAS).write_bytes(b'new atlas')
         self.run_build()
         self.assertIn('content', self.calls)
-        self.assertIn('icons', self.calls)
 
     def test_new_export_file_invalidates_content(self):
         self.run_build()

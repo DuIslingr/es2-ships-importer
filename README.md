@@ -25,9 +25,8 @@ The importer runs on **Windows, macOS and Linux**.
   - macOS: install Python from python.org or Homebrew (`brew install python`), then in Terminal
     `python3 -m pip install numpy pillow`
   - Linux: your distribution's `python3`, `python3-numpy` and `python3-pil` (or `python3 -m pip install numpy pillow`)
-- For the phone version only: **Blender 4.2 or newer** (blender.org). With Blender installed the ships also get their own
-  shop icons and the mod's preview image shows them rendered (without it the ships show the Phantom's icon and the preview
-  card their names). It is found by itself on the PATH, in Program Files (Windows; also Steam's copy) or in Applications
+- For the phone version only: **Blender 4.2 or newer** (blender.org). With Blender installed the mod's preview image shows the
+  ships rendered (without it the preview card shows their names; the ships' shop icons are the remake's either way). It is found by itself on the PATH, in Program Files (Windows; also Steam's copy) or in Applications
   (macOS); else give its path with `--blender`.
 - For the sounds, nothing more when FModel converts them (see the Audio row below). A raw export (`.binka`, Unreal's Bink
   Audio) needs **vgmstream** to decode it: a `vgmstream-cli` on the PATH (macOS: `brew install vgmstream`; Linux: your
@@ -237,11 +236,10 @@ It checks the export first and lists anything missing, then writes the mod to `e
   front and a strip of item icons, over the remake's red nebula when `--remake` is given (`tools/preview_card.py`; the
   ships rendered by `tools/preview_blender.py` and `tools/preview_model_blender.py`, a few minutes); without Blender the
   card shows the ships' names only.
-- `--no-icons`: skip the ships' shop icons. By default, when Blender is found, each ship's default build is rendered like
-  the game's own ship icons (from its left, above and a little ahead, the nose dipping to the bottom left) and put on a
-  ship frame (`icons/<ship>.png`, 180 x 88).
+- The ships carry no shop icons: the remake draws each from its model in the game's own look (its loading screen, once,
+  then cached). `--no-icons` is still accepted and does nothing.
 - `--remake <folder>`: a checkout of the remake's source (or its `Assets/Textures/textures/gof2_interface2_ipad_large.png`):
-  the ships' and items' icons then use the game's own plates; without it they get drawn look-alikes.
+  the items' icons then use the game's own plates; without it they get drawn look-alikes.
 - `--item-icons <folder>`: EVERSPACE 2's item icons as PNG from somewhere else than the export's `UI/Images/Items`.
 - `--out <folder>`: write it somewhere else, for example straight into the game's Mods folder (`.../Mods/es2_ships`). An
   earlier build there is replaced; any other folder is never touched.
@@ -265,7 +263,7 @@ is rejected, and only one importer can use a work folder at a time.
 
 Each run hashes the export and external inputs with SHA-256, including file names and directory additions/removals.
 A same-size edit is detected. Stage fingerprints also include converter/helper code, runtime/package versions, relevant
-options and external tool identities. The stages are content conversion, ship icons, preview, mobile conversion, and
+options and external tool identities. The stages are content conversion, preview, mobile conversion, and
 zip packaging. Content conversion remains one stage because its kits, weapons and world tables share data; changing a
 material converter rebuilds that stage, while changing only the mobile ratio or decimator preserves the desktop stages.
 

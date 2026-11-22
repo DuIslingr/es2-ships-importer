@@ -215,38 +215,6 @@ def plain_preview(mod):
     return 'a plain card'
 
 
-def make_icons(mod, blender):
-    """Each ship's shop icon (icons/<id>.png, ships.json "icon"): its default build rendered like the game's own ship icons
-    (tools/preview_blender.py icon), fitted to the drawn pixels with a 4 % margin, over the ship frame. Returns a note."""
-    from PIL import Image
-    if not blender: return 'none (Blender not found: the ships show the Phantom\'s icon)'
-    renders = os.path.join(mod, '.icon_renders')
-    shutil.rmtree(renders, ignore_errors=True); os.makedirs(renders)
-    r = subprocess.run([blender, '-b', '--factory-startup', '--python-exit-code', '1', '-P', os.path.join(HERE, 'tools', 'preview_blender.py'),
-                        '--', mod, renders, 'icon'], capture_output=True, text=True)
-    import icons
-    frame, kind = icons.frame('ship'), icons.frame_kind()
-    ships = json.load(open(os.path.join(mod, 'ships.json'), encoding='utf-8-sig'))
-    os.makedirs(os.path.join(mod, 'icons'), exist_ok=True)
-    made = 0
-    for s in ships:
-        png = os.path.join(renders, s['id'] + '.png')
-        if not os.path.exists(png): continue
-        im = Image.open(png).convert('RGBA')
-        box = im.getchannel('A').point(lambda v: 255 if v > 25 else 0).getbbox()
-        if not box: continue
-        im = im.crop(box)
-        k = min(icons.W * 0.96 / im.width, icons.H * 0.96 / im.height)
-        im = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
-        icon = frame.copy(); icon.alpha_composite(im, (1 + (icons.W - im.width) // 2, 1 + (icons.H - im.height) // 2))
-        icon.save(os.path.join(mod, 'icons', s['id'] + '.png'), optimize=True)
-        s['icon'] = f"icons/{s['id']}.png"; made += 1
-    json.dump(ships, open(os.path.join(mod, 'ships.json'), 'w', encoding='utf-8'), indent=1)
-    shutil.rmtree(renders, ignore_errors=True)
-    if r.returncode != 0 and not made: return 'none (the renders failed: the ships show the Phantom\'s icon)'
-    return f'{made} of {len(ships)}, on {kind}'
-
-
 SKIP_IN_ZIP = {'.DS_Store', 'Thumbs.db', 'desktop.ini', '__MACOSX', '__pycache__'}
 
 
@@ -355,7 +323,8 @@ def main():
     ap.add_argument('--zip', action='store_true', help='also zip the desktop mod')
     ap.add_argument('--jobs', type=int, help='worker threads for the maps and ships (default: half the CPUs, fewer when memory is short)')
     ap.add_argument('--no-preview', action='store_true', help='skip the preview image\'s renders (a plain card instead)')
-    ap.add_argument('--no-icons', action='store_true', help='skip the ships\' shop icons (they show the Phantom\'s instead)')
+    ap.add_argument('--no-icons', action='store_true', help='no effect (kept for old commands): the ships carry no shop icons, the '
+                                                         'remake draws each from its model in the game\'s own look')
     ap.add_argument('--remake', help='a checkout of the remake\'s source (or its gof2_interface2_ipad_large.png): the icons '
                                      'then use the game\'s own plates instead of drawn ones')
     ap.add_argument('--item-icons', help='a folder of EVERSPACE 2\'s item icons as PNG (default: the export\'s UI/Images/Items): '

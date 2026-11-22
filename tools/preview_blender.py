@@ -1,6 +1,6 @@
-# Blender script: one render per ship of a built es2_ships mod, for the mod's preview image (import.py makes the card), or
-# with "icon" for the ships' shop icons (import.py puts them on the ship frame).
-# blender -b --factory-startup -P preview_blender.py -- <mod folder> <output folder> [icon]
+# Blender script: one render per ship of a built es2_ships mod, for the mod's preview image (import.py makes the card). (The
+# ships' shop icons are the remake's: it draws each from its model, Modding.ModShipIcons; the "icon" renders are gone.)
+# blender -b --factory-startup -P preview_blender.py -- <mod folder> <output folder>
 # Each ship's default build as the remake assembles it: the build's parts (and the tier's extensions) from shipkits.json, a
 # part with an "anchor" moved to that point of the part offering it, the kit's materials (their maps) and the build's colours
 # on the materials the colour slots name; the engine flames, boost cards, manoeuvring jets and holograms left out (they only
@@ -9,13 +9,6 @@ import bpy, bmesh, sys, os, json, math, mathutils
 
 args = sys.argv[sys.argv.index("--") + 1:]
 mod, out = args[0], args[1]
-ICON = len(args) > 2 and args[2] == "icon"
-# The shop icons follow the game's own (HullIconBuilder): the ship seen from its left side, above and a little ahead (Unity
-# (-1, 0.55, 0.3) with the model facing +Z; here nose +X, left +Y), turned 15 deg so the nose dips to the bottom left,
-# 178 x 86 at four times the size (import.py fits the drawn pixels with a 4 % margin).
-ICON_FROM = (0.3, 1.0, 0.55)
-ICON_ROLL = -15.0
-ICON_W, ICON_H = 178 * 4, 86 * 4
 kits = {k["id"]: k for k in json.load(open(os.path.join(mod, "shipkits.json"), encoding='utf-8-sig'))}
 ships = json.load(open(os.path.join(mod, "ships.json"), encoding='utf-8-sig'))
 HIDE = ("lateral thruster", "boostvent")   # material names never shown parked
@@ -145,20 +138,10 @@ for ship in ships:
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam")); sc.collection.objects.link(cam); sc.camera = cam
     cam.data.type = "ORTHO"; cam.data.ortho_scale = r * 2.05; cam.data.clip_end = r * 10
     # Nose along +X (the kit's parts face glTF +X), its left +Y: from ahead-left and above, the nose toward the viewer's left.
-    d = mathutils.Vector(ICON_FROM if ICON else (0.75, 1.0, 0.65)).normalized()
+    d = mathutils.Vector((0.75, 1.0, 0.65)).normalized()
     cam.location = c + d * r * 4
     q = (c - cam.location).to_track_quat("-Z", "Y")
-    if ICON:
-        q = q @ mathutils.Quaternion((0, 0, 1), math.radians(ICON_ROLL))   # (about the view axis)
-        cam.rotation_euler = q.to_euler()
-        # Fitted to the bounding box's corners as the camera sees them (import.py tightens it to the drawn pixels).
-        inv = q.to_matrix().inverted()
-        xs = [(inv @ (p - c)).x for p in pts]; ys = [(inv @ (p - c)).y for p in pts]
-        cx, cy = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
-        cam.location = cam.location + q @ mathutils.Vector((cx, cy, 0))
-        cam.data.ortho_scale = max(max(xs) - min(xs), (max(ys) - min(ys)) * ICON_W / ICON_H) * 1.02
-    else:
-        cam.rotation_euler = q.to_euler()
+    cam.rotation_euler = q.to_euler()
     for i, (v, e) in enumerate([((0.6, -0.4, 1.0), 4.0), ((-0.8, 0.6, 0.3), 1.6), ((0.9, 0.3, -0.4), 1.0)]):
         l = bpy.data.objects.new(f"s{i}", bpy.data.lights.new(f"s{i}", "SUN")); l.data.energy = e; sc.collection.objects.link(l)
         l.rotation_euler = mathutils.Vector(v).to_track_quat("Z", "Y").to_euler()
@@ -166,7 +149,7 @@ for ship in ships:
     eng = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items]
     sc.render.engine = "BLENDER_EEVEE_NEXT" if "BLENDER_EEVEE_NEXT" in eng else "BLENDER_EEVEE"
     sc.render.film_transparent = True
-    sc.render.resolution_x, sc.render.resolution_y = (ICON_W, ICON_H) if ICON else (720, 720)
+    sc.render.resolution_x, sc.render.resolution_y = 720, 720
     sc.render.image_settings.color_mode = "RGBA"
     sc.render.filepath = os.path.join(out, ship["id"] + ".png")
     bpy.ops.render.render(write_still=True)
